@@ -29,7 +29,7 @@ const AddClient = () => {
 		],
 	})
 
-	// Ma'lumotlarni olish
+	// Ma'lumotlarni olish --
 	const gateways = results[0].data
 	const users = results[1].data
 	const builidngs = results[2].data
