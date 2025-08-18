@@ -24,9 +24,10 @@ import {
 } from 'recharts'
 
 interface GraphDataPoint {
-   time: string // "HH:mm" 형식
+   time: string
    angle_x: number
    angle_y: number
+   wind_speed?: number
 }
 
 type SensorGraphProps = {
@@ -48,30 +49,56 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
    const isMobile = useMediaQuery('(max-width: 640px)')
    const isTablet = useMediaQuery('(max-width: 1024px)')
 
-   // --- 최신 시간 기준으로 기간 필터링 ---
-   useEffect(() => {
-      if (!graphData || graphData.length === 0) return
+   useEffect(() => setData(graphData), [graphData])
 
-      const convertTime = (hhmm: string) => {
-         const [hh, mm] = hhmm.split(':').map(Number)
-         const now = new Date()
-         return new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
-            hh,
-            mm
-         ).getTime()
+   // OpenWeatherMap API로 풍속 데이터 가져오기
+   useEffect(() => {
+      const fetchWindData = async () => {
+         try {
+            const response = await fetch(
+               `https://api.openweathermap.org/data/2.5/forecast?q=Seoul&appid=f9d0ac2f06dd719db58be8c04d008e76&units=metric`
+               // ⚠️ 실제 사용 시 YOUR_API_KEY 부분을 발급받은 키로 교체
+            )
+            if (!response.ok) throw new Error('Failed to fetch wind data')
+
+            const weatherData = await response.json()
+            const windDataMap: Record<string, number> = {}
+
+            weatherData.list.forEach((item: any) => {
+               const time = item.dt_txt.slice(11, 16)
+               windDataMap[time] = item.wind.speed
+            })
+
+            const mergedData = graphData.map(d => ({
+               ...d,
+               wind_speed: windDataMap[d.time] || 0,
+            }))
+
+            setData(mergedData)
+         } catch (error) {
+            console.error(error)
+            setData(graphData)
+         }
       }
 
-      const latestDataTime = convertTime(graphData[graphData.length - 1].time)
-      const filteredData = graphData.filter(d => {
-         const t = convertTime(d.time)
-         return t >= latestDataTime - hours * 60 * 60 * 1000
-      })
+      fetchWindData()
+   }, [graphData])
 
-      setData(filteredData)
-   }, [graphData, hours])
+   const getLabelStep = () => {
+      const len = data.length
+      if (isMobile) {
+         if (len > 90) return 12
+         if (len > 60) return 8
+         if (len > 30) return 6
+         return 3
+      }
+      if (len > 120) return 12
+      if (len > 80) return 8
+      if (len > 40) return 6
+      return 3
+   }
+
+   const labelStep = getLabelStep()
 
    const getChartMargins = () => {
       if (isMobile) return { top: 10, right: 10, left: 0, bottom: 18 }
@@ -79,61 +106,21 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
       return { top: 20, right: 30, left: 20, bottom: 26 }
    }
 
+   const formatXAxisTick = (value: string) => (isMobile ? value.split(':')[0] : value)
+
    const getYAxisTicks = () => {
       if (!data || data.length === 0) return [-0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6]
       const values = data.flatMap(d => [d.angle_x, d.angle_y])
       const maxVal = Math.max(...values, 0.6)
       const minVal = Math.min(...values, -0.6)
-
       const upper = Math.ceil(maxVal / 0.2) * 0.2
       const lower = Math.floor(minVal / 0.2) * 0.2
-
       const ticks: number[] = []
-      for (let v = lower; v <= upper; v += 0.2) {
-         ticks.push(parseFloat(v.toFixed(1)))
-      }
+      for (let v = lower; v <= upper; v += 0.2) ticks.push(parseFloat(v.toFixed(1)))
       return ticks
    }
 
    const yTicks = getYAxisTicks()
-
-   // --- X축 고정 눈금 생성 ---
-   const getXTicks = () => {
-      if (!data || data.length === 0) return []
-
-      // 최신 데이터 시간
-      const latest = data[data.length - 1].time
-      const [h, m] = latest.split(':').map(Number)
-      const latestDate = new Date()
-      latestDate.setHours(h, m, 0, 0)
-
-      // 간격 설정
-      let stepMinutes = 10
-      if (hours === 6) stepMinutes = 30
-      if (hours === 12 || hours === 24) stepMinutes = 60
-
-      // 오른쪽 끝 시간 올림
-      const ceilMinutes = Math.ceil(latestDate.getMinutes() / stepMinutes) * stepMinutes
-      const end = new Date(latestDate)
-      end.setMinutes(ceilMinutes)
-      end.setSeconds(0)
-      end.setMilliseconds(0)
-
-      // 왼쪽 끝 시간
-      const start = new Date(end.getTime() - hours * 60 * 60 * 1000)
-
-      const ticks: string[] = []
-      const current = new Date(start)
-      while (current <= end) {
-         const hh = current.getHours().toString().padStart(2, '0')
-         const mm = current.getMinutes().toString().padStart(2, '0')
-         ticks.push(`${hh}:${mm}`)
-         current.setMinutes(current.getMinutes() + stepMinutes)
-      }
-      return ticks
-   }
-
-   const xTicks = getXTicks()
 
    return (
       <div className='mx-auto pb-5'>
@@ -191,17 +178,26 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                         <XAxis
                            dataKey='time'
                            tick={{ fontSize: isMobile ? 9 : 12 }}
+                           tickFormatter={formatXAxisTick}
                            height={isMobile ? 20 : 30}
                            tickMargin={isMobile ? 5 : 10}
-                           interval={0}
-                           ticks={xTicks}
+                           minTickGap={isMobile ? 15 : 30}
+                           interval={labelStep}
                         />
                         <YAxis
+                           yAxisId='angle'
                            domain={[Math.min(...yTicks), Math.max(...yTicks)]}
                            tick={{ fontSize: isMobile ? 9 : 12 }}
                            width={isMobile ? 25 : 35}
                            tickMargin={isMobile ? 2 : 5}
                            ticks={yTicks}
+                        />
+                        <YAxis
+                           yAxisId='wind'
+                           orientation='right'
+                           tick={{ fontSize: isMobile ? 9 : 12 }}
+                           width={isMobile ? 25 : 35}
+                           tickMargin={isMobile ? 2 : 5}
                         />
 
                         <Tooltip
@@ -221,20 +217,21 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                         )}
 
                         {/* 범위별 배경색 */}
-                        <ReferenceArea y1={-0.2} y2={0.2} fill="#3b82f6" fillOpacity={0.1} />
-                        <ReferenceArea y1={-0.4} y2={-0.2} fill="#22c55e" fillOpacity={0.1} />
-                        <ReferenceArea y1={0.2} y2={0.4} fill="#22c55e" fillOpacity={0.1} />
-                        <ReferenceArea y1={-0.6} y2={-0.4} fill="#eab308" fillOpacity={0.1} />
-                        <ReferenceArea y1={0.4} y2={0.6} fill="#eab308" fillOpacity={0.1} />
-                        <ReferenceArea y1={-999} y2={-0.6} fill="#ef4444" fillOpacity={0.1} />
-                        <ReferenceArea y1={0.6} y2={999} fill="#ef4444" fillOpacity={0.1} />
+                        <ReferenceArea y1={-0.2} y2={0.2} yAxisId='angle' fill="#22c55e" fillOpacity={0.1} />
+                        <ReferenceArea y1={-0.4} y2={-0.2} yAxisId='angle' fill="#eab308" fillOpacity={0.1} />
+                        <ReferenceArea y1={0.2} y2={0.4} yAxisId='angle' fill="#eab308" fillOpacity={0.1} />
+                        <ReferenceArea y1={-0.6} y2={-0.4} yAxisId='angle' fill="#ef4444" fillOpacity={0.1} />
+                        <ReferenceArea y1={0.4} y2={0.6} yAxisId='angle' fill="#ef4444" fillOpacity={0.1} />
+                        <ReferenceArea y1={-999} y2={-0.6} yAxisId='angle' fill="#ef4444" fillOpacity={0.15} />
+                        <ReferenceArea y1={0.6} y2={999} yAxisId='angle' fill="#ef4444" fillOpacity={0.15} />
 
                         {/* Threshold lines */}
-                        <ReferenceLine y={0.3} strokeDasharray='5 5' />
-                        <ReferenceLine y={-0.3} strokeDasharray='5 5' />
+                        <ReferenceLine y={0.3} yAxisId='angle' strokeDasharray='5 5' />
+                        <ReferenceLine y={-0.3} yAxisId='angle' strokeDasharray='5 5' />
 
                         {/* 데이터 라인 */}
                         <Line
+                           yAxisId='angle'
                            type='monotone'
                            dataKey='angle_x'
                            stroke='#ef4444'
@@ -243,12 +240,22 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                            name='Angle X'
                         />
                         <Line
+                           yAxisId='angle'
                            type='monotone'
                            dataKey='angle_y'
                            stroke='#3b82f6'
                            strokeWidth={isMobile ? 1.5 : 2}
                            dot={false}
                            name='Angle Y'
+                        />
+                        <Line
+                           yAxisId='wind'
+                           type='monotone'
+                           dataKey='wind_speed'
+                           stroke='#22c55e'
+                           strokeWidth={isMobile ? 1.5 : 2}
+                           dot={false}
+                           name='Wind Speed (m/s)'
                         />
                      </LineChart>
                   </ResponsiveContainer>
