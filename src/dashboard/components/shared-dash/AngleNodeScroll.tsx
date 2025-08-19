@@ -70,7 +70,7 @@ const AngleNodeScroll = ({
          <div className="grid grid-cols-12 w-full h-[33vh] gap-4 order-1"> {/* order-1로 먼저 표시 */}
             {/* 일반 노드 목록 스크롤 영역 */}
             <ScrollArea className="md:col-span-9 col-span-12 overflow-auto w-full rounded-lg border border-slate-400 bg-white w-[25vw] h-[96vh]">
-               <div className="grid grid-cols-2 md:gap-4 gap-2 md:p-4 p-2">
+               <div className="grid grid-cols-2 md:gap-6 gap-2 md:p-5 p-2">
                   {sortedNodes.map((item) => (
                      <Card
                         key={item.doorNum}
