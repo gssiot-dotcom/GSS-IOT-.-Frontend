@@ -1,4 +1,4 @@
-name: Deploy Node Application
+name: Deploy GSS Frontend Application
 
 on:
   push:
@@ -20,10 +20,10 @@ jobs:
           docker build \
           --build-arg VITE_SERVER_BASE_URL=${{ secrets.VITE_SERVER_BASE_URL }} \
           --build-arg VITE_REACT_BASE_URL=${{ secrets.VITE_REACT_BASE_URL }} \
-          -t muhammadyusuf2766/gssiotfigma-react .
+          -t muhammadyusuf2766/gssiot-company-frontend19.08.2025 .
 
       - name: Publish Image to Docker Hub
-        run: docker push muhammadyusuf2766/gssiotfigma-react:latest
+        run: docker push muhammadyusuf2766/gssiot-company-frontend19.08.2025:latest
       - name: Remove unused Docker images
         run: docker system prune -af
 
@@ -32,10 +32,10 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Pull image from Docker Hub
-        run: docker pull muhammadyusuf2766/gssiotfigma-react:latest
+        run: docker pull muhammadyusuf2766/gssiot-company-frontend19.08.2025:latest
 
       - name: Delete old container
-        run: docker rm -f reactjs-app-container
+        run: docker rm -f muhammadyusuf2766/gssiot-company-frontend19.08.2025
 
       - name: Run Docker Container
-        run: docker run -d -p 3001:80 --name reactjs-app-container muhammadyusuf2766/gssiotfigma-react
+        run: docker run -d -p 3001:80 --name reactjs-app-container muhammadyusuf2766/gssiot-company-frontend19.08.2025
