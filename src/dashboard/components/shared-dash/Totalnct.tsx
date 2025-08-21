@@ -278,6 +278,8 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 	const [isOpen, setIsOpen] = useState(false)
 	const { clientId } = useParams()
 
+	console.log(building)
+
 	const handleDownload = async (id: string) => {
 		try {
 			const response = await axios.get(

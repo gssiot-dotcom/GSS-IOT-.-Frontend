@@ -1,14 +1,15 @@
-import modalImg from '@/assets/도면.jpg'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import axios from 'axios'
 import { Download, Eye, FileText, Upload } from 'lucide-react'
-import { useState, useRef } from 'react'
+import React, { useRef, useState } from 'react'
 
 interface IProps2 {
 	building?: {
 		_id: string
 		building_name?: string
 		nodes_position_file?: string
+		building_plan_img?: string
 	}
 }
 
@@ -25,11 +26,7 @@ const ImageModal = ({
 		<div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
 			<div className='bg-white p-4 rounded-lg max-w-4xl w-full mx-2'>
 				<h3 className='text-lg font-semibold mb-4'>{buildingName}</h3>
-				<img
-					src={imageUrl || '/placeholder.svg'}
-					alt='Building'
-					className='w-full h-auto'
-				/>
+				<img src={imageUrl} alt='Building' className='w-full h-auto' />
 				<Button onClick={onClose} className='mt-4'>
 					닫기
 				</Button>
@@ -41,17 +38,48 @@ const ImageModal = ({
 const NodesMultipleButtonsField = ({ building }: IProps2) => {
 	const [isOpen, setIsOpen] = useState(false)
 	const fileInputRef = useRef<HTMLInputElement>(null)
-	
-
 	const handleUploadClick = () => {
 		if (fileInputRef.current) {
 			fileInputRef.current.click()
 		}
 	}
 
+	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0]
+		if (!file) return
+
+		const formData = new FormData()
+		formData.append('image', file)
+		formData.append('building_id', String(building?._id))
+
+		try {
+			const res = await axios.put(
+				`${import.meta.env.VITE_SERVER_BASE_URL}/company/upload-company-plan`,
+				formData,
+
+				{
+					headers: {
+						'Content-Type': 'multipart/form-data',
+					},
+				}
+			)
+
+			if (res.status < 200 || res.status >= 300)
+				throw new Error('Upload failed')
+			alert('Upload success ✅')
+		} catch (error) {
+			console.log(error)
+			alert('Upload failed ❌')
+		}
+	}
+
+	const imageUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/static/images/${
+		building?.building_plan_img
+	}`
+
 	return (
 		<Card
-			className="mt-4 border-slate-400 mx-auto ml-[27vw]"
+			className='mt-4 border-slate-400 mx-auto ml-[27vw]'
 			style={{ maxWidth: '34vw' }}
 		>
 			<CardContent className='p-2'>
@@ -63,13 +91,7 @@ const NodesMultipleButtonsField = ({ building }: IProps2) => {
 							accept='image/*'
 							className='hidden'
 							ref={fileInputRef}
-							onChange={e => {
-								const file = e.target.files?.[0]
-								if (file) {
-									// 파일 선택 시 필요한 동작 여기에 추가 가능
-									alert(`선택된 파일: ${file.name}`)
-								}
-							}}
+							onChange={handleFileChange}
 						/>
 						<Button
 							variant='outline'
@@ -99,9 +121,9 @@ const NodesMultipleButtonsField = ({ building }: IProps2) => {
 							className='flex items-center gap-2 h-auto py-3 border-slate-400'
 						>
 							<a
-								href={`${import.meta.env.VITE_SERVER_BASE_URL}/exels/${encodeURIComponent(
-									building.nodes_position_file
-								)}`}
+								href={`${
+									import.meta.env.VITE_SERVER_BASE_URL
+								}/exels/${encodeURIComponent(building.nodes_position_file)}`}
 								download
 							>
 								<FileText className='w-4 h-4' />
@@ -124,7 +146,7 @@ const NodesMultipleButtonsField = ({ building }: IProps2) => {
 				{/* Modal for Floor Plan Image */}
 				{isOpen && (
 					<ImageModal
-						imageUrl={modalImg}
+						imageUrl={imageUrl}
 						buildingName={building?.building_name}
 						onClose={() => setIsOpen(false)}
 					/>
