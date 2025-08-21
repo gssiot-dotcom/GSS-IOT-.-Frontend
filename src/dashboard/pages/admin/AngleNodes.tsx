@@ -43,7 +43,10 @@ const AngleNodes = () => {
 		],
 	})
 
-	const buildingAngleNodes = (queryData[0].data as IAngleNode[]) || []
+	const buildingData = queryData[0].data?.building
+
+	const buildingAngleNodes =
+		(queryData[0].data?.angle_nodes as IAngleNode[]) || []
 
 	const dangerAngleNodes = useMemo(
 		() =>
@@ -159,7 +162,7 @@ const AngleNodes = () => {
 				dangerAngleNodes={dangerAngleNodes}
 			/>
 			{/* 여기 TotalcntCsv 버튼만 보여주도록 props 없이 간단히 추가 */}
-			<TotalcntCsv />
+			<TotalcntCsv building={buildingData} />
 
 			<SensorGraph
 				graphData={data}

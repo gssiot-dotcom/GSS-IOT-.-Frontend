@@ -775,7 +775,7 @@ export const fetchBuildingAngleNodes = async (buildingId: string) => {
 			throw new Error(data.message || 'Error on creating node')
 		}
 
-		return data.angle_nodes
+		return data
 	} catch (error: any) {
 		return new Error(
 			error.response?.data?.message || 'Error on fetching building angle-nodes.'
