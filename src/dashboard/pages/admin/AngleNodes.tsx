@@ -9,7 +9,7 @@ import { useQueries, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { IAngleNode } from '../../../types/interfaces'
+import { IAngleNode, IBuilding } from '../../../types/interfaces'
 
 export interface SensorData {
 	doorNum: number
@@ -23,6 +23,12 @@ export interface GraphDataPoint {
 	time: string
 	angle_x: number
 	angle_y: number
+}
+
+interface ResQuery {
+	state: string
+	building: IBuilding
+	angle_nodes: IAngleNode[]
 }
 
 const AngleNodes = () => {
@@ -101,32 +107,46 @@ const AngleNodes = () => {
 		const topic = `${buildingId}_angle-nodes`
 
 		const listener = (newData: SensorData) => {
-			queryClient.setQueryData<IAngleNode[]>(
-				['get-building-angle-nodes'],
+			console.log('socket data:', newData)
+			queryClient.setQueryData<ResQuery>(
+				['get-building-angle-nodes', buildingId], // qarang: key ham mos (2-bandga qarang)
 				old => {
+					if (!old) return old // cache hali bo'lmasa, hech narsa qilmaymiz
+
+					const list = old.angle_nodes ?? []
 					let found = false
-					const updated = (old ?? []).map(n => {
+
+					const updated = list.map(n => {
 						if (n.doorNum === newData.doorNum) {
 							found = true
 							return {
 								...n,
 								angle_x: newData.angle_x,
 								angle_y: newData.angle_y,
-								createdAt: new Date(newData.createdAt).toISOString(),
-							} as IAngleNode
+								createdAt: new Date(
+									newData.createdAt ?? Date.now()
+								).toISOString(),
+							}
 						}
 						return n
 					})
+
 					if (!found) {
+						// IAngleNode da majburiy maydonlar bo'lsa, ularni to'liq bering
 						updated.push({
 							_id: crypto.randomUUID(),
 							doorNum: newData.doorNum,
 							angle_x: newData.angle_x,
 							angle_y: newData.angle_y,
+							createdAt: new Date().toISOString(),
 							position: 'N/A',
-						} as unknown as IAngleNode)
+							node_status: false, // <-- agar IAngleNode majburiy bo'lsa
+							gateway_id: '', // <-- majburiy bo'lsa to'ldiring
+						} as IAngleNode)
 					}
-					return updated
+
+					// MUHIM: faqat massiv emas, to'liq ResQuery qaytariladi
+					return { ...old, angle_nodes: updated }
 				}
 			)
 
@@ -143,7 +163,7 @@ const AngleNodes = () => {
 				}
 				setData(prev => {
 					const next = [...prev, point]
-					return next.length > 140 ? next.slice(next.length - 140) : next
+					return next.length > 200 ? next.slice(next.length - 200) : next
 				})
 			}
 		}
