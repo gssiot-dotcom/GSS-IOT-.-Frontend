@@ -18,20 +18,20 @@ interface Props {
 
 const getNodeColorClass = (item: IAngleNode): string => {
 	const absX = Math.abs(item.angle_x)
-	const absY = Math.abs(item.angle_y)
+	// const absY = Math.abs(item.angle_y)
 
 	// 빨간색: Axis-X 또는 Axis-Y 절대값이 0.6 초과 (가장 위험)
-	if (absX > 0.6 || absY > 0.6) {
+	if (absX > 1) {
 		return 'bg-gradient-to-r from-red-100 to-red-300 hover:to-red-400'
 	}
 
 	// 노란색: Axis-X 또는 Axis-Y 절대값이 0.4 초과 (주의)
-	if (absX > 0.4 || absY > 0.4) {
+	if (absX > 0.8) {
 		return 'bg-gradient-to-r from-yellow-50 to-yellow-200 hover:to-yellow-300'
 	}
 
 	// 초록색: Axis-X 또는 Axis-Y 절대값이 0.2 초과 (경미한 위험)
-	if (absX > 0.2 || absY > 0.2) {
+	if (absX > 0.6) {
 		return 'bg-gradient-to-r from-green-50 to-green-200 hover:to-green-300'
 	}
 
@@ -54,8 +54,8 @@ const AngleNodeScroll = ({
 
 	// Axis-X 또는 Axis-Y의 절대값이 큰 순서대로 정렬
 	const sortedNodes = [...building_angle_nodes].sort((a, b) => {
-		const aMaxAbs = Math.max(Math.abs(a.angle_x), Math.abs(a.angle_y))
-		const bMaxAbs = Math.max(Math.abs(b.angle_x), Math.abs(b.angle_y))
+		const aMaxAbs = Math.max(Math.abs(a.angle_x))
+		const bMaxAbs = Math.max(Math.abs(b.angle_x))
 		return bMaxAbs - aMaxAbs // 내림차순 정렬
 	})
 
@@ -75,11 +75,11 @@ const AngleNodeScroll = ({
 								key={item.doorNum}
 								onClick={() => onSelectNode(item.doorNum)}
 								// getNodeColorClass 함수를 사용하여 동적으로 배경색 클래스 적용
-								className={`border border-slate-300 flex flex-col justify-center p-4${getNodeColorClass(
+								className={`border border-slate-300 flex flex-col justify-center p-2 ${getNodeColorClass(
 									item
 								)} shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer`}
 							>
-								<CardContent className='flex flex-col justify-center p-3 text-sm text-gray-700'>
+								<CardContent className='flex flex-col justify-center p-2 text-sm text-gray-700'>
 									<div className='flex justify-between items-center mb-2'>
 										<h1 className='font-bold text-blue-700'>노드넘버</h1>
 										<span className='text-blue-800 font-semibold text-lg'>
@@ -95,8 +95,10 @@ const AngleNodeScroll = ({
 										<p className='text-gray-800'>{item.angle_y}</p>
 									</div>
 									<div className='flex justify-between'>
-										<p className='font-medium text-gray-600'>위치:</p>
-										<p className='text-gray-800'>{item.position}</p>
+										<p className='font-medium text-gray-600'>gateway:</p>
+										<p className='text-gray-800'>
+											{item.gateway_id?.serial_number}
+										</p>
 									</div>
 								</CardContent>
 							</Card>

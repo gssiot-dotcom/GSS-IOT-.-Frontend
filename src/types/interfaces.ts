@@ -89,7 +89,7 @@ export interface IAngleNode {
 	angle_x: number
 	angle_y: number
 	node_status: boolean
-	gateway_id: string
+	gateway_id?: { _id: string; serial_number: string }
 	position: string
 }
 

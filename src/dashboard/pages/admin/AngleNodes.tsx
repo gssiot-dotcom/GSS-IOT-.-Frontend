@@ -42,8 +42,9 @@ const AngleNodes = () => {
 	const queryData = useQueries({
 		queries: [
 			{
-				queryKey: ['get-building-angle-nodes'],
+				queryKey: ['get-building-angle-nodes', buildingId], // <-- buildingId ni qo‘shdik
 				queryFn: () => fetchBuildingAngleNodes(buildingId!),
+				enabled: !!buildingId, // buildingId bo‘lganda ishlasin
 				retry: 1,
 			},
 		],
@@ -107,6 +108,7 @@ const AngleNodes = () => {
 		const topic = `${buildingId}_angle-nodes`
 
 		const listener = (newData: SensorData) => {
+			// 1) KESHNI AYNAN SHU KALITGA YANGILAYMIZ
 			console.log('socket data:', newData)
 			queryClient.setQueryData<ResQuery>(
 				['get-building-angle-nodes', buildingId], // qarang: key ham mos (2-bandga qarang)
@@ -138,10 +140,9 @@ const AngleNodes = () => {
 							doorNum: newData.doorNum,
 							angle_x: newData.angle_x,
 							angle_y: newData.angle_y,
-							createdAt: new Date().toISOString(),
-							position: 'N/A',
+							// createdAt: newData.createdAt ?? new Date().toISOString(),
+							// position: 'N/A',
 							node_status: false, // <-- agar IAngleNode majburiy bo'lsa
-							gateway_id: '', // <-- majburiy bo'lsa to'ldiring
 						} as IAngleNode)
 					}
 
@@ -150,6 +151,7 @@ const AngleNodes = () => {
 				}
 			)
 
+			// 2) HOZIR TANLANGAN NODE uchun grafikni ham yangilash
 			if (selectedDoorNum === newData.doorNum) {
 				const point: GraphDataPoint = {
 					time: new Date(newData.updatedAt).toLocaleTimeString('ko-KR', {
