@@ -53,7 +53,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
 	useEffect(() => setData(graphData), [graphData])
 
-	// 사용자의 위치 기반 풍속 데이터 가져오기
+	// 사용자 위치 기반 풍속 데이터
 	useEffect(() => {
 		const fetchWindData = async (lat: number, lon: number) => {
 			try {
@@ -146,14 +146,16 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 		isMobile ? value.split(':')[0] : value
 
 	return (
-		<div className='mx-auto pb-5'>
-			<Card className='ml-auto w-[55vw] border shadow-sm border-slate-400 mt-[2.5vh]'>
+		<div className='ml-auto w-full sm:w-[95%] md:w-[85%] lg:w-[66.4%] 2xl:w-[66.8%] pb-5 md:-mr-2 2xl:-mr-5'>
+			<Card className='w-full border shadow-sm border-slate-400 mt-4 sm:mt-6'>
 				<CardHeader className='p-3 sm:p-4 space-y-2'>
 					<div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2'>
-						<CardTitle className='text-sm md:text-lg text-gray-900'>
+						<CardTitle className='text-sm sm:text-base md:text-lg text-gray-900'>
 							비계전도 실시간 데이터{' '}
 							{doorNum !== null && (
-								<span className='text-blue-400 font-bold'>Node-{doorNum}</span>
+								<span className='text-blue-400 font-bold text-sm sm:text-base md:text-lg'>
+									Node-{doorNum}
+								</span>
 							)}
 						</CardTitle>
 
@@ -161,7 +163,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 							<div className='flex items-center gap-x-2'>
 								<label
 									htmlFor='time-filter'
-									className='text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap'
+									className='text-xs sm:text-sm md:text-base font-medium text-gray-700 whitespace-nowrap'
 								>
 									기간:
 								</label>
@@ -169,27 +171,27 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 									value={hours.toString()}
 									onValueChange={v => onSelectTime(Number(v))}
 								>
-									<SelectTrigger className='h-6 w-[90px] sm:w-[120px] text-xs sm:text-sm border border-slate-400'>
+									<SelectTrigger className='h-6 sm:h-8 w-[90px] sm:w-[120px] text-xs sm:text-sm md:text-base border border-slate-400'>
 										<SelectValue placeholder='Select time' />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value='1' className='text-xs sm:text-sm'>
+										<SelectItem value='1' className='text-xs sm:text-sm md:text-base'>
 											1 시간
 										</SelectItem>
-										<SelectItem value='6' className='text-xs sm:text-sm'>
+										<SelectItem value='6' className='text-xs sm:text-sm md:text-base'>
 											6 시간
 										</SelectItem>
-										<SelectItem value='12' className='text-xs sm:text-sm'>
+										<SelectItem value='12' className='text-xs sm:text-sm md:text-base'>
 											12 시간
 										</SelectItem>
-										<SelectItem value='24' className='text-xs sm:text-sm'>
+										<SelectItem value='24' className='text-xs sm:text-sm md:text-base'>
 											24 시간
 										</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>
 
-							<Badge variant='outline' className='h-6 text-xs border-slate-400'>
+							<Badge variant='outline' className='h-6 sm:h-8 text-xs sm:text-sm md:text-base border-slate-400'>
 								데이터 수: {data.length}
 							</Badge>
 						</div>
@@ -197,13 +199,9 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 				</CardHeader>
 
 				<CardContent className='p-0 pt-2' ref={containerRef}>
-					<div className='w-full h-full pb-4 px-1 sm:px-2'>
-						<ResponsiveContainer width='104%' height={330}>
-							<LineChart
-								key={data.length}
-								data={data}
-								margin={getChartMargins()}
-							>
+					<div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[330.5px] 2xl:h-[431px] px-1 sm:px-2'>
+						<ResponsiveContainer width='103%' height='100%'>
+							<LineChart key={data.length} data={data} margin={getChartMargins()}>
 								<CartesianGrid strokeDasharray='3 3' stroke='#f0f0f0' />
 								<XAxis
 									dataKey='time'
@@ -252,91 +250,23 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 									/>
 								)}
 
-								{yMin < -0.6 && (
-									<ReferenceArea
-										yAxisId='angle'
-										y1={yMin}
-										y2={-0.6}
-										fill='#ef4444'
-										fillOpacity={0.1}
-									/>
-								)}
-								{yMax > 0.6 && (
-									<ReferenceArea
-										yAxisId='angle'
-										y1={0.6}
-										y2={yMax}
-										fill='#ef4444'
-										fillOpacity={0.1}
-									/>
-								)}
+								{/* ReferenceAreas */}
+								<ReferenceArea yAxisId='angle' y1={-0.6} y2={-0.4} fill='#eab308' fillOpacity={0.1} />
+								<ReferenceArea yAxisId='angle' y1={0.4} y2={0.6} fill='#eab308' fillOpacity={0.1} />
+								<ReferenceArea yAxisId='angle' y1={-0.4} y2={-0.2} fill='#22c55e' fillOpacity={0.1} />
+								<ReferenceArea yAxisId='angle' y1={0.2} y2={0.4} fill='#22c55e' fillOpacity={0.1} />
+								<ReferenceArea yAxisId='angle' y1={-0.2} y2={0.2} fill='#3b82f6' fillOpacity={0.1} />
+								{yMin < -0.6 && <ReferenceArea yAxisId='angle' y1={yMin} y2={-0.6} fill='#ef4444' fillOpacity={0.1} />}
+								{yMax > 0.6 && <ReferenceArea yAxisId='angle' y1={0.6} y2={yMax} fill='#ef4444' fillOpacity={0.1} />}
 
-								<ReferenceArea
-									yAxisId='angle'
-									y1={-0.6}
-									y2={-0.4}
-									fill='#eab308'
-									fillOpacity={0.1}
-								/>
-								<ReferenceArea
-									yAxisId='angle'
-									y1={0.4}
-									y2={0.6}
-									fill='#eab308'
-									fillOpacity={0.1}
-								/>
-								<ReferenceArea
-									yAxisId='angle'
-									y1={-0.4}
-									y2={-0.2}
-									fill='#22c55e'
-									fillOpacity={0.1}
-								/>
-								<ReferenceArea
-									yAxisId='angle'
-									y1={0.2}
-									y2={0.4}
-									fill='#22c55e'
-									fillOpacity={0.1}
-								/>
-								<ReferenceArea
-									yAxisId='angle'
-									y1={-0.2}
-									y2={0.2}
-									fill='#3b82f6'
-									fillOpacity={0.1}
-								/>
-
+								{/* ReferenceLines */}
 								<ReferenceLine y={0.3} yAxisId='angle' strokeDasharray='5 5' />
 								<ReferenceLine y={-0.3} yAxisId='angle' strokeDasharray='5 5' />
 
-								<Line
-									yAxisId='angle'
-									type='monotone'
-									dataKey='angle_x'
-									stroke='#ef4444'
-									strokeWidth={isMobile ? 1.5 : 2}
-									dot={false}
-									name='Angle X'
-								/>
-								<Line
-									yAxisId='angle'
-									type='monotone'
-									dataKey='angle_y'
-									stroke='#3b82f6'
-									strokeWidth={isMobile ? 1.5 : 2}
-									dot={false}
-									name='Angle Y'
-								/>
-								<Line
-									yAxisId='wind'
-									type='monotone'
-									dataKey='wind_speed'
-									stroke='#22c55e'
-									strokeWidth={isMobile ? 1.5 : 2}
-									dot={false}
-									name='Wind Speed (m/s)'
-								/>
+								{/* Line Elements */}
+								<Line yAxisId='angle' type='monotone' dataKey='angle_x' stroke='#ef4444' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle X' />
+								<Line yAxisId='angle' type='monotone' dataKey='angle_y' stroke='#3b82f6' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle Y' />
+								<Line yAxisId='wind' type='monotone' dataKey='wind_speed' stroke='#22c55e' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Wind Speed (m/s)' />
 							</LineChart>
 						</ResponsiveContainer>
 					</div>

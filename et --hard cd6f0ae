@@ -1,0 +1,12 @@
+[33m17b475a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdev[m[33m, [m[1;31morigin/dev[m[33m)[m HEAD@{0}: pull --rebase origin dev: Fast-forward
+[33mbf6e811[m HEAD@{1}: checkout: moving from main to dev
+[33m4594232[m[33m ([m[1;32mmain[m[33m)[m HEAD@{2}: checkout: moving from dev to main
+[33mbf6e811[m HEAD@{3}: pull --rebase origin dev (finish): returning to refs/heads/dev
+[33mbf6e811[m HEAD@{4}: pull --rebase origin dev (pick): css change
+[33mfccb701[m HEAD@{5}: pull --rebase origin dev (start): checkout fccb7019ecdcbc9230bd37273f5dc4b4c1a44716
+[33mcd6f0ae[m HEAD@{6}: commit: css change
+[33mb92954b[m HEAD@{7}: pull --rebase origin dev: Fast-forward
+[33mf8ea008[m HEAD@{8}: commit: Wind-Speed Graph add
+[33m4594232[m[33m ([m[1;32mmain[m[33m)[m HEAD@{9}: checkout: moving from main to dev
+[33m4594232[m[33m ([m[1;32mmain[m[33m)[m HEAD@{10}: Branch: renamed refs/heads/master to refs/heads/main
+[33m4594232[m[33m ([m[1;32mmain[m[33m)[m HEAD@{12}: commit (initial): Bismillah: first commit

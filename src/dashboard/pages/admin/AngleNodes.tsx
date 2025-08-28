@@ -1,7 +1,6 @@
 // AngleNodes.tsx (전체 수정본, TotalcntCsv import 및 사용 포함)
 
 import AngleNodeScroll from '@/dashboard/components/shared-dash/AngleNodeScroll'
-import TotalcntCsv from '@/dashboard/components/shared-dash/TotalnctCSV' // 경로 맞게 수정
 import SensorGraph from '@/dashboard/pages/admin/angleNodegraphic'
 import socket from '@/hooks/useSocket'
 import { fetchBuildingAngleNodes } from '@/services/apiRequests'
@@ -177,22 +176,24 @@ const AngleNodes = () => {
 	}, [buildingId, queryClient, selectedDoorNum])
 
 	return (
-		<div className='w-full max-h-screen bg-gray-50 p-2 md:p-5 space-y-4'>
+		<div className='w-full max-h-screen bg-gray-50 p-2 md:p-5'>
+
 			<AngleNodeScroll
 				onSelectNode={door => setSelectedDoorNum(door)}
 				building_angle_nodes={buildingAngleNodes}
 				dangerAngleNodes={dangerAngleNodes}
+				buildingData={buildingData}
 			/>
-			{/* 여기 TotalcntCsv 버튼만 보여주도록 props 없이 간단히 추가 */}
-			<TotalcntCsv building={buildingData} />
 
-			<SensorGraph
-				graphData={data}
-				buildingId={buildingId}
-				doorNum={selectedDoorNum}
-				onSelectTime={setSelectedHours}
-				hours={selectedHours}
-			/>
+			<div className='-mt-[63.5vh]'>
+				<SensorGraph
+					graphData={data}
+					buildingId={buildingId}
+					doorNum={selectedDoorNum}
+					onSelectTime={setSelectedHours}
+					hours={selectedHours}
+				/>
+			</div>
 		</div>
 	)
 }

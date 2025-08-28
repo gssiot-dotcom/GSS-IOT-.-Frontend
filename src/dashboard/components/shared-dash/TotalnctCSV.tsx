@@ -56,11 +56,8 @@ const NodesMultipleButtonsField = ({ building }: IProps2) => {
 			const res = await axios.put(
 				`${import.meta.env.VITE_SERVER_BASE_URL}/company/upload-company-plan`,
 				formData,
-
 				{
-					headers: {
-						'Content-Type': 'multipart/form-data',
-					},
+					headers: { 'Content-Type': 'multipart/form-data' },
 				}
 			)
 
@@ -78,10 +75,7 @@ const NodesMultipleButtonsField = ({ building }: IProps2) => {
 	}`
 
 	return (
-		<Card
-			className='mt-4 border-slate-400 mx-auto ml-[27vw]'
-			style={{ maxWidth: '34vw' }}
-		>
+		<Card className='mt-4 border-slate-400 mx-auto w-full max-w-[34vw] sm:max-w-[50vw] md:max-w-[60vw] lg:max-w-[34vw]'>
 			<CardContent className='p-2'>
 				<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'>
 					{/* Floor Plan Upload (파일 탐색기 열림) */}
