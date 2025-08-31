@@ -1,4 +1,3 @@
-// AngleNodes.tsx
 import AngleNodeScroll from '@/dashboard/components/shared-dash/AngleNodeScroll'
 import SensorGraph from '@/dashboard/pages/admin/angleNodegraphic'
 import socket from '@/hooks/useSocket'
@@ -9,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { IAngleNode, IBuilding } from '../../../types/interfaces'
 
+// 모든 타입 인터페이스를 이곳에서 정의하고 export 합니다.
 export interface SensorData {
   doorNum: number
   updatedAt: string
@@ -21,6 +21,18 @@ export interface GraphDataPoint {
   time: string
   angle_x: number
   angle_y: number
+  wind_speed?: number
+  nodeId?: string
+}
+
+export interface TopNodeGraphPoint {
+  time: string
+  [key: string]: number | string
+}
+
+export interface DeltaGraphPoint {
+  time: string
+  [key: string]: number | string
 }
 
 interface ResQuery {
@@ -33,11 +45,13 @@ const AngleNodes = () => {
   const [selectedDoorNum, setSelectedDoorNum] = useState<number | null>(null)
   const [selectedHours, setSelectedHours] = useState<number>(1)
   const [data, setData] = useState<GraphDataPoint[]>([])
+  const [topNodesData, setTopNodesData] = useState<TopNodeGraphPoint[]>([])
+  const [deltaData, setDeltaData] = useState<DeltaGraphPoint[]>([])
   const [isFirstLoad, setIsFirstLoad] = useState(true)
+  const [viewMode, setViewMode] = useState<'general' | 'top' | 'delta'>('general')
   const { buildingId } = useParams()
   const queryClient = useQueryClient()
 
-  // B/G/Y/R 상태 부모에서 관리
   const [B, setB] = useState(0)
   const [G, setG] = useState(0)
   const [Y, setY] = useState(0)
@@ -63,6 +77,10 @@ const AngleNodes = () => {
     [buildingAngleNodes]
   )
 
+  const allNodes = useMemo(() => {
+    return [...buildingAngleNodes]
+  }, [buildingAngleNodes])
+
   useEffect(() => {
     if (!isFirstLoad) return
     if (dangerAngleNodes.length) {
@@ -77,30 +95,75 @@ const AngleNodes = () => {
   }, [dangerAngleNodes, buildingAngleNodes, isFirstLoad])
 
   useEffect(() => {
-    if (!selectedDoorNum) return
+    if (viewMode === 'general' && !selectedDoorNum) return
+    if (viewMode === 'delta' && !selectedDoorNum) return
+    if (viewMode !== 'general' && viewMode !== 'delta' && buildingAngleNodes.length === 0) return
+
     const now = new Date()
     const from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
     const to = now.toISOString()
+    
+    const doorNums = viewMode === 'top'
+      ? buildingAngleNodes.map(n => n.doorNum)
+      : [selectedDoorNum]
 
     axios
       .get<SensorData[]>('/product/angle-node/data', {
-        params: { doorNum: selectedDoorNum, from, to },
+        params: { doorNum: doorNums.join(','), from, to },
         baseURL: import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
       })
       .then(res => {
-        const formatted: GraphDataPoint[] = res.data.map(item => ({
-          time: new Date(item.createdAt).toLocaleTimeString('ko-KR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          }),
-          angle_x: item.angle_x,
-          angle_y: item.angle_y,
-        }))
-        setData(formatted)
+        if (viewMode === 'general') {
+          const dataMap: Record<string, any> = {}
+          const filteredData = res.data.filter(item => item.doorNum === selectedDoorNum)
+          
+          filteredData.forEach(item => {
+            const time = new Date(item.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
+            if (!dataMap[time]) {
+              dataMap[time] = { time }
+            }
+            dataMap[time].angle_x = item.angle_x
+            dataMap[time].angle_y = item.angle_y
+          })
+          const formatted = Object.values(dataMap)
+          setData(formatted as GraphDataPoint[])
+          setTopNodesData([])
+          setDeltaData([])
+        } else if (viewMode === 'delta') {
+          const filteredData = res.data.filter(item => item.doorNum === selectedDoorNum)
+          const sortedData = filteredData.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+          const deltaGraphData: DeltaGraphPoint[] = []
+          for (let i = 1; i < sortedData.length; i++) {
+            const time = new Date(sortedData[i].createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+            const currentAngleX = sortedData[i].angle_x;
+            const prevAngleX = sortedData[i-1].angle_x;
+            
+            deltaGraphData.push({
+              time: time,
+              [`node_${selectedDoorNum}`]: currentAngleX - prevAngleX
+            });
+          }
+          setDeltaData(deltaGraphData);
+          setData([]);
+          setTopNodesData([]);
+        } else if (viewMode === 'top') {
+          const dataMap: Record<string, any> = {}
+          res.data.forEach(item => {
+            const time = new Date(item.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
+            if (!dataMap[time]) {
+              dataMap[time] = { time }
+            }
+            dataMap[time][`node_${item.doorNum}`] = item.angle_x
+          })
+          const formatted = Object.values(dataMap)
+          setTopNodesData(formatted as TopNodeGraphPoint[])
+          setData([])
+          setDeltaData([])
+        }
       })
       .catch(err => console.error('Data fetch error:', err))
-  }, [selectedDoorNum, selectedHours])
+  }, [selectedDoorNum, selectedHours, viewMode, buildingAngleNodes, allNodes])
 
   useEffect(() => {
     if (!buildingId) return
@@ -138,7 +201,7 @@ const AngleNodes = () => {
         return { ...old, angle_nodes: updated }
       })
 
-      if (selectedDoorNum === newData.doorNum) {
+      if (viewMode === 'general' && selectedDoorNum === newData.doorNum) {
         const point: GraphDataPoint = {
           time: new Date(newData.updatedAt).toLocaleTimeString('ko-KR', {
             hour: '2-digit',
@@ -160,7 +223,7 @@ const AngleNodes = () => {
     return () => {
       socket.off(topic, listener)
     }
-  }, [buildingId, queryClient, selectedDoorNum])
+  }, [buildingId, queryClient, selectedDoorNum, viewMode])
 
   return (
     <div className='w-full max-h-screen bg-gray-50 p-2 md:p-5'>
@@ -177,11 +240,20 @@ const AngleNodes = () => {
         setG={setG}
         setY={setY}
         setR={setR}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        allNodes={allNodes}
       />
 
       <div className='-mt-[63.5vh]'>
         <SensorGraph
-          graphData={data}
+          graphData={
+            viewMode === 'delta'
+              ? deltaData
+              : viewMode === 'general'
+              ? data
+              : topNodesData
+          }
           buildingId={buildingId}
           doorNum={selectedDoorNum}
           onSelectTime={setSelectedHours}
@@ -190,6 +262,8 @@ const AngleNodes = () => {
           G={G}
           Y={Y}
           R={R}
+          viewMode={viewMode}
+          allNodes={allNodes}
         />
       </div>
     </div>

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -17,31 +17,26 @@ import {
   Line,
   LineChart,
   ReferenceArea,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
-
-interface GraphDataPoint {
-  time: string
-  angle_x: number
-  angle_y: number
-  wind_speed?: number
-  nodeId?: string
-}
+import { IAngleNode } from '@/types/interfaces'
+import { GraphDataPoint, TopNodeGraphPoint, DeltaGraphPoint } from '@/dashboard/pages/admin/AngleNodes'
 
 type SensorGraphProps = {
   buildingId: string | undefined
   doorNum: number | null
-  graphData: GraphDataPoint[]
+  graphData: GraphDataPoint[] | TopNodeGraphPoint[] | DeltaGraphPoint[]
   hours: number
   onSelectTime: (time: number) => void
   R?: number
   Y?: number
   G?: number
   B?: number
+  viewMode: 'general' | 'top' | 'delta'
+  allNodes: IAngleNode[]
 }
 
 const SensorGraph: React.FC<SensorGraphProps> = ({
@@ -49,19 +44,20 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
   graphData,
   hours,
   onSelectTime,
-  R = 5,
-  Y = 3,
-  G = 1.5,
-  B = 0.5,
+  R = 0,
+  Y = 0,
+  G = 0,
+  B = 0,
+  viewMode,
+  allNodes,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [data, setData] = useState<GraphDataPoint[]>(graphData)
+  const [data, setData] = useState<GraphDataPoint[] | TopNodeGraphPoint[] | DeltaGraphPoint[]>(graphData)
   const isMobile = useMediaQuery('(max-width: 640px)')
   const isTablet = useMediaQuery('(max-width: 1024px)')
 
   useEffect(() => setData(graphData), [graphData])
 
-  // 풍속 데이터 fetch
   useEffect(() => {
     const fetchWindData = async (lat: number, lon: number) => {
       try {
@@ -77,29 +73,30 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
           const time = item.dt_txt.slice(11, 16)
           windDataMap[time] = item.wind.speed
         })
-
-        const mergedData = graphData.map(d => {
-          const closestTime = Object.keys(windDataMap).reduce((prev, curr) => {
-            return Math.abs(
-              Number(curr.replace(':', '')) - Number(d.time.replace(':', ''))
-            ) <
-              Math.abs(
-                Number(prev.replace(':', '')) - Number(d.time.replace(':', ''))
-              )
-              ? curr
-              : prev
+        
+        if (viewMode === 'general') {
+          const mergedData = (graphData as GraphDataPoint[]).map(d => {
+            const closestTime = Object.keys(windDataMap).reduce((prev, curr) => {
+              return Math.abs(
+                Number(curr.replace(':', '')) - Number(d.time.replace(':', ''))
+              ) <
+                Math.abs(
+                  Number(prev.replace(':', '')) - Number(d.time.replace(':', ''))
+                )
+                ? curr
+                : prev
+            })
+            return { ...d, wind_speed: windDataMap[closestTime] || 0 }
           })
-          return { ...d, wind_speed: windDataMap[closestTime] || 0 }
-        })
-
-        setData(mergedData)
+          setData(mergedData)
+        }
       } catch (error) {
         console.error('풍속 데이터 가져오기 실패:', error)
         setData(graphData)
       }
     }
 
-    if (navigator.geolocation) {
+    if (navigator.geolocation && viewMode === 'general') {
       navigator.geolocation.getCurrentPosition(
         position => {
           const { latitude, longitude } = position.coords
@@ -110,35 +107,64 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
           setData(graphData)
         }
       )
-    } else {
+    } else if (viewMode === 'general') {
       console.warn('Geolocation API를 지원하지 않는 브라우저입니다.')
       setData(graphData)
     }
-  }, [graphData])
+  }, [graphData, viewMode])
 
-  // Angle Y축 범위 및 Ticks 계산
-  const getYDomainAndTicks = (data: GraphDataPoint[]) => {
-    if (!data || data.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] }
-    const values = data.flatMap(d => [d.angle_x, d.angle_y])
-    const minVal = Math.min(...values)
-    const maxVal = Math.max(...values)
-    let domain: [number, number] = [-5, 5]
-    let ticks: number[] = [-5, 0, 5]
+  const getYDomainAndTicks = (data: GraphDataPoint[] | TopNodeGraphPoint[] | DeltaGraphPoint[]) => {
+    if (!data || data.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] };
+    
+    if (viewMode === 'delta') {
+      const values = data.flatMap(d => {
+        const point = d as DeltaGraphPoint;
+        return Object.keys(point)
+          .filter(key => key !== 'time')
+          .map(key => point[key] as number);
+      });
+
+      if (values.length === 0) return { domain: [-0.01, 0.01], ticks: [-0.01, 0, 0.01] };
+
+      const maxAbs = Math.max(...values.map(Math.abs));
+      
+      const dynamicBound = Math.max(0.001, maxAbs) * 1.2; 
+      const ticks = [-dynamicBound, 0, dynamicBound];
+      const domain = [-dynamicBound, dynamicBound];
+
+      return { domain, ticks };
+    }
+
+    const values = data.flatMap(d => {
+      if (viewMode === 'general') {
+        const point = d as GraphDataPoint;
+        return [point.angle_x, point.angle_y];
+      } else {
+        const point = d as TopNodeGraphPoint;
+        return Object.keys(point).filter(key => key !== 'time').map(key => point[key] as number);
+      }
+    });
+
+    if (values.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] };
+
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    let domain: [number, number] = [-5, 5];
+    let ticks: number[] = [-5, 0, 5];
 
     if (minVal < -5 || maxVal > 5) {
-      domain = [-10, 10]
-      ticks = [-10, 0, 10]
+      domain = [-10, 10];
+      ticks = [-10, 0, 10];
     }
     if (minVal < -10 || maxVal > 10) {
-      domain = [-15, 15]
-      ticks = [-15, 0, 15]
+      domain = [-15, 15];
+      ticks = [-15, 0, 15];
     }
-    return { domain, ticks }
+    return { domain, ticks };
   }
 
   const { domain: yDomain, ticks: yTicks } = getYDomainAndTicks(data)
 
-  // 풍속 Y축
   const getWindDomainAndTicks = (data: GraphDataPoint[]) => {
     const maxWind = Math.max(...data.map(d => d.wind_speed || 0))
     const top = Math.ceil(maxWind / 10) * 10 || 20
@@ -147,21 +173,154 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     return { domain: [0, top], ticks }
   }
 
-  const { domain: windDomain, ticks: windTicks } = getWindDomainAndTicks(data)
+  const { domain: windDomain, ticks: windTicks } = getWindDomainAndTicks(data as GraphDataPoint[])
 
-  const labelStep = (() => {
-    const len = data.length
-    if (isMobile) return len > 90 ? 12 : len > 60 ? 8 : len > 30 ? 6 : 3
-    return len > 120 ? 12 : len > 80 ? 8 : len > 40 ? 6 : 3
-  })()
+  const getXAxisTicksAndDomain = (hours: number): { ticks: number[], domain: [number, number] } => {
+    const now = new Date();
+    const ticks = [];
+    let startPoint;
+    let endPoint;
 
+    if (hours === 1) {
+      const roundedMinutes = Math.ceil(now.getMinutes() / 10) * 10;
+      endPoint = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), roundedMinutes, 0);
+      startPoint = new Date(endPoint.getTime() - 60 * 60 * 1000);
+      
+      for (let i = 0; i <= 6; i++) {
+        const tickTime = new Date(startPoint.getTime() + i * 10 * 60 * 1000);
+        ticks.push(tickTime.getTime());
+      }
+    } else if (hours === 24) {
+      endPoint = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0, 0);
+      startPoint = new Date(endPoint.getTime() - 24 * 60 * 60 * 1000);
+      
+      for (let i = 0; i <= 6; i++) {
+        const tickTime = new Date(startPoint.getTime() + i * 4 * 60 * 60 * 1000);
+        ticks.push(tickTime.getTime());
+      }
+    } else { 
+      endPoint = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + (now.getMinutes() > 0 ? 1 : 0), 0, 0);
+      startPoint = new Date(endPoint.getTime() - hours * 60 * 60 * 1000);
+      
+      for (let i = 0; i <= hours; i++) {
+        const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000);
+        ticks.push(tickTime.getTime());
+      }
+    }
+
+    const domain = [
+      startPoint.getTime(),
+      endPoint.getTime()
+    ] as [number, number];
+
+    return { ticks, domain };
+  };
+
+  const { ticks: xAxisTicks, domain: xAxisDomain } = getXAxisTicksAndDomain(hours);
+  
+  // 데이터에 날짜 정보를 유추하여 타임스탬프 속성 추가
+  const transformedData = data.map(d => {
+    const [h, m] = d.time.split(':').map(Number);
+    const now = new Date();
+    const dataDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+
+    // 현재 시간을 기준으로 데이터의 날짜를 추론
+    if (hours < 24) {
+      // 1, 6, 12시간 선택 시, 데이터가 현재보다 미래면 어제 날짜로 간주
+      if (dataDate.getTime() > now.getTime()) {
+        dataDate.setDate(dataDate.getDate() - 1);
+      }
+    } else { // 24시간 선택 시
+      // 데이터가 현재 시간보다 미래면 어제 날짜로 간주
+      if (dataDate.getTime() > now.getTime()) {
+        dataDate.setDate(dataDate.getDate() - 1);
+      }
+      // 데이터가 시작 시간보다 과거면 이틀 전 날짜로 간주
+      if (dataDate.getTime() < xAxisDomain[0]) {
+         dataDate.setDate(dataDate.getDate() - 1);
+      }
+    }
+
+    return {
+      ...d,
+      timestamp: dataDate.getTime()
+    };
+  });
+
+  const interpolateWindData = (data: any[]) => {
+    const validWindData = data.filter(d => d.wind_speed !== undefined && d.wind_speed !== null)
+    
+    if (validWindData.length <= 1) return data;
+
+    const interpolatedData = data.map(d => {
+      if (d.wind_speed !== undefined && d.wind_speed !== null) {
+        return d;
+      }
+
+      const prevPoint = validWindData.slice().reverse().find(p => p.timestamp < d.timestamp);
+      const nextPoint = validWindData.find(p => p.timestamp > d.timestamp);
+
+      if (prevPoint && nextPoint) {
+        const timeDiff = nextPoint.timestamp - prevPoint.timestamp;
+        const windDiff = nextPoint.wind_speed - prevPoint.wind_speed;
+        const ratio = (d.timestamp - prevPoint.timestamp) / timeDiff;
+        const interpolatedWind = prevPoint.wind_speed + windDiff * ratio;
+        return { ...d, wind_speed: interpolatedWind };
+      }
+
+      // 시작점이나 끝점에 데이터가 없는 경우 가장 가까운 값으로 채움
+      if (prevPoint && !nextPoint) {
+        return { ...d, wind_speed: prevPoint.wind_speed };
+      }
+      if (!prevPoint && nextPoint) {
+        return { ...d, wind_speed: nextPoint.wind_speed };
+      }
+
+      return d;
+    });
+
+    return interpolatedData;
+  };
+  
+  const finalData = viewMode === 'general' ? interpolateWindData(transformedData) : transformedData;
+  
   const getChartMargins = () => {
     if (isMobile) return { top: 10, right: 10, left: 0, bottom: 18 }
     if (isTablet) return { top: 15, right: 20, left: 5, bottom: 22 }
     return { top: 20, right: 30, left: 20, bottom: 26 }
   }
 
-  const formatXAxisTick = (value: string) => (isMobile ? value.split(':')[0] : value)
+  const formatXAxisTick = (value: number) => {
+    const date = new Date(value);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max))
+
+  const colorPalette = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#8b5cf6', '#ec4899'];
+
+  const formatYAxisTick = (value: number): string => {
+    if (viewMode === 'delta') {
+      return value.toFixed(2);
+    }
+    return value.toString();
+  };
+
+  const formatTooltipValue = (value: number, name: string) => {
+    if (name.includes('변화량')) {
+      return value.toFixed(2);
+    }
+    return value;
+  };
+
+  const formatTooltipLabel = (value: number) => {
+    const date = new Date(value);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
 
   return (
     <div className='ml-auto w-full sm:w-[95%] md:w-[85%] lg:w-[68.4%] 2xl:w-[68.8%] pb-5 md:-mr-2 2xl:-mr-5'>
@@ -170,9 +329,14 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
           <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2'>
             <CardTitle className='text-sm sm:text-base md:text-lg text-gray-900'>
               비계전도 실시간 데이터{' '}
-              {doorNum !== null && (
+              {viewMode === 'general' && doorNum !== null && (
                 <span className='text-blue-400 font-bold text-sm sm:text-base md:text-lg'>
                   Node-{doorNum}
+                </span>
+              )}
+               {viewMode === 'delta' && doorNum !== null && (
+                <span className='text-purple-400 font-bold text-sm sm:text-base md:text-lg'>
+                  Node-{doorNum} (변화량)
                 </span>
               )}
             </CardTitle>
@@ -208,16 +372,17 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         <CardContent className='p-0 pt-2' ref={containerRef}>
           <div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[330.5px] 2xl:h-[431px] px-1 sm:px-2'>
             <ResponsiveContainer width='103%' height='100%'>
-              <LineChart key={data.length} data={data} margin={getChartMargins()}>
+              <LineChart key={finalData.length} data={finalData as any} margin={getChartMargins()}>
                 <CartesianGrid strokeDasharray='3 3' stroke='#f0f0f0' />
                 <XAxis
-                  dataKey='time'
+                  dataKey='timestamp'
+                  domain={xAxisDomain}
                   tick={{ fontSize: isMobile ? 9 : 12 }}
                   tickFormatter={formatXAxisTick}
                   height={isMobile ? 20 : 30}
                   tickMargin={isMobile ? 5 : 10}
-                  minTickGap={isMobile ? 15 : 30}
-                  interval={labelStep}
+                  ticks={xAxisTicks}
+                  type='number'
                 />
                 <YAxis
                   yAxisId='angle'
@@ -226,16 +391,19 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                   tick={{ fontSize: isMobile ? 9 : 12 }}
                   width={isMobile ? 25 : 35}
                   tickMargin={isMobile ? 2 : 5}
+                  tickFormatter={formatYAxisTick}
                 />
-                <YAxis
-                  yAxisId='wind'
-                  orientation='right'
-                  domain={windDomain}
-                  ticks={windTicks}
-                  tick={{ fontSize: isMobile ? 9 : 12 }}
-                  width={isMobile ? 25 : 35}
-                  tickMargin={isMobile ? 2 : 5}
-                />
+                {viewMode === 'general' && (
+                  <YAxis
+                    yAxisId='wind'
+                    orientation='right'
+                    domain={windDomain}
+                    ticks={windTicks}
+                    tick={{ fontSize: isMobile ? 9 : 12 }}
+                    width={isMobile ? 25 : 35}
+                    tickMargin={isMobile ? 2 : 5}
+                  />
+                )}
 
                 <Tooltip
                   contentStyle={{
@@ -247,6 +415,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                   }}
                   itemStyle={{ padding: isMobile ? '1px 0' : '2px 0' }}
                   labelStyle={{ marginBottom: isMobile ? '2px' : '5px' }}
+                  formatter={formatTooltipValue}
+                  labelFormatter={formatTooltipLabel}
                 />
 
                 {!isMobile && (
@@ -259,32 +429,50 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                   />
                 )}
 
-                {/* ReferenceAreas */}
-                {/* 빨강 */}
-                <ReferenceArea yAxisId='angle' y1={yDomain[0]} y2={-R} fill='#ef4444' fillOpacity={0.1} />
-                <ReferenceArea yAxisId='angle' y1={R} y2={yDomain[1]} fill='#ef4444' fillOpacity={0.1} />
+                {viewMode === 'general' && (
+                  <>
+                    <ReferenceArea yAxisId='angle' y1={clamp(yDomain[0], yDomain[0], yDomain[1])} y2={clamp(-R, yDomain[0], yDomain[1])} fill='#ef4444' fillOpacity={0.1} />
+                    <ReferenceArea yAxisId='angle' y1={clamp(R, yDomain[0], yDomain[1])} y2={clamp(yDomain[1], yDomain[0], yDomain[1])} fill='#ef4444' fillOpacity={0.1} />
+                    <ReferenceArea yAxisId='angle' y1={clamp(-R, yDomain[0], yDomain[1])} y2={clamp(-Y, yDomain[0], yDomain[1])} fill='#ef4444' fillOpacity={0.1} />
+                    <ReferenceArea yAxisId='angle' y1={clamp(Y, yDomain[0], yDomain[1])} y2={clamp(R, yDomain[0], yDomain[1])} fill='#ef4444' fillOpacity={0.1} />
+                    <ReferenceArea yAxisId='angle' y1={clamp(-Y, yDomain[0], yDomain[1])} y2={clamp(-G, yDomain[0], yDomain[1])} fill='#eab308' fillOpacity={0.1} />
+                    <ReferenceArea yAxisId='angle' y1={clamp(G, yDomain[0], yDomain[1])} y2={clamp(Y, yDomain[0], yDomain[1])} fill='#eab308' fillOpacity={0.1} />
+                    <ReferenceArea yAxisId='angle' y1={clamp(-G, yDomain[0], yDomain[1])} y2={clamp(-B, yDomain[0], yDomain[1])} fill='#22c55e' fillOpacity={0.1} />
+                    <ReferenceArea yAxisId='angle' y1={clamp(B, yDomain[0], yDomain[1])} y2={clamp(G, yDomain[0], yDomain[1])} fill='#22c55e' fillOpacity={0.1} />
+                    <ReferenceArea yAxisId='angle' y1={clamp(-B, yDomain[0], yDomain[1])} y2={clamp(B, yDomain[0], yDomain[1])} fill='#3b82f6' fillOpacity={0.1} />
+                  </>
+                )}
 
-                {/* 노랑 */}
-                <ReferenceArea yAxisId='angle' y1={-Y} y2={-R} fill='#eab308' fillOpacity={0.1} />
-                <ReferenceArea yAxisId='angle' y1={R} y2={Y} fill='#eab308' fillOpacity={0.1} />
-
-                {/* 초록 */}
-                <ReferenceArea yAxisId='angle' y1={-G} y2={-Y} fill='#22c55e' fillOpacity={0.1} />
-                <ReferenceArea yAxisId='angle' y1={Y} y2={G} fill='#22c55e' fillOpacity={0.1} />
-
-                {/* 파랑 */}
-                <ReferenceArea yAxisId='angle' y1={-B} y2={-G} fill='#3b82f6' fillOpacity={0.1} />
-                <ReferenceArea yAxisId='angle' y1={G} y2={B} fill='#3b82f6' fillOpacity={0.1} />
-                <ReferenceArea yAxisId='angle' y1={-B} y2={B} fill='#3b82f6' fillOpacity={0.1} />
-
-                {/* ReferenceLines */}
-                <ReferenceLine y={0.3} yAxisId='angle' strokeDasharray='5 5' />
-                <ReferenceLine y={-0.3} yAxisId='angle' strokeDasharray='5 5' />
-
-                {/* Line Elements */}
-                <Line yAxisId='angle' type='monotone' dataKey='angle_x' stroke='#ef4444' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle X' />
-                <Line yAxisId='angle' type='monotone' dataKey='angle_y' stroke='#3b82f6' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle Y' />
-                <Line yAxisId='wind' type='monotone' dataKey='wind_speed' stroke='#22c55e' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Wind Speed (m/s)' />
+                {viewMode === 'general' ? (
+                  <>
+                    <Line yAxisId='angle' type='monotone' dataKey='angle_x' stroke='#ef4444' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle X' />
+                    <Line yAxisId='angle' type='monotone' dataKey='angle_y' stroke='#3b82f6' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle Y' />
+                    <Line yAxisId='wind' type='monotone' dataKey='wind_speed' stroke='#22c55e' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Wind Speed (m/s)' />
+                  </>
+                ) : viewMode === 'top' ? (
+                  allNodes.map((node, index) => (
+                    <Line
+                      key={node.doorNum}
+                      yAxisId='angle'
+                      type='monotone'
+                      dataKey={`node_${node.doorNum}`}
+                      stroke={colorPalette[index % colorPalette.length]}
+                      strokeWidth={isMobile ? 1.5 : 2}
+                      dot={false}
+                      name={`Node-${node.doorNum} (Angle X)`}
+                    />
+                  ))
+                ) : ( // viewMode === 'delta'
+                  <Line
+                    yAxisId='angle'
+                    type='monotone'
+                    dataKey={`node_${doorNum}`}
+                    stroke='#8b5cf6'
+                    strokeWidth={isMobile ? 1.5 : 2}
+                    dot={false}
+                    name={`Node-${doorNum} (변화량)`}
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>

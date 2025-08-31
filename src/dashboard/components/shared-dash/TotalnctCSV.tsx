@@ -3,151 +3,160 @@ import { Card, CardContent } from '@/components/ui/card'
 import axios from 'axios'
 import { Download, Eye, FileText, Upload } from 'lucide-react'
 import React, { useRef, useState } from 'react'
+import localImage from '@/assets/node.png' // 로컬 이미지 경로를 import 합니다.
 
 interface IProps2 {
-	building?: {
-		_id: string
-		building_name?: string
-		nodes_position_file?: string
-		building_plan_img?: string
-	}
+    building?: {
+        _id: string
+        building_name?: string
+        nodes_position_file?: string
+        building_plan_img?: string
+    }
 }
 
 const ImageModal = ({
-	imageUrl,
-	onClose,
-	buildingName,
+    imageUrl,
+    onClose,
+    buildingName,
 }: {
-	imageUrl: string
-	onClose: () => void
-	buildingName?: string
+    imageUrl: string
+    onClose: () => void
+    buildingName?: string
 }) => {
-	return (
-		<div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
-			<div className='bg-white p-4 rounded-lg max-w-4xl w-full mx-2'>
-				<h3 className='text-lg font-semibold mb-4'>{buildingName}</h3>
-				<img src={imageUrl} alt='Building' className='w-full h-auto' />
-				<Button onClick={onClose} className='mt-4'>
-					닫기
-				</Button>
-			</div>
-		</div>
-	)
+    return (
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+            <div className='bg-white p-4 rounded-lg max-w-4xl w-full mx-2'>
+                <h3 className='text-lg font-semibold mb-4'>{buildingName}</h3>
+                <img src={imageUrl} alt='Building' className='w-full h-auto' />
+                <Button onClick={onClose} className='mt-4'>
+                    닫기
+                </Button>
+            </div>
+        </div>
+    )
 }
 
 const NodesMultipleButtonsField = ({ building }: IProps2) => {
-	const [isOpen, setIsOpen] = useState(false)
-	const fileInputRef = useRef<HTMLInputElement>(null)
-	const handleUploadClick = () => {
-		if (fileInputRef.current) {
-			fileInputRef.current.click()
-		}
-	}
+    const [isOpen, setIsOpen] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
+    const handleUploadClick = () => {
+        if (fileInputRef.current) {
+            fileInputRef.current.click()
+        }
+    }
 
-	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0]
-		if (!file) return
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
 
-		const formData = new FormData()
-		formData.append('image', file)
-		formData.append('building_id', String(building?._id))
+        const formData = new FormData()
+        formData.append('image', file)
+        formData.append('building_id', String(building?._id))
 
-		try {
-			const res = await axios.put(
-				`${import.meta.env.VITE_SERVER_BASE_URL}/company/upload-company-plan`,
-				formData,
-				{
-					headers: { 'Content-Type': 'multipart/form-data' },
-				}
-			)
+        try {
+            const res = await axios.put(
+                `${import.meta.env.VITE_SERVER_BASE_URL}/company/upload-company-plan`,
+                formData,
+                {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                }
+            )
 
-			if (res.status < 200 || res.status >= 300)
-				throw new Error('Upload failed')
-			alert('Upload success ✅')
-		} catch (error) {
-			console.log(error)
-			alert('Upload failed ❌')
-		}
-	}
+            if (res.status < 200 || res.status >= 300)
+                throw new Error('Upload failed')
+            alert('Upload success ✅')
+        } catch (error) {
+            console.log(error)
+            alert('Upload failed ❌')
+        }
+    }
+    
+    // 기존 imageUrl은 서버에서 받은 이미지 경로
+//    const imageUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/static/images/${
+//        building?.building_plan_img
+//    }`
 
-	const imageUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/static/images/${
-		building?.building_plan_img
-	}`
+    // 도면 보기 버튼 클릭 핸들러
+    const handleViewPlan = () => {
+        // 여기에서 로컬 이미지를 사용할지, 서버 이미지를 사용할지 결정합니다.
+        // 이 예시에서는 무조건 로컬 이미지를 보여주도록 수정합니다.
+        setIsOpen(true)
+    }
 
-	return (
-		<Card className='mt-4 border-slate-400 mx-auto w-full max-w-[34vw] sm:max-w-[50vw] md:max-w-[60vw] lg:max-w-[34vw]'>
-			<CardContent className='p-2'>
-				<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'>
-					{/* Floor Plan Upload (파일 탐색기 열림) */}
-					<>
-						<input
-							type='file'
-							accept='image/*'
-							className='hidden'
-							ref={fileInputRef}
-							onChange={handleFileChange}
-						/>
-						<Button
-							variant='outline'
-							onClick={handleUploadClick}
-							className='flex items-center gap-2 h-auto py-3 border-slate-400'
-						>
-							<Upload className='w-4 h-4' />
-							<span className='text-sm'>도면 업로드</span>
-						</Button>
-					</>
+    return (
+        <Card className='mt-4 border-slate-400 mx-auto w-full max-w-[34vw] sm:max-w-[50vw] md:max-w-[60vw] lg:max-w-[34vw]'>
+            <CardContent className='p-2'>
+                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'>
+                    {/* Floor Plan Upload (파일 탐색기 열림) */}
+                    <>
+                        <input
+                            type='file'
+                            accept='image/*'
+                            className='hidden'
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                        />
+                        <Button
+                            variant='outline'
+                            onClick={handleUploadClick}
+                            className='flex items-center gap-2 h-auto py-3 border-slate-400'
+                        >
+                            <Upload className='w-4 h-4' />
+                            <span className='text-sm'>도면 업로드</span>
+                        </Button>
+                    </>
 
-					{/* Floor Plan View (모달로 이미지 보여주기) */}
-					<Button
-						variant='outline'
-						onClick={() => setIsOpen(true)}
-						className='flex items-center gap-2 h-auto py-3 border-slate-400'
-					>
-						<Eye className='w-4 h-4' />
-						<span className='text-sm'>도면 보기</span>
-					</Button>
+                    {/* Floor Plan View (모달로 이미지 보여주기) */}
+                    <Button
+                        variant='outline'
+                        onClick={handleViewPlan} // 수정된 핸들러 사용
+                        className='flex items-center gap-2 h-auto py-3 border-slate-400'
+                    >
+                        <Eye className='w-4 h-4' />
+                        <span className='text-sm'>도면 보기</span>
+                    </Button>
 
-					{/* Position File Download (파일 다운로드 링크만) */}
-					{building?.nodes_position_file && (
-						<Button
-							variant='outline'
-							asChild
-							className='flex items-center gap-2 h-auto py-3 border-slate-400'
-						>
-							<a
-								href={`${
-									import.meta.env.VITE_SERVER_BASE_URL
-								}/exels/${encodeURIComponent(building.nodes_position_file)}`}
-								download
-							>
-								<FileText className='w-4 h-4' />
-								<span className='text-sm'>위치 파일</span>
-								<Download className='w-3 h-3' />
-							</a>
-						</Button>
-					)}
+                    {/* Position File Download (파일 다운로드 링크만) */}
+                    {building?.nodes_position_file && (
+                        <Button
+                            variant='outline'
+                            asChild
+                            className='flex items-center gap-2 h-auto py-3 border-slate-400'
+                        >
+                            <a
+                                href={`${
+                                    import.meta.env.VITE_SERVER_BASE_URL
+                                }/exels/${encodeURIComponent(building.nodes_position_file)}`}
+                                download
+                            >
+                                <FileText className='w-4 h-4' />
+                                <span className='text-sm'>위치 파일</span>
+                                <Download className='w-3 h-3' />
+                            </a>
+                        </Button>
+                    )}
 
-					{/* Nodes Report Download (버튼만, 동작 없음) */}
-					<Button
-						variant='outline'
-						className='flex items-center gap-2 h-auto py-3 border-slate-400'
-					>
-						<FileText className='w-4 h-4' />
-						<span className='text-sm'>현장 노드 리포트</span>
-					</Button>
-				</div>
+                    {/* Nodes Report Download (버튼만, 동작 없음) */}
+                    <Button
+                        variant='outline'
+                        className='flex items-center gap-2 h-auto py-3 border-slate-400'
+                    >
+                        <FileText className='w-4 h-4' />
+                        <span className='text-sm'>현장 노드 리포트</span>
+                    </Button>
+                </div>
 
-				{/* Modal for Floor Plan Image */}
-				{isOpen && (
-					<ImageModal
-						imageUrl={imageUrl}
-						buildingName={building?.building_name}
-						onClose={() => setIsOpen(false)}
-					/>
-				)}
-			</CardContent>
-		</Card>
-	)
+                {/* Modal for Floor Plan Image */}
+                {isOpen && (
+                    <ImageModal
+                        imageUrl={localImage} // import한 로컬 이미지 경로를 전달
+                        buildingName={building?.building_name}
+                        onClose={() => setIsOpen(false)}
+                    />
+                )}
+            </CardContent>
+        </Card>
+    )
 }
 
 export default NodesMultipleButtonsField
