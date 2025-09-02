@@ -1,191 +1,248 @@
 // 기존: import digaenode from '@/assets/digaenode.png'
 // 변경: 요청하신 이미지 경로로 변경
-import nodeImage from '@/assets/node.png' 
+import nodeImage from '@/assets/node.png'
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import TotalcntCsv from '@/dashboard/components/shared-dash/TotalnctCSV'
-import { IAngleNode } from '@/types/interfaces'
-
+import { IAngleNode, IBuilding } from '@/types/interfaces'
 
 interface Props {
-  building_angle_nodes: IAngleNode[]
-  dangerAngleNodes: IAngleNode[]
-  onSelectNode: (doorNum: number) => void
-  buildingData?: any
-  B: number
-  G: number
-  Y: number
-  R: number
-  setB: (val: number) => void
-  setG: (val: number) => void
-  setY: (val: number) => void
-  setR: (val: number) => void
-  viewMode: 'general' | 'top' | 'delta'
-  setViewMode: (mode: 'general' | 'top' | 'delta') => void
-  allNodes: IAngleNode[]
+	building_angle_nodes: IAngleNode[]
+	dangerAngleNodes: IAngleNode[]
+	onSelectNode: (doorNum: number) => void
+	buildingData?: IBuilding
+	B: number
+	G: number
+	Y: number
+	R: number
+	setB: (val: number) => void
+	setG: (val: number) => void
+	setY: (val: number) => void
+	setR: (val: number) => void
+	viewMode: 'general' | 'top' | 'delta'
+	setViewMode: (mode: 'general' | 'top' | 'delta') => void
+	allNodes: IAngleNode[]
 }
 
 const AngleNodeScroll = ({
-  building_angle_nodes,
-  dangerAngleNodes,
-  onSelectNode,
-  buildingData,
-  B,
-  G,
-  Y,
-  R,
-  setB,
-  setG,
-  setY,
-  setR,
-  viewMode,
-  setViewMode,
+	building_angle_nodes,
+	dangerAngleNodes,
+	onSelectNode,
+	buildingData,
+	B,
+	G,
+	Y,
+	R,
+	setB,
+	setG,
+	setY,
+	setR,
+	viewMode,
+	setViewMode,
 }: Props) => {
+	if (!building_angle_nodes?.length) {
+		return (
+			<div className='w-full py-7 border border-red-500 rounded-lg text-center text-red-500'>
+				노드 정보가 없습니다.
+			</div>
+		)
+	}
 
-  if (!building_angle_nodes?.length) {
-    return (
-      <div className='w-full py-7 border border-red-500 rounded-lg text-center text-red-500'>
-        노드 정보가 없습니다.
-      </div>
-    )
-  }
+	const sortedNodes = [...building_angle_nodes].sort(
+		(a, b) => Math.abs(b.angle_x) - Math.abs(a.angle_x)
+	)
 
-  const sortedNodes = [...building_angle_nodes].sort(
-    (a, b) => Math.abs(b.angle_x) - Math.abs(a.angle_x)
-  )
+	const getNodeColorClass = (x: number) => {
+		if (B === 0 && G === 0 && Y === 0 && R === 0) {
+			return 'bg-gradient-to-r from-blue-50 to-blue-200 hover:to-blue-300'
+		}
 
-  const getNodeColorClass = (x: number) => {
-    if (B === 0 && G === 0 && Y === 0 && R === 0) {
-      return 'bg-gradient-to-r from-blue-50 to-blue-200 hover:to-blue-300'
-    }
+		if (x <= -R || x >= R)
+			return 'bg-gradient-to-r from-red-100 to-red-300 hover:to-red-400'
+		if ((x <= -Y && x > -R) || (x >= Y && x < R))
+			return 'bg-gradient-to-r from-red-100 to-red-300 hover:to-red-400'
+		if ((x <= -G && x > -Y) || (x >= G && x < Y))
+			return 'bg-gradient-to-r from-yellow-50 to-yellow-200 hover:to-yellow-300'
+		if ((x <= -B && x > -G) || (x >= B && x < G))
+			return 'bg-gradient-to-r from-green-50 to-green-200 hover:to-green-300'
+		if (x > -B && x < B)
+			return 'bg-gradient-to-r from-blue-50 to-blue-200 hover:to-blue-300'
+		return 'bg-gray-100'
+	}
 
-    if (x <= -R || x >= R) return 'bg-gradient-to-r from-red-100 to-red-300 hover:to-red-400'
-    if ((x <= -Y && x > -R) || (x >= Y && x < R)) return 'bg-gradient-to-r from-red-100 to-red-300 hover:to-red-400'
-    if ((x <= -G && x > -Y) || (x >= G && x < Y)) return 'bg-gradient-to-r from-yellow-50 to-yellow-200 hover:to-yellow-300'
-    if ((x <= -B && x > -G) || (x >= B && x < G)) return 'bg-gradient-to-r from-green-50 to-green-200 hover:to-green-300'
-    if (x > -B && x < B) return 'bg-gradient-to-r from-blue-50 to-blue-200 hover:to-blue-300'
-    return 'bg-gray-100'
-  }
+	const nodesToDisplay =
+		viewMode === 'top' ? sortedNodes.slice(0, 6) : sortedNodes
 
-  const nodesToDisplay = viewMode === 'top' ? sortedNodes.slice(0, 6) : sortedNodes;
+	return (
+		<div className='grid grid-cols-12 gap-4 w-full h-screen px-4 py-4'>
+			<ScrollArea className='col-span-12 md:col-span-4 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 2xl:h-[95vh] w-[90%]'>
+				<div className='flex justify-between mb-4 p-2 bg-gray-100 rounded-md text-sm font-medium text-gray-700'>
+					<span>
+						<strong>AL GW:</strong> 3
+					</span>
+					<span>
+						<strong>GW:</strong> 8
+					</span>
+					<span>
+						<strong>Node:</strong> 47
+					</span>
+				</div>
 
-  return (
-    <div className='grid grid-cols-12 gap-4 w-full h-screen px-4 py-4'>
-      <ScrollArea className='col-span-12 md:col-span-4 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 2xl:h-[95vh] w-[90%]'>
-        <div className='flex justify-between mb-4 p-2 bg-gray-100 rounded-md text-sm font-medium text-gray-700'>
-          <span><strong>AL GW:</strong> 3</span>
-          <span><strong>GW:</strong> 8</span>
-          <span><strong>Node:</strong> 47</span>
-        </div>
+				<div className='flex justify-between mb-4 gap-2'>
+					{['B', 'G', 'Y', 'R'].map(color => {
+						const value =
+							color === 'B' ? B : color === 'G' ? G : color === 'Y' ? Y : R
+						const minValue =
+							color === 'B' ? 0 : color === 'G' ? B : color === 'Y' ? Y : G
+						const setter =
+							color === 'B'
+								? setB
+								: color === 'G'
+								? setG
+								: color === 'Y'
+								? setY
+								: setR
 
-        <div className='flex justify-between mb-4 gap-2'>
-          {['B', 'G', 'Y', 'R'].map(color => {
-            const value = color === 'B' ? B : color === 'G' ? G : color === 'Y' ? Y : R
-            const minValue = color === 'B' ? 0 : color === 'G' ? B : color === 'Y' ? Y : G
-            const setter = color === 'B' ? setB : color === 'G' ? setG : color === 'Y' ? setY : setR
+						return (
+							<div key={color} className='flex flex-col items-center'>
+								<label className='text-xs font-semibold mb-1'>{color}</label>
+								<select
+									className='border border-gray-300 rounded-md px-2 py-1 text-sm'
+									value={value}
+									onChange={e => {
+										const num = parseFloat(e.target.value)
+										setter(num)
+									}}
+								>
+									{Array.from({ length: 21 }, (_, i) => (i * 0.5).toFixed(1))
+										.map(num => parseFloat(num))
+										.filter(num => num >= minValue)
+										.map(num => (
+											<option key={num} value={num}>
+												{num}
+											</option>
+										))}
+								</select>
+							</div>
+						)
+					})}
+				</div>
 
-            return (
-              <div key={color} className='flex flex-col items-center'>
-                <label className='text-xs font-semibold mb-1'>{color}</label>
-                <select
-                  className='border border-gray-300 rounded-md px-2 py-1 text-sm'
-                  value={value}
-                  onChange={e => {
-                    const num = parseFloat(e.target.value)
-                    setter(num)
-                  }}
-                >
-                  {Array.from({ length: 21 }, (_, i) => (i * 0.5).toFixed(1))
-                    .map(num => parseFloat(num))
-                    .filter(num => num >= minValue)
-                    .map(num => <option key={num} value={num}>{num}</option>)}
-                </select>
-              </div>
-            )
-          })}
-        </div>
+				<div className='flex justify-center mb-4 gap-4'>
+					<button
+						className={`px-4 py-2 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
+							viewMode === 'general'
+								? 'bg-blue-600'
+								: 'bg-gray-400 hover:bg-gray-500'
+						}`}
+						onClick={() => setViewMode('general')}
+					>
+						일반 노드
+					</button>
+					<button
+						className={`px-4 py-2 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
+							viewMode === 'top'
+								? 'bg-red-600'
+								: 'bg-gray-400 hover:bg-gray-500'
+						}`}
+						onClick={() => setViewMode('top')}
+					>
+						상위 노드
+					</button>
+					<button
+						className={`px-4 py-2 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
+							viewMode === 'delta'
+								? 'bg-purple-600'
+								: 'bg-gray-400 hover:bg-gray-500'
+						}`}
+						onClick={() => setViewMode('delta')}
+					>
+						변화량
+					</button>
+				</div>
 
-        <div className='flex justify-center mb-4 gap-4'>
-          <button
-            className={`px-4 py-2 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-              viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
-            }`}
-            onClick={() => setViewMode('general')}
-          >
-            일반 노드
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-              viewMode === 'top' ? 'bg-red-600' : 'bg-gray-400 hover:bg-gray-500'
-            }`}
-            onClick={() => setViewMode('top')}
-          >
-            상위 노드
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg font-bold  text-xs text-white transition-colors duration-200 ${
-              viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
-            }`}
-            onClick={() => setViewMode('delta')}
-          >
-            변화량
-          </button>
-        </div>
+				<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+					{nodesToDisplay.map(item => (
+						<Card
+							key={item.doorNum}
+							onClick={() => onSelectNode(item.doorNum)}
+							className={`border border-slate-300 flex flex-col justify-center p-2 ${getNodeColorClass(
+								item.angle_x
+							)} shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer`}
+						>
+							<CardContent className='flex flex-col justify-center p-2 text-sm text-gray-700'>
+								<div className='flex justify-between items-center mb-2'>
+									<h1 className='font-bold text-blue-700'>노드넘버</h1>
+									<span className='text-blue-800 font-semibold text-lg'>
+										{item.doorNum}
+									</span>
+								</div>
+								<div className='flex justify-between mb-1'>
+									<p className='font-medium text-gray-600'>Axis-X:</p>
+									<p className='text-gray-800'>{item.angle_x}</p>
+								</div>
+								<div className='flex justify-between mb-1'>
+									<p className='font-medium text-gray-600'>Axis-Y:</p>
+									<p className='text-gray-800'>{item.angle_y}</p>
+								</div>
+								<div className='flex justify-between mb-1'>
+									<p className='text-gray-800'>Gateway:</p>
+									<p className='font-medium text-gray-600'>
+										{item.gateway_id?.serial_number || 'N/A'}
+									</p>
+								</div>
+							</CardContent>
+						</Card>
+					))}
+				</div>
+			</ScrollArea>
 
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-          {nodesToDisplay.map(item => (
-            <Card
-              key={item.doorNum}
-              onClick={() => onSelectNode(item.doorNum)}
-              className={`border border-slate-300 flex flex-col justify-center p-2 ${getNodeColorClass(item.angle_x)} shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer`}
-            >
-              <CardContent className='flex flex-col justify-center p-2 text-sm text-gray-700'>
-                <div className='flex justify-between items-center mb-2'>
-                  <h1 className='font-bold text-blue-700'>노드넘버</h1>
-                  <span className='text-blue-800 font-semibold text-lg'>{item.doorNum}</span>
-                </div>
-                <div className='flex justify-between mb-1'>
-                  <p className='font-medium text-gray-600'>Axis-X:</p>
-                  <p className='text-gray-800'>{item.angle_x}</p>
-                </div>
-                <div className='flex justify-between mb-1'>
-                  <p className='font-medium text-gray-600'>Axis-Y:</p>
-                  <p className='text-gray-800'>{item.angle_y}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </ScrollArea>
+			<div className='col-span-12 md:col-span-5 flex flex-col justify-between h-[40%] md:-mt-5 2xl:-mt-5 md:-ml-5 md:mr-3 2xl:-ml-10 2xl:mr-7'>
+				<div className='flex flex-col items-center'>
+					<span className='mt-2 text-center text-lg font-semibold text-gray-700'>
+						비계전도노드
+					</span>
+					{/* 변경된 이미지 경로를 사용합니다. */}
+					<img
+						src={`${import.meta.env.VITE_SERVER_BASE_URL}/static/images/${
+							buildingData?.building_plan_img || nodeImage
+						}`}
+						alt='비계전도 노드'
+						className='w-[20vw] h-auto object-contain rounded-md'
+					/>
+				</div>
+				<div className='w-full'>
+					<TotalcntCsv building={buildingData} />
+				</div>
+			</div>
 
-      <div className='col-span-12 md:col-span-5 flex flex-col justify-between h-[40%] md:-mt-5 2xl:-mt-5 md:-ml-5 md:mr-3  2xl:-ml-10 2xl:mr-7'>
-        <div className='flex flex-col items-center'>
-          <span className='mt-2 text-center text-lg font-semibold text-gray-700'>비계전도노드</span>
-          {/* 변경된 이미지 경로를 사용합니다. */}
-          <img src={nodeImage} alt='비계전도 노드' className='w-[20vw] h-auto object-contain rounded-md'/>
-        </div>
-        <div className='w-full'>
-          <TotalcntCsv building={buildingData} />
-        </div>
-      </div>
-
-      <ScrollArea className='col-span-12 md:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-3 -mt-5' style={{ height: '40%', width: '109%' }}>
-        <div className='flex flex-col gap-2'>
-          {dangerAngleNodes && dangerAngleNodes.length ? (
-            dangerAngleNodes.map(item => (
-              <div key={item._id} className='text-center p-2 bg-red-500 border rounded-md'>
-                <p className='text-white text-[16px]'>노드 {item.doorNum}번 경고 확인바람</p>
-              </div>
-            ))
-          ) : (
-            <div className='p-2 bg-blue-500 border rounded-md'>
-              <p className='text-center text-white text-[16px]'>지금 위험이 없습니다.</p>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-    </div>
-  )
+			<ScrollArea
+				className='col-span-12 md:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-3 -mt-5'
+				style={{ height: '40%', width: '109%' }}
+			>
+				<div className='flex flex-col gap-2'>
+					{dangerAngleNodes && dangerAngleNodes.length ? (
+						dangerAngleNodes.map(item => (
+							<div
+								key={item._id}
+								className='text-center p-2 bg-red-500 border rounded-md'
+							>
+								<p className='text-white text-[16px]'>
+									노드 {item.doorNum}번 경고 확인바람
+								</p>
+							</div>
+						))
+					) : (
+						<div className='p-2 bg-blue-500 border rounded-md'>
+							<p className='text-center text-white text-[16px]'>
+								지금 위험이 없습니다.
+							</p>
+						</div>
+					)}
+				</div>
+			</ScrollArea>
+		</div>
+	)
 }
 
 export default AngleNodeScroll

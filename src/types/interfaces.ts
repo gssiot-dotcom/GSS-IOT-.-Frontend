@@ -119,6 +119,7 @@ export interface IBuilding {
 	users: string[]
 	permit_date: string
 	expiry_date: string
+	building_plan_img?: string
 	building_status: boolean
 	nodes_position_file: string
 }
