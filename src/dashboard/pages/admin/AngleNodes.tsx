@@ -25,15 +25,17 @@ export interface GraphDataPoint {
   nodeId?: string
 }
 
-export interface TopNodeGraphPoint {
-  time: string
-  [key: string]: number | string
-}
-
 export interface DeltaGraphPoint {
   time: string
   [key: string]: number | string
 }
+
+// 평균변화 데이터 타입을 명확히 정의합니다.
+// 이제 사용하지 않으므로 주석 처리
+// export interface AvgDeltaDataPoint {
+//   time: string
+//   avgX: number
+// }
 
 interface ResQuery {
   state: string
@@ -45,10 +47,11 @@ const AngleNodes = () => {
   const [selectedDoorNum, setSelectedDoorNum] = useState<number | null>(null)
   const [selectedHours, setSelectedHours] = useState<number>(1)
   const [data, setData] = useState<GraphDataPoint[]>([])
-  const [topNodesData, setTopNodesData] = useState<TopNodeGraphPoint[]>([])
-  const [deltaData, setDeltaData] = useState<DeltaGraphPoint[]>([])
+  const [deltaData, setDeltaData] = useState<DeltaGraphPoint[]>([]) // AvgDeltaDataPoint[] 제거
   const [isFirstLoad, setIsFirstLoad] = useState(true)
-  const [viewMode, setViewMode] = useState<'general' | 'top' | 'delta'>('general')
+  const [viewMode, setViewMode] = useState<'general' | 'delta' | 'avgDelta'>(
+    'general'
+  )
   const { buildingId } = useParams()
   const queryClient = useQueryClient()
 
@@ -97,27 +100,27 @@ const AngleNodes = () => {
   useEffect(() => {
     if (viewMode === 'general' && !selectedDoorNum) return
     if (viewMode === 'delta' && !selectedDoorNum) return
-    if (viewMode !== 'general' && viewMode !== 'delta' && buildingAngleNodes.length === 0) return
+    if (viewMode === 'avgDelta' && !selectedDoorNum) return
 
     const now = new Date()
     const from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
     const to = now.toISOString()
     
-    const doorNums = viewMode === 'top'
-      ? buildingAngleNodes.map(n => n.doorNum)
-      : [selectedDoorNum]
-
+    const doorNums = [selectedDoorNum]
+    
     axios
       .get<SensorData[]>('/product/angle-node/data', {
         params: { doorNum: doorNums.join(','), from, to },
         baseURL: import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
       })
       .then(res => {
+        const filteredData = res.data.filter(item => item.doorNum === selectedDoorNum)
+        const sortedData = filteredData.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
         if (viewMode === 'general') {
           const dataMap: Record<string, any> = {}
-          const filteredData = res.data.filter(item => item.doorNum === selectedDoorNum)
           
-          filteredData.forEach(item => {
+          sortedData.forEach(item => {
             const time = new Date(item.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
             if (!dataMap[time]) {
               dataMap[time] = { time }
@@ -127,12 +130,8 @@ const AngleNodes = () => {
           })
           const formatted = Object.values(dataMap)
           setData(formatted as GraphDataPoint[])
-          setTopNodesData([])
           setDeltaData([])
         } else if (viewMode === 'delta') {
-          const filteredData = res.data.filter(item => item.doorNum === selectedDoorNum)
-          const sortedData = filteredData.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-
           const deltaGraphData: DeltaGraphPoint[] = []
           for (let i = 1; i < sortedData.length; i++) {
             const time = new Date(sortedData[i].createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -146,24 +145,25 @@ const AngleNodes = () => {
           }
           setDeltaData(deltaGraphData);
           setData([]);
-          setTopNodesData([]);
-        } else if (viewMode === 'top') {
-          const dataMap: Record<string, any> = {}
-          res.data.forEach(item => {
-            const time = new Date(item.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
-            if (!dataMap[time]) {
-              dataMap[time] = { time }
-            }
-            dataMap[time][`node_${item.doorNum}`] = item.angle_x
-          })
-          const formatted = Object.values(dataMap)
-          setTopNodesData(formatted as TopNodeGraphPoint[])
-          setData([])
-          setDeltaData([])
+        } else if (viewMode === 'avgDelta') {
+          const avgDeltaGraphData: DeltaGraphPoint[] = [];
+          const chunkSize = 5;
+          for (let i = 0; i < sortedData.length; i += chunkSize) {
+            const chunk = sortedData.slice(i, i + chunkSize);
+            if (chunk.length === 0) continue;
+            
+            const avgX = chunk.reduce((sum, node) => sum + node.angle_x, 0) / chunk.length;
+            const time = new Date(chunk[0].createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+            avgDeltaGraphData.push({ time, [`node_${selectedDoorNum}`]: avgX });
+          }
+          setDeltaData(avgDeltaGraphData);
+          setData([]);
         }
       })
       .catch(err => console.error('Data fetch error:', err))
-  }, [selectedDoorNum, selectedHours, viewMode, buildingAngleNodes, allNodes])
+  }, [selectedDoorNum, selectedHours, viewMode])
+
 
   useEffect(() => {
     if (!buildingId) return
@@ -248,11 +248,9 @@ const AngleNodes = () => {
       <div className='-mt-[63.5vh]'>
         <SensorGraph
           graphData={
-            viewMode === 'delta'
+            viewMode === 'delta' || viewMode === 'avgDelta'
               ? deltaData
-              : viewMode === 'general'
-              ? data
-              : topNodesData
+              : data
           }
           buildingId={buildingId}
           doorNum={selectedDoorNum}
@@ -263,7 +261,6 @@ const AngleNodes = () => {
           Y={Y}
           R={R}
           viewMode={viewMode}
-          allNodes={allNodes}
         />
       </div>
     </div>
