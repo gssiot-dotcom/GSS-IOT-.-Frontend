@@ -203,4 +203,25 @@ export type AngleNodeCreate = {
 	doorNum: number
 }
 
-// ============== Data-Base related Data interfaces ========== //
+// 모든 타입 인터페이스를 이곳에서 정의하고 export 합니다.
+export interface SensorData {
+  doorNum: number
+  updatedAt: string
+  createdAt: string
+  angle_x: number
+  angle_y: number
+}
+
+export interface GraphDataPoint {
+  time: string
+  angle_x: number
+  angle_y: number
+  wind_speed?: number
+  nodeId?: string
+}
+
+export interface DeltaGraphPoint {
+  time: string
+  [key: string]: number | string
+}
+

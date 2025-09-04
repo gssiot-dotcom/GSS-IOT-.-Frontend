@@ -804,3 +804,26 @@ export const getAngleNodeSummary = async (buildingId: string) => {
 		)
 	}
 }
+
+
+// apiRequests.ts
+export const setBuildingAlarmLevelRequest = async (
+  buildingId: string,
+  levels: { B: number; G: number; Y: number; R: number }
+) => {
+  return axios.put(
+    '/company/building/set-alarm-level',
+    {
+      building_id: buildingId,
+      alarmLevel: {
+        blue: levels.B,
+        green: levels.G,
+        yellow: levels.Y,
+        red: levels.R,
+      },
+    },
+    {
+      baseURL: import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
+    }
+  )
+}
