@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import TotalcntCsv from '@/dashboard/components/shared-dash/TotalnctCSV'
 import { IAngleNode, IBuilding } from '@/types/interfaces'
-// SensorGraph 컴포넌트를 import하지 않습니다. 부모 컴포넌트에서 렌더링합니다.
 
 interface Props {
   building_angle_nodes: IAngleNode[]
