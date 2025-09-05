@@ -111,18 +111,25 @@ export interface ICreateGateway {
 }
 
 export interface IBuilding {
-	_id: string
-	building_name: string
-	building_num: number
-	building_addr: string
-	gateway_sets: string[]
-	users: string[]
-	permit_date: string
-	expiry_date: string
-	building_plan_img?: string
-	building_status: boolean
-	nodes_position_file: string
+  _id: string
+  building_name: string
+  building_num: number
+  building_addr: string
+  gateway_sets: string[]
+  users: string[]
+  permit_date: string
+  expiry_date: string
+  building_plan_img?: string
+  building_status: boolean
+  nodes_position_file: string
+  alarm_level?: {
+    blue: number
+    green: number
+    yellow: number
+    red: number
+  }
 }
+
 export interface ICreateBuilding {
 	building_name: string
 	building_num: number
