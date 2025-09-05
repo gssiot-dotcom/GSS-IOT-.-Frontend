@@ -89,30 +89,30 @@ const AngleNodeScroll = ({
         {/* BGYR 설정 */}
         <div className='flex justify-between mb-4 gap-2'>
           {[{ key: 'B', label: '정상', color: 'bg-blue-500' },
-            { key: 'G', label: '안전', color: 'bg-green-500' },
-            { key: 'Y', label: '경고', color: 'bg-yellow-400' },
-            { key: 'R', label: '위험', color: 'bg-red-500' }].map(({ key, label, color }) => {
-              const value = key === 'B' ? B : key === 'G' ? G : key === 'Y' ? Y : R
-              const minValue = key === 'B' ? 0 : key === 'G' ? B : key === 'Y' ? G : Y
-              const setter = key === 'B' ? setB : key === 'G' ? setG : key === 'Y' ? setY : setR
-              return (
-                <div key={key} className='flex flex-col items-center'>
-                  <label className='flex items-center text-xs font-semibold mb-1 gap-1'>
-                    <span className={`w-3 h-3 ${color} inline-block rounded-sm`}></span>
-                    {label}
-                  </label>
-                  <select
-                    className='border border-gray-300 rounded-md px-2 py-1 text-sm'
-                    value={value}
-                    onChange={e => setter(parseFloat(e.target.value))}
-                  >
-                    {generateOptions(minValue).map(num => (
-                      <option key={num} value={num}>{num}</option>
-                    ))}
-                  </select>
-                </div>
-              )
-            })}
+          { key: 'G', label: '안전', color: 'bg-green-500' },
+          { key: 'Y', label: '경고', color: 'bg-yellow-400' },
+          { key: 'R', label: '위험', color: 'bg-red-500' }].map(({ key, label, color }) => {
+            const value = key === 'B' ? B : key === 'G' ? G : key === 'Y' ? Y : R
+            const minValue = key === 'B' ? 0 : key === 'G' ? B : key === 'Y' ? G : Y
+            const setter = key === 'B' ? setB : key === 'G' ? setG : key === 'Y' ? setY : setR
+            return (
+              <div key={key} className='flex flex-col items-center'>
+                <label className='flex items-center text-xs font-semibold mb-1 gap-1'>
+                  <span className={`w-3 h-3 ${color} inline-block rounded-sm`}></span>
+                  {label}
+                </label>
+                <select
+                  className='border border-gray-300 rounded-md px-2 py-1 text-sm'
+                  value={value}
+                  onChange={e => setter(parseFloat(e.target.value))}
+                >
+                  {generateOptions(minValue).map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+              </div>
+            )
+          })}
         </div>
 
         {/* 알람 레벨 저장 */}
@@ -161,15 +161,20 @@ const AngleNodeScroll = ({
           </select>
 
           <select
-            className='border border-gray-300 rounded-md px-2 py-1 text-sm  overflow-y-auto'
+            className='border border-gray-300 rounded-md px-2 py-1 text-sm overflow-y-auto'
             value={selectedNode}
             onChange={e => setSelectedNode(e.target.value === '' ? '' : parseInt(e.target.value))}
           >
             <option value=''>전체 노드</option>
-            {sortedNodes.map(node => (
-              <option key={node.doorNum} value={node.doorNum}>{node.doorNum}</option>
-            ))}
+            {[...sortedNodes]
+              .sort((a, b) => a.doorNum - b.doorNum) // 🔹 숫자 오름차순
+              .map(node => (
+                <option key={node.doorNum} value={node.doorNum}>
+                  {node.doorNum}
+                </option>
+              ))}
           </select>
+
         </div>
 
         {/* 노드 카드 */}
