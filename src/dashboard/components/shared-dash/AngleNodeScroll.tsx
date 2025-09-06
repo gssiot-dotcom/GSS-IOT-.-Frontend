@@ -185,7 +185,7 @@ const AngleNodeScroll = ({
 						}`}
 						onClick={() => setViewMode('general')}
 					>
-						일반
+						기울기
 					</button>
 					<button
 						className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
@@ -216,7 +216,7 @@ const AngleNodeScroll = ({
 						value={selectedGateway}
 						onChange={e => setSelectedGateway(e.target.value)}
 					>
-						<option value=''>전체 Gateway</option>
+						<option value=''>구역 설정</option>
 						{gateways.map(gw => (
 							<option key={gw} value={gw}>
 								{gw}
