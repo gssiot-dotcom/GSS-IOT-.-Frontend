@@ -273,16 +273,30 @@ const AngleNodeScroll = ({
             </ScrollArea>
 
 
-            {/* Gateway + 이미지 (위) / CSV (아래) */}
+            {/* 중앙: Gateway + 이미지 / CSV */}
             <div className='col-span-12 md:col-span-6 flex flex-col justify-between h-[40%] md:-mt-5 2xl:-mt-5'>
-
                 {/* 위쪽: 게이트웨이 + 이미지 */}
                 <div className="flex flex-row items-start justify-end gap-6 mb-4 w-full">
                     {/* Gateway 박스 */}
-                    <div className='flex flex-col items-center'>
-                        <div className='w-[20.5vw] h-[30vh] flex items-center justify-center border border-slate-300 rounded-md bg-gray-50 text-gray-600'>
-                            Gateway Placeholder
-                        </div>
+                    <div className='flex flex-col items-center w-[20.5vw] h-[30vh] border border-slate-300 rounded-md bg-gray-50 text-gray-600 p-2'>
+                        <ScrollArea className='h-full w-full'>
+                            <div className='grid grid-cols-3 gap-2 w-full'>
+                                {gateways.map((gw, index) => {
+                                    const nodeCount = building_angle_nodes.filter(
+                                        node => node.gateway_id?.serial_number === gw
+                                    ).length
+                                    return (
+                                        <div
+                                            key={index}
+                                            className='bg-blue-500 text-white text-sm font-semibold p-2 rounded-md flex flex-col items-center justify-center shadow-md'
+                                        >
+                                            <span className='truncate'>{gw}</span>
+                                            <span className='text-xs mt-1'>노드: {nodeCount}</span>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </ScrollArea>
                     </div>
 
                     {/* 비계전도노드 이미지 */}
