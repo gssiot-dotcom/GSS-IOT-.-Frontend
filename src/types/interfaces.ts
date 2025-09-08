@@ -91,6 +91,7 @@ export interface IAngleNode {
 	node_status: boolean
 	gateway_id?: { _id: string; serial_number: string }
 	position: string
+	angle_node_img?: string
 }
 
 export interface ICreateNode {
@@ -111,23 +112,23 @@ export interface ICreateGateway {
 }
 
 export interface IBuilding {
-  _id: string
-  building_name: string
-  building_num: number
-  building_addr: string
-  gateway_sets: string[]
-  users: string[]
-  permit_date: string
-  expiry_date: string
-  building_plan_img?: string
-  building_status: boolean
-  nodes_position_file: string
-  alarm_level?: {
-    blue: number
-    green: number
-    yellow: number
-    red: number
-  }
+	_id: string
+	building_name: string
+	building_num: number
+	building_addr: string
+	gateway_sets: string[]
+	users: string[]
+	permit_date: string
+	expiry_date: string
+	building_plan_img?: string
+	building_status: boolean
+	nodes_position_file: string
+	alarm_level?: {
+		blue: number
+		green: number
+		yellow: number
+		red: number
+	}
 }
 
 export interface ICreateBuilding {
@@ -212,23 +213,22 @@ export type AngleNodeCreate = {
 
 // 모든 타입 인터페이스를 이곳에서 정의하고 export 합니다.
 export interface SensorData {
-  doorNum: number
-  updatedAt: string
-  createdAt: string
-  angle_x: number
-  angle_y: number
+	doorNum: number
+	updatedAt: string
+	createdAt: string
+	angle_x: number
+	angle_y: number
 }
 
 export interface GraphDataPoint {
-  time: string
-  angle_x: number
-  angle_y: number
-  wind_speed?: number
-  nodeId?: string
+	time: string
+	angle_x: number
+	angle_y: number
+	wind_speed?: number
+	nodeId?: string
 }
 
 export interface DeltaGraphPoint {
-  time: string
-  [key: string]: number | string
+	time: string
+	[key: string]: number | string
 }
-

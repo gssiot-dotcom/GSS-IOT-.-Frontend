@@ -114,10 +114,6 @@ const AngleNodeScroll = ({
         setIsModalOpen(true)
     }
 
-    const handleImageUpload = (nodeId: string, file: File) => {
-        console.log('Uploading image for node:', nodeId, file)
-    }
-
     return (
         <div className='grid grid-cols-12 gap-4 w-full h-screen px-4 py-4'>
             <ScrollArea className='col-span-12 md:col-span-4 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 2xl:h-[95vh] w-[90%]'>
@@ -340,7 +336,6 @@ const AngleNodeScroll = ({
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 node={selectedNodeForModal}
-                onImageUpload={handleImageUpload}
             />
         </div>
     )

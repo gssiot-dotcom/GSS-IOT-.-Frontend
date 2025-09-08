@@ -10,36 +10,43 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog'
+import { IAngleNode } from '@/types/interfaces'
+import axios from 'axios'
 import { Upload, X } from 'lucide-react'
-import { useState } from 'react'
-
-interface IAngleNode {
-	_id: string
-	doorNum: number
-	angle_x: number
-	angle_y: number
-	node_status: boolean
-	gateway_id?: {
-		serial_number: string
-	}
-	image?: string
-}
+import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 interface NodeDetailModalProps {
 	isOpen: boolean
 	onClose: () => void
 	node: IAngleNode | null
-	onImageUpload?: (nodeId: string, file: File) => void
 }
 
 export const NodeDetailModal = ({
 	isOpen,
 	onClose,
 	node,
-	onImageUpload,
 }: NodeDetailModalProps) => {
 	const [dragActive, setDragActive] = useState(false)
-	const [uploadedImage, setUploadedImage] = useState<string | null>(null)
+	const [uploadedImage, setUploadedImage] = useState<string | null>(null) // preview (DataURL)
+	const [uploadedFile, setUploadedFile] = useState<File | null>(null) // asl fayl
+	const [isEditingImage, setIsEditingImage] = useState(false) // <--- YANGI
+	const base = import.meta.env.VITE_SERVER_BASE_URL
+	// serverdan kelgan hozirgi rasm URL’ini lokal state’da ushlaymiz
+	const [serverImageUrl, setServerImageUrl] = useState<string | null>(null)
+
+	// node o‘zgarsa hammasini reset qilamiz
+	useEffect(() => {
+		if (!node) return
+		const url = node.angle_node_img
+			? `${base}/static/images/${node.angle_node_img}`
+			: null
+		setServerImageUrl(url)
+		setIsEditingImage(false)
+		setUploadedImage(null)
+		setUploadedFile(null)
+		setDragActive(false)
+	}, [node, base])
 
 	if (!node) return null
 
@@ -73,13 +80,62 @@ export const NodeDetailModal = ({
 		if (file.type.startsWith('image/')) {
 			const reader = new FileReader()
 			reader.onload = e => {
-				setUploadedImage(e.target?.result as string)
+				setUploadedImage(e.target?.result as string) // preview uchun
+				setUploadedFile(file) // yuborish uchun
 			}
 			reader.readAsDataURL(file)
+		}
+	}
 
-			if (onImageUpload) {
-				onImageUpload(node._id, file)
+	// Edit’ni bekor qilish (Back)
+	const handleCancelEdit = () => {
+		setIsEditingImage(false)
+		setUploadedImage(null)
+		setUploadedFile(null)
+		setDragActive(false)
+	}
+
+	// 2) FormData bilan yuborish
+	const handleImageUploadRequest = async (nodeId: string) => {
+		if (!uploadedFile) return
+
+		try {
+			const formData = new FormData()
+			// backend kutayotgan nomga moslang: masalan 'image' yoki 'file'
+			formData.append('image', uploadedFile, uploadedFile.name)
+			formData.append('node_id', nodeId) // kerak bo‘lsa qo‘shimcha maydon
+
+			// endpointingizni moslang (misol)
+			const res = await axios.put(
+				`${import.meta.env.VITE_SERVER_BASE_URL}/product/angle-node/image`,
+				formData, // E’TIBOR: Content-Type qo‘ymang, browser o‘zi boundary bilan qo‘yadi
+				// headers qo‘ymang: {'Content-Type': 'multipart/form-data'} NI yozmang!
+				{ headers: { 'Content-Type': 'multipart/form-data' } }
+			)
+
+			if (res.status < 200 || res.status >= 300) {
+				const txt = res.statusText || ''
+				throw new Error(txt || `Upload failed with ${res.status}`)
 			}
+
+			const { imageUrl, filename } = res.data || {}
+
+			const nextUrl = imageUrl
+				? imageUrl.startsWith('http')
+					? imageUrl
+					: `${base}${imageUrl}`
+				: filename
+				? `${base}/static/images/${filename}`
+				: serverImageUrl
+
+			setServerImageUrl(nextUrl || null)
+			setIsEditingImage(false)
+			setUploadedImage(null)
+			setUploadedFile(null)
+			toast.success('이미지 업로드 성공!') // rasm muvaffaqiyatli yuklandi
+		} catch (error) {
+			console.error(error)
+			toast.error('에러 발생! 다시 시도해주세요.') // xatolik yuz berdi
 		}
 	}
 
@@ -105,7 +161,8 @@ export const NodeDetailModal = ({
 
 	const status = getStatus(node.angle_x)
 	const colors = CLASS_MAP[status.color as keyof typeof CLASS_MAP]
-	const currentImage = uploadedImage || node.image
+	const showingImage = !isEditingImage && !!serverImageUrl
+	const currentImage = showingImage ? serverImageUrl : uploadedImage
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
@@ -130,7 +187,7 @@ export const NodeDetailModal = ({
 									variant='destructive'
 									size='sm'
 									className='absolute top-4 right-4'
-									onClick={() => setUploadedImage(null)}
+									onClick={() => setIsEditingImage(true)}
 								>
 									<X className='w-4 h-4' />
 								</Button>
@@ -147,13 +204,61 @@ export const NodeDetailModal = ({
 								onDragOver={handleDrag}
 								onDrop={handleDrop}
 							>
-								<Upload className='w-16 h-16 text-gray-400 mb-4' />
-								<p className='text-lg font-medium text-gray-600 mb-2'>
-									노드 이미지를 업로드하세요
-								</p>
-								<p className='text-sm text-gray-500 mb-4'>
-									드래그 앤 드롭하거나 클릭하여 파일을 선택하세요
-								</p>
+								{/* Back tugmasi */}
+								<div className='absolute top-4 left-4 flex gap-2'>
+									<Button
+										variant='outline'
+										size='sm'
+										onClick={handleCancelEdit}
+									>
+										Back
+									</Button>
+								</div>
+
+								{uploadedImage ? (
+									<>
+										<img
+											src={uploadedImage}
+											alt='미리보기'
+											className='max-w-full max-h-[60vh] object-contain rounded-lg mb-4'
+										/>
+										<div className='flex gap-2'>
+											<Button asChild variant='outline'>
+												<label
+													htmlFor='image-upload'
+													className='cursor-pointer'
+												>
+													다른 파일 선택
+												</label>
+											</Button>
+											<Button
+												variant='ghost'
+												onClick={() => {
+													setUploadedImage(null)
+													setUploadedFile(null)
+												}}
+											>
+												제거
+											</Button>
+										</div>
+									</>
+								) : (
+									<>
+										<Upload className='w-16 h-16 text-gray-400 mb-4' />
+										<p className='text-lg font-medium text-gray-600 mb-2'>
+											노드 이미지를 업로드하세요
+										</p>
+										<p className='text-sm text-gray-500 mb-4'>
+											드래그 앤 드롭하거나 클릭하여 파일을 선택하세요
+										</p>
+										<Button asChild variant='outline'>
+											<label htmlFor='image-upload' className='cursor-pointer'>
+												파일 선택
+											</label>
+										</Button>
+									</>
+								)}
+
 								<input
 									type='file'
 									accept='image/*'
@@ -161,11 +266,6 @@ export const NodeDetailModal = ({
 									className='hidden'
 									id='image-upload'
 								/>
-								<Button asChild variant='outline'>
-									<label htmlFor='image-upload' className='cursor-pointer'>
-										파일 선택
-									</label>
-								</Button>
 							</div>
 						)}
 					</div>
@@ -243,10 +343,10 @@ export const NodeDetailModal = ({
 							</Card>
 
 							<Button
-								onClick={onClose}
+								onClick={() => handleImageUploadRequest(node._id)}
 								className='w-full bg-blue-600 hover:bg-blue-700'
 							>
-								닫기
+								이미지 업로드
 							</Button>
 						</div>
 					</div>
