@@ -422,7 +422,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
   }
 
   return (
-    <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[68.4%] 2xl:w-[68.8%] pb-5 md:-mr-2 2xl:-mr-5 2xl:h-[20%]'>
+    <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[69.4%] 2xl:w-[68.8%] pb-5 md:-mr-2 2xl:-mr-5 2xl:h-[20%]'>
       <Card className='w-full border shadow-sm border-slate-400 mt-4 sm:mt-6'>
         <CardHeader className='p-3 sm:p-4 space-y-2'>
           <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2'>
