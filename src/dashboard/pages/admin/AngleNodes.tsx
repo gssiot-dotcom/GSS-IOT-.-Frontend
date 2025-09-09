@@ -53,6 +53,7 @@ const AngleNodes = () => {
 	})
 
 	const buildingData = queryData[0].data?.building
+	const gateways = queryData[0].data?.gateways
 	const buildingAngleNodes =
 		(queryData[0].data?.angle_nodes as IAngleNode[]) || []
 
@@ -277,6 +278,7 @@ const AngleNodes = () => {
 				building_angle_nodes={buildingAngleNodes}
 				dangerAngleNodes={dangerAngleNodes}
 				buildingData={buildingData}
+				gateways={gateways}
 				B={B}
 				G={G}
 				Y={Y}

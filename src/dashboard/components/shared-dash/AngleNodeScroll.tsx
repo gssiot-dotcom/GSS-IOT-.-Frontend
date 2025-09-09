@@ -3,7 +3,7 @@ import nodeImage from '@/assets/node.png'
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import TotalcntCsv from '@/dashboard/components/shared-dash/TotalnctCSV'
-import { IAngleNode, IBuilding } from '@/types/interfaces'
+import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
 import { Eye } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { NodeDetailModal } from './angleNodeDetail'
@@ -13,6 +13,7 @@ interface Props {
 	dangerAngleNodes: IAngleNode[]
 	onSelectNode: (doorNum: number) => void
 	buildingData?: IBuilding
+	gateways: IGateway[]
 	B: number
 	G: number
 	Y: number
@@ -37,6 +38,7 @@ const AngleNodeScroll = ({
 	dangerAngleNodes,
 	onSelectNode,
 	buildingData,
+	gateways,
 	B,
 	G,
 	Y,
@@ -66,13 +68,13 @@ const AngleNodeScroll = ({
 		})
 	}, [building_angle_nodes])
 
-	const gateways = useMemo(() => {
-		const set = new Set<string>()
-		building_angle_nodes.forEach(node => {
-			if (node.gateway_id?.serial_number) set.add(node.gateway_id.serial_number)
-		})
-		return Array.from(set).sort()
-	}, [building_angle_nodes])
+	// const gateways = useMemo(() => {
+	// 	const set = new Set<string>()
+	// 	building_angle_nodes.forEach(node => {
+	// 		if (node.gateway_id?.serial_number) set.add(node.gateway_id.serial_number)
+	// 	})
+	// 	return Array.from(set).sort()
+	// }, [building_angle_nodes])
 
 	const nodesToDisplay = useMemo(() => {
 		let nodes = [...sortedNodes]
@@ -147,7 +149,7 @@ const AngleNodeScroll = ({
 						},
 						{
 							key: 'G',
-							label: '안전',
+							label: '주의',
 							color: 'bg-green-500',
 							setter: setG,
 							value: G,
@@ -178,7 +180,7 @@ const AngleNodeScroll = ({
 									{label}
 								</label>
 								<select
-									className='border border-gray-300 rounded-md px-2 py-1 text-sm'
+									className='border border-gray-400 rounded-md px-1 text-sm'
 									value={value}
 									onChange={e => setter(Number.parseFloat(e.target.value))}
 								>
@@ -193,10 +195,10 @@ const AngleNodeScroll = ({
 					})}
 					{/* 알람 저장 버튼 */}
 					<button
-						className='px-2 py-1 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors'
+						className='px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors'
 						onClick={() => onSetAlarmLevels({ B, G, Y, R })}
 					>
-						<p>알람</p>
+						{/* <p>알람</p> */}
 						<p>저장</p>
 					</button>
 				</div>
@@ -236,23 +238,22 @@ const AngleNodeScroll = ({
 				</div>
 
 				{/* Gateway + Node 선택 */}
-				<div className='flex justify-center mb-4 gap-1 flex-nowrap'>
-					<span className='text-xs font-semibold'>구역설정 :</span>
+				<div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
 					<select
-						className='border border-gray-300 rounded-md px-1 py-0.5 text-xs overflow-y-auto'
+						className='border border-gray-400 rounded-md px-1 py-0.5 text-sm overflow-y-auto'
 						value={selectedGateway}
 						onChange={e => setSelectedGateway(e.target.value)}
 					>
-						<option value=''>전체 구역</option>
-						{gateways.map(gw => (
-							<option key={gw} value={gw}>
-								{gw}
+						<option value=''>전체구역</option>
+						{gateways?.map(gw => (
+							<option key={gw._id} value={gw.serial_number}>
+								{gw.zone_name}
 							</option>
 						))}
 					</select>
-					<span className='text-xs font-semibold'>노드설정 :</span>
+
 					<select
-						className='border border-gray-300 rounded-md px-1 py-0.5 text-xs overflow-y-auto'
+						className='border border-gray-400 rounded-md px-1 py-1 text-sm overflow-y-auto '
 						value={selectedNode}
 						onChange={e =>
 							setSelectedNode(
@@ -260,7 +261,7 @@ const AngleNodeScroll = ({
 							)
 						}
 					>
-						<option value=''>전체 노드</option>
+						<option value=''>전체노드</option>
 						{[...sortedNodes]
 							.sort((a, b) => a.doorNum - b.doorNum)
 							.map(node => (
@@ -325,17 +326,17 @@ const AngleNodeScroll = ({
 					<div className='flex flex-col items-center w-[20.5vw] h-[30vh] border border-slate-300 rounded-md bg-gray-50 text-gray-600 p-2'>
 						<ScrollArea className='h-full w-full'>
 							<div className='grid grid-cols-3 gap-2 w-full'>
-								{gateways.map((gw, index) => {
-									const nodeCount = building_angle_nodes.filter(
-										node => node.gateway_id?.serial_number === gw
-									).length
+								{gateways?.map((gw, index) => {
+									// const nodeCount = building_angle_nodes.filter(
+									// 	node => node.gateway_id?.serial_number === gw
+									// ).length
 									return (
 										<div
 											key={index}
 											className='bg-blue-500 text-white text-sm font-semibold p-2 rounded-md flex flex-col items-center justify-center shadow-md'
 										>
-											<span className='truncate'>{gw}</span>
-											<span className='text-xs mt-1'>노드: {nodeCount}</span>
+											<span className='truncate'>{gw.serial_number}</span>
+											<span className='text-xs mt-1'>게이트웨이</span>
 										</div>
 									)
 								})}
@@ -373,7 +374,7 @@ const AngleNodeScroll = ({
 						dangerAngleNodes.map(item => (
 							<div
 								key={item._id}
-								className='text-center p-2 bg-red-500 border rounded-md'
+								className='text-center py-1 bg-red-500 border rounded-md'
 							>
 								<p className='text-white text-[16px]'>
 									노드 {item.doorNum}번 경고

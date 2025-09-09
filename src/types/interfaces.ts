@@ -104,6 +104,7 @@ export interface IGateway {
 	nodes: string[]
 	building_id: string
 	gateway_status: boolean
+	zone_name: string
 }
 
 export interface ICreateGateway {
