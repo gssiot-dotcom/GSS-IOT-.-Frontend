@@ -319,12 +319,13 @@ const AngleNodeScroll = ({
 			</ScrollArea>
 
 			{/* 중앙: Gateway + 이미지 / CSV */}
-			<div className='col-span-12 md:col-span-6 flex flex-col justify-between h-[40%] md:-mt-5 2xl:-mt-5'>
+			<div className='col-span-12 md:col-span-6 flex flex-col gap-y-2 h-[40%] md:-mt-5 2xl:-mt-5'>
+				<p className='text-center font-bold text-lg'>비계전도 감지 시스템</p>
 				{/* 위쪽: 게이트웨이 + 이미지 */}
 				<div className='flex flex-row items-start justify-end gap-6 mb-4 w-full'>
 					{/* Gateway 박스 */}
-					<div className='flex flex-col items-center w-[20.5vw] h-[30vh] border border-slate-300 rounded-md bg-gray-50 text-gray-600 p-2'>
-						<ScrollArea className='h-full w-full'>
+					<div className='flex flex-col items-center w-[25vw] h-[24vh] border border-slate-300 rounded-md bg-gray-50 text-gray-600 '>
+						<ScrollArea className='h-full w-full pr-3 pl-1 py-1'>
 							<div className='grid grid-cols-3 gap-2 w-full'>
 								{gateways?.map((gw, index) => {
 									// const nodeCount = building_angle_nodes.filter(
@@ -350,8 +351,8 @@ const AngleNodeScroll = ({
 							src={`${import.meta.env.VITE_SERVER_BASE_URL}/static/images/${
 								buildingData?.building_plan_img || nodeImage
 							}`}
-							alt='비계전도 노드'
-							className='w-[19.5vw] h-auto object-contain rounded-md'
+							alt='도면 사진'
+							className='w-[22.5vw] h-[24vh] object-cover rounded-md'
 						/>
 					</div>
 				</div>

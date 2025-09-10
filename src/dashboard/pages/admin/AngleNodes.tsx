@@ -35,7 +35,6 @@ const AngleNodes = () => {
 	)
 	const { buildingId } = useParams()
 	const queryClient = useQueryClient()
-
 	const [B, setB] = useState(0)
 	const [G, setG] = useState(0)
 	const [Y, setY] = useState(0)
@@ -67,9 +66,13 @@ const AngleNodes = () => {
 		}
 	}, [buildingData])
 
+	const LIMIT = 10
 	const dangerAngleNodes = useMemo(
-		() => buildingAngleNodes.filter(it => Math.abs(it.angle_x) >= Y),
-		[buildingAngleNodes]
+		() =>
+			buildingAngleNodes.filter(
+				it => Math.abs(it.angle_x) >= Y && Math.abs(it.angle_x) < LIMIT
+			),
+		[buildingAngleNodes, Y] // Added Y dependency
 	)
 
 	const allNodes = useMemo(() => [...buildingAngleNodes], [buildingAngleNodes])
