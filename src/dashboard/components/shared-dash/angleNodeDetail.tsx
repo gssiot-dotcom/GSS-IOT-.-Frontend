@@ -302,12 +302,12 @@ export const NodeDetailModal = ({
 												<span className='font-medium'>상태:</span>
 												<span
 													className={`px-2 py-1 rounded-full text-xs font-bold ${
-														node.node_status
+														!node.node_status
 															? 'bg-green-100 text-green-800'
 															: 'bg-red-100 text-red-800'
 													}`}
 												>
-													{node.node_status ? '정상' : '오프라인'}
+													{!node.node_status ? 'live' : 'offline'}
 												</span>
 											</div>
 										</div>

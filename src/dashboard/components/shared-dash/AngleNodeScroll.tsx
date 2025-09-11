@@ -279,14 +279,14 @@ const AngleNodeScroll = ({
 							<Card
 								key={item.doorNum}
 								onClick={() => handleNodeCardClick(item)}
-								className={`border border-slate-300 flex flex-col justify-center p-2 ${getNodeColorClass(
+								className={`border border-slate-300 flex flex-col justify-center ${getNodeColorClass(
 									item.angle_x
 								)} shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer relative`}
 							>
-								<CardContent className='flex flex-col justify-center p-2 text-sm text-gray-700'>
+								<CardContent className='flex flex-col justify-center p-2 text-[14px] text-gray-700'>
 									<div className='flex justify-between items-center mb-2'>
 										<h1 className='font-bold text-blue-700'>노드넘버</h1>
-										<span className='text-blue-800 font-semibold text-lg'>
+										<span className='text-blue-800 font-semibold text-[16px]'>
 											{item.doorNum}
 										</span>
 									</div>
@@ -299,9 +299,9 @@ const AngleNodeScroll = ({
 										<p className='text-gray-800'>{item.angle_y}</p>
 									</div>
 									<div className='flex justify-between mb-1'>
-										<p className='text-gray-800'>Gateway:</p>
-										<p className='font-medium text-gray-600'>
-											{item.gateway_id?.serial_number || 'N/A'}
+										{/* <p className='text-gray-800'>블록:</p> */}
+										<p className='font-medium text-gray-600 mt-1'>
+											{item.position || 'N/A'}
 										</p>
 									</div>
 									<button
@@ -309,7 +309,7 @@ const AngleNodeScroll = ({
 										className='mt-2 w-full flex items-center justify-center gap-2 py-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]'
 									>
 										<Eye className='w-4 h-4' />
-										<span>상세정보</span>
+										<span className='text-[13px]'>상세정보</span>
 									</button>
 								</CardContent>
 							</Card>
@@ -334,10 +334,13 @@ const AngleNodeScroll = ({
 									return (
 										<div
 											key={index}
-											className='bg-blue-500 text-white text-sm font-semibold p-2 rounded-md flex flex-col items-center justify-center shadow-md'
+											className='bg-blue-500 text-white text-[12px] p-1 rounded-md flex flex-col items-center justify-center shadow-md '
 										>
-											<span className='truncate'>{gw.serial_number}</span>
-											<span className='text-xs mt-1'>게이트웨이</span>
+											<span className='border-b pb-1'>{gw.zone_name}</span>
+
+											<span className='truncate mt-2 tex'>
+												gw-{gw.serial_number}
+											</span>
 										</div>
 									)
 								})}
