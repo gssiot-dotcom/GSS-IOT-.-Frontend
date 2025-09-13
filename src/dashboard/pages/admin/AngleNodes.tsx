@@ -198,6 +198,7 @@ const AngleNodes = () => {
 		const topic = `${buildingId}_angle-nodes`
 
 		const listener = (newData: SensorData) => {
+			console.log('Received socket data:', newData)
 			queryClient.setQueryData<ResQuery>(
 				['get-building-angle-nodes', buildingId],
 				old => {
