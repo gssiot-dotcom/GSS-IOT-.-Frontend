@@ -53,8 +53,9 @@ const AngleNodeScroll = ({
 }: Props) => {
 	const [selectedGateway, setSelectedGateway] = useState<string>('')
 	const [selectedNode, setSelectedNode] = useState<number | ''>('')
-	const [isModalOpen, setIsModalOpen] = useState(false)
+	const [isModalOpen, setIsModalOpen] = useState(true)
 	const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
+	const [isPlanImgOpen, setIsPlanImgOpen] = useState(false)
 
 	// added constant for sorting and color logic: Yusuf
 	const LIMIT = 10
@@ -67,14 +68,6 @@ const AngleNodeScroll = ({
 			return Math.abs(b.angle_x) - Math.abs(a.angle_x) // bir xil guruh ichida desc
 		})
 	}, [building_angle_nodes])
-
-	// const gateways = useMemo(() => {
-	// 	const set = new Set<string>()
-	// 	building_angle_nodes.forEach(node => {
-	// 		if (node.gateway_id?.serial_number) set.add(node.gateway_id.serial_number)
-	// 	})
-	// 	return Array.from(set).sort()
-	// }, [building_angle_nodes])
 
 	const nodesToDisplay = useMemo(() => {
 		let nodes = [...sortedNodes]
@@ -132,6 +125,10 @@ const AngleNodeScroll = ({
 		e.stopPropagation() // Prevent card click event
 		setSelectedNodeForModal(node)
 		setIsModalOpen(true)
+	}
+
+	const togglePlanImg = () => {
+		setIsPlanImgOpen(!isPlanImgOpen)
 	}
 
 	return (
@@ -326,6 +323,16 @@ const AngleNodeScroll = ({
 					{/* Gateway 박스 */}
 					<div className='flex flex-col items-center w-[25vw] h-[24vh] border border-slate-300 rounded-md bg-gray-50 text-gray-600 '>
 						<ScrollArea className='h-full w-full pr-3 pl-1 py-1'>
+							<button
+								className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${
+									!selectedGateway
+										? 'bg-blue-500 text-white'
+										: 'bg-white text-gray-700 hover:bg-gray-200'
+								}`}
+								onClick={() => setSelectedGateway('')}
+							>
+								전체구역
+							</button>
 							<div className='grid grid-cols-3 gap-2 w-full'>
 								{gateways?.map((gw, index) => {
 									// const nodeCount = building_angle_nodes.filter(
@@ -333,8 +340,9 @@ const AngleNodeScroll = ({
 									// ).length
 									return (
 										<div
+											onClick={() => setSelectedGateway(gw.serial_number)}
 											key={index}
-											className='bg-blue-500 text-white text-[12px] p-1 rounded-md flex flex-col items-center justify-center shadow-md '
+											className='bg-blue-500 text-white text-[12px] p-1 rounded-md flex flex-col items-center justify-center shadow-md cursor-pointer hover:bg-blue-600'
 										>
 											<span className='border-b pb-1'>{gw.zone_name}</span>
 
@@ -349,7 +357,10 @@ const AngleNodeScroll = ({
 					</div>
 
 					{/* 비계전도노드 이미지 */}
-					<div className='flex flex-col items-center'>
+					<div
+						onClick={() => togglePlanImg()}
+						className='flex flex-col items-center cursor-pointer'
+					>
 						<img
 							src={`${import.meta.env.VITE_SERVER_BASE_URL}/static/images/${
 								buildingData?.building_plan_img || nodeImage
@@ -363,7 +374,12 @@ const AngleNodeScroll = ({
 				{/* 아래쪽: CSV */}
 				<div className='w-full flex justify-center'>
 					<div className='w-full max-w-[100%]'>
-						<TotalcntCsv building={buildingData} />
+						<TotalcntCsv
+							angle_nodes={building_angle_nodes}
+							togglePlanImg={togglePlanImg}
+							isPlanImgOpen={isPlanImgOpen}
+							building={buildingData}
+						/>
 					</div>
 				</div>
 			</div>
@@ -398,8 +414,8 @@ const AngleNodeScroll = ({
 			{/* Node Detail Modal */}
 			<NodeDetailModal
 				isOpen={isModalOpen}
-				onClose={() => setIsModalOpen(false)}
 				node={selectedNodeForModal}
+				onClose={() => setIsModalOpen(false)}
 			/>
 		</div>
 	)
