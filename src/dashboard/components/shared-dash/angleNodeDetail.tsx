@@ -118,11 +118,11 @@ export const NodeDetailModal = ({
 												<span
 													className={`px-2 py-1 rounded-full text-xs font-bold ${
 														!node.node_alive
-															? 'bg-green-100 text-green-800'
-															: 'bg-red-100 text-red-800'
+															? 'bg-green-200 text-green-800'
+															: 'bg-red-200 text-red-800'
 													}`}
 												>
-													{!node.node_alive ? 'live' : 'offline'}
+													{node.node_alive ? 'live' : 'offline'}
 												</span>
 											</div>
 										</div>
