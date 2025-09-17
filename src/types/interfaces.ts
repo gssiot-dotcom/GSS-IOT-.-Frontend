@@ -92,6 +92,7 @@ export interface IAngleNode {
 	gateway_id?: { _id: string; serial_number: string }
 	position: string
 	angle_node_img?: string
+	node_alive: boolean
 }
 
 export interface ICreateNode {
@@ -101,10 +102,23 @@ export interface ICreateNode {
 export interface IGateway {
 	_id: string
 	serial_number: string
-	nodes: string[]
+	nodes: [
+		{
+			_id: string
+			doorNum: number
+		}
+	]
+	angle_nodes: [
+		{
+			_id: string
+			doorNum: number
+		}
+	]
 	building_id: string
 	gateway_status: boolean
 	zone_name: string
+	lastSeen: Date
+	gateway_alive: boolean
 }
 
 export interface ICreateGateway {

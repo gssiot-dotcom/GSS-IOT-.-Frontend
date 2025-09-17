@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import nodeImage from '@/assets/node.png'
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import TotalcntCsv from '@/dashboard/components/shared-dash/TotalnctCSV'
+import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
 import { Eye } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -56,6 +56,56 @@ const AngleNodeScroll = ({
 	const [isModalOpen, setIsModalOpen] = useState(true)
 	const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
 	const [isPlanImgOpen, setIsPlanImgOpen] = useState(false)
+	const IMG_SERVER_BASE_URL = `${
+		import.meta.env.VITE_SERVER_BASE_URL
+	}/static/images/`
+
+	// ============= Main Image memo rendering Field =================== //
+	// URL builder: bo'shliqlar va leading slashlarni xavfsizla
+	const buildImgUrl = (file?: string) => {
+		if (!file) return ''
+		const cleanBase = IMG_SERVER_BASE_URL.replace(/\/$/, '')
+		const cleanFile = file.replace(/^\/+/, '') // boshidagi slashni olib tashla
+		return `${cleanBase}/${encodeURIComponent(cleanFile)}`
+	}
+
+	// 1) Bino plan rasmi (prop kelganda avtomatik yangilanadi)
+	const planImgUrl = useMemo(
+		() => buildImgUrl(buildingData?.building_plan_img),
+		[buildingData?.building_plan_img]
+	)
+
+	// 2) Tanlangan gateway bo‘yicha birinchi node
+	const firstNodeOfSelectedGw = useMemo(() => {
+		if (!selectedGateway) return null
+		return (
+			building_angle_nodes?.find(
+				n => n.gateway_id?.serial_number === selectedGateway && n.angle_node_img
+			) ?? null
+		)
+	}, [selectedGateway, building_angle_nodes])
+
+	// 3) (ixtiyoriy) Tanlangan node bo‘yicha aniq rasm
+	const selectedNodeObj = useMemo(() => {
+		if (selectedNode === '' || typeof selectedNode !== 'number') return null
+		return (
+			building_angle_nodes?.find(
+				n => n.doorNum === selectedNode && n.angle_node_img
+			) ?? null
+		)
+	}, [selectedNode, building_angle_nodes])
+
+	// 4) Yakuniy main rasm tanlash tartibi:
+	//    a) agar node tanlangan bo‘lsa — o‘sha node rasmi
+	//    b) bo‘lmasa gateway tanlangan bo‘lsa — shu gatewaydagi 1-node rasmi
+	//    c) bo‘lmasa — building plan rasmi
+	const mainImageUrl = useMemo(() => {
+		if (selectedNodeObj?.angle_node_img)
+			return buildImgUrl(selectedNodeObj.angle_node_img)
+		if (firstNodeOfSelectedGw?.angle_node_img)
+			return buildImgUrl(firstNodeOfSelectedGw.angle_node_img)
+		return planImgUrl
+	}, [selectedNodeObj, firstNodeOfSelectedGw, planImgUrl])
 
 	// added constant for sorting and color logic: Yusuf
 	const LIMIT = 10
@@ -131,8 +181,14 @@ const AngleNodeScroll = ({
 		setIsPlanImgOpen(!isPlanImgOpen)
 	}
 
+	const onToggleGatewaySelection = (gateway: IGateway) => {
+		setSelectedGateway(gateway.serial_number)
+		setSelectedNode('')
+	}
+
 	return (
 		<div className='grid grid-cols-12 gap-4 w-full h-screen px-4 py-4'>
+			{/* =============== Angle-Nodes grid scrolling field ================ */}
 			<ScrollArea className='col-span-12 md:col-span-4 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 2xl:h-[95vh] w-[90%]'>
 				{/* BGYR 설정 & 알람 저장 */}
 				<div className='flex justify-between mb-4 gap-2 items-end'>
@@ -276,34 +332,44 @@ const AngleNodeScroll = ({
 							<Card
 								key={item.doorNum}
 								onClick={() => handleNodeCardClick(item)}
-								className={`border border-slate-300 flex flex-col justify-center ${getNodeColorClass(
-									item.angle_x
-								)} shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer relative`}
+								className={cn(
+									'border border-slate-300 flex flex-col justify-center shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer relative text-gray-600',
+									item.node_alive
+										? getNodeColorClass(item.angle_x)
+										: 'bg-gray-400 text-gray-50  hover:bg-gray-400/70' // yoki text-black/40 agar siz xohlasangiz
+								)}
 							>
-								<CardContent className='flex flex-col justify-center p-2 text-[14px] text-gray-700'>
-									<div className='flex justify-between items-center mb-2'>
-										<h1 className='font-bold text-blue-700'>노드넘버</h1>
-										<span className='text-blue-800 font-semibold text-[16px]'>
+								<CardContent className='flex flex-col justify-center p-2 text-[14px] '>
+									<div
+										className={cn(
+											'flex justify-between items-center mb-2 font-bold text-blue-700',
+											!item.node_alive && 'text-gray-50'
+										)}
+									>
+										<h1>노드넘버</h1>
+										<span className='font-semibold text-[16px]'>
 											{item.doorNum}
 										</span>
 									</div>
-									<div className='flex justify-between mb-1'>
-										<p className='font-medium text-gray-600'>Axis-X:</p>
-										<p className='text-gray-800'>{item.angle_x}</p>
+									<div className='flex justify-between mb-1 font-medium'>
+										<p className=''>Axis-X:</p>
+										<p className=''>{item.angle_x}</p>
 									</div>
-									<div className='flex justify-between mb-1'>
-										<p className='font-medium text-gray-600'>Axis-Y:</p>
-										<p className='text-gray-800'>{item.angle_y}</p>
+									<div className='flex justify-between mb-1 font-medium'>
+										<p className=''>Axis-Y:</p>
+										<p className=''>{item.angle_y}</p>
 									</div>
-									<div className='flex justify-between mb-1'>
+									<div className='flex justify-between mb-1 font-medium'>
 										{/* <p className='text-gray-800'>블록:</p> */}
-										<p className='font-medium text-gray-600 mt-1'>
-											{item.position || 'N/A'}
-										</p>
+										<p className='  mt-1'>{item.position || 'N/A'}</p>
 									</div>
 									<button
 										onClick={e => handleNodeDetailClick(e, item)}
-										className='mt-2 w-full flex items-center justify-center gap-2 py-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]'
+										className={cn(
+											'mt-2 w-full flex items-center justify-center gap-2 py-1 text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white ',
+											!item.node_alive &&
+												'bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white'
+										)}
 									>
 										<Eye className='w-4 h-4' />
 										<span className='text-[13px]'>상세정보</span>
@@ -319,15 +385,15 @@ const AngleNodeScroll = ({
 			<div className='col-span-12 md:col-span-6 flex flex-col gap-y-2 h-[40%] md:-mt-5 2xl:-mt-5'>
 				<p className='text-center font-bold text-lg'>비계전도 감지 시스템</p>
 				{/* 위쪽: 게이트웨이 + 이미지 */}
-				<div className='flex flex-row items-start justify-end gap-6 mb-4 w-full'>
+				<div className='grid grid-cols-2 w-full gap-x-1 rounded-lg border border-slate-400'>
 					{/* Gateway 박스 */}
-					<div className='flex flex-col items-center w-[25vw] h-[24vh] border border-slate-300 rounded-md bg-gray-50 text-gray-600 '>
-						<ScrollArea className='h-full w-full pr-3 pl-1 py-1'>
+					<div className='flex flex-col items-center md:col-span-1 col-span-2 h-[27vh] rounded-md bg-gray-50 text-gray-600 '>
+						<ScrollArea className='pr-3 pl-1 py-1 border-none'>
 							<button
 								className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${
 									!selectedGateway
 										? 'bg-blue-500 text-white'
-										: 'bg-white text-gray-700 hover:bg-gray-200'
+										: 'bg-gray-300 text-gray-700'
 								}`}
 								onClick={() => setSelectedGateway('')}
 							>
@@ -340,9 +406,13 @@ const AngleNodeScroll = ({
 									// ).length
 									return (
 										<div
-											onClick={() => setSelectedGateway(gw.serial_number)}
+											onClick={() => onToggleGatewaySelection(gw)}
 											key={index}
-											className='bg-blue-500 text-white text-[12px] p-1 rounded-md flex flex-col items-center justify-center shadow-md cursor-pointer hover:bg-blue-600'
+											className={cn(
+												'bg-blue-500 text-white text-[12px] p-1 rounded-md flex flex-col items-center justify-center shadow-md cursor-pointer hover:bg-blue-600',
+												!gw.gateway_alive &&
+													'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
+											)}
 										>
 											<span className='border-b pb-1'>{gw.zone_name}</span>
 
@@ -362,11 +432,9 @@ const AngleNodeScroll = ({
 						className='flex flex-col items-center cursor-pointer'
 					>
 						<img
-							src={`${import.meta.env.VITE_SERVER_BASE_URL}/static/images/${
-								buildingData?.building_plan_img || nodeImage
-							}`}
+							src={mainImageUrl}
 							alt='도면 사진'
-							className='w-[22.5vw] h-[24vh] object-cover rounded-md'
+							className='w-full h-[26vh] object-cover rounded-lg'
 						/>
 					</div>
 				</div>
@@ -375,10 +443,12 @@ const AngleNodeScroll = ({
 				<div className='w-full flex justify-center'>
 					<div className='w-full max-w-[100%]'>
 						<TotalcntCsv
+							building={buildingData}
+							gateways={gateways}
 							angle_nodes={building_angle_nodes}
+							image_url={mainImageUrl}
 							togglePlanImg={togglePlanImg}
 							isPlanImgOpen={isPlanImgOpen}
-							building={buildingData}
 						/>
 					</div>
 				</div>
