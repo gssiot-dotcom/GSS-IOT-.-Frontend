@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -377,9 +376,9 @@ export const GatewaysEditModal = ({
 }: GatewaysEditModalProps) => {
 	const [editingId, setEditingId] = useState<string | null>(null)
 	const [editedNodes, setEditedNodes] = useState<IGateway[]>(gatewyas)
-	const [uploadedFiles, setUploadedFiles] = useState<
-		Record<string, File | null>
-	>({})
+	// const [uploadedFiles, setUploadedFiles] = useState<
+	// 	Record<string, File | null>
+	// >({})
 
 	const [previews, setPreviews] = useState<Record<string, string>>({})
 	const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -462,7 +461,7 @@ export const GatewaysEditModal = ({
 			}
 		})
 		setPreviews({})
-		setUploadedFiles({})
+		// setUploadedFiles({})
 		setEditedNodes(gatewyas)
 		setEditingId(null)
 		Object.values(fileInputRefs.current).forEach(input => {
