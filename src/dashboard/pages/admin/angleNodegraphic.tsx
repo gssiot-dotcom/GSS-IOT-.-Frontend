@@ -24,13 +24,13 @@ import {
     Label,
 } from 'recharts'
 import WeatherInfo from '@/dashboard/components/shared-dash/WeatherInfographic'
+import { useWeather } from '@/hooks/useWeatherInfo'
 
-// useMediaQuery 훅을 자체적으로 구현하여 외부 종속성을 제거합니다.
+// useMediaQuery 훅
 const useMediaQuery = (query: string) => {
     const [matches, setMatches] = useState(false)
 
     useEffect(() => {
-        // 윈도우 객체가 정의되어 있는지 확인하여 서버 측 렌더링 오류를 방지합니다.
         if (typeof window !== 'undefined') {
             const mediaQueryList = window.matchMedia(query)
             setMatches(mediaQueryList.matches)
@@ -45,7 +45,7 @@ const useMediaQuery = (query: string) => {
     return matches
 }
 
-// 타입 정의를 추가하여 컴파일 오류를 해결합니다.
+// 타입 정의
 export interface GraphDataPoint {
     time: string
     angle_x: number
@@ -92,69 +92,36 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     const [data, setData] = useState<
         GraphDataPoint[] | DeltaGraphPoint[] | AvgDeltaDataPoint[]
     >(graphData)
+
     const isMobile = useMediaQuery('(max-width: 640px)')
     const isTablet = useMediaQuery('(max-width: 1024px)')
 
+    const { weather } = useWeather()
+
+    // 일반 데이터 업데이트
     useEffect(() => setData(graphData), [graphData])
 
+    // 풍속 병합
     useEffect(() => {
-        const fetchWindData = async (lat: number, lon: number) => {
-            try {
-                const response = await fetch(
-                    `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=f9d0ac2f06dd719db58be8c04d008e76&units=metric`
-                )
-                if (!response.ok) throw new Error('Failed to fetch wind data')
-
-                const weatherData = await response.json()
-                const windDataMap: Record<string, number> = {}
-
-                weatherData.list.forEach((item: any) => {
-                    const time = item.dt_txt.slice(11, 16)
-                    windDataMap[time] = item.wind.speed
-                })
-
-                if (viewMode === 'general') {
-                    const mergedData = (graphData as GraphDataPoint[]).map(d => {
-                        const closestTime = Object.keys(windDataMap).reduce(
-                            (prev, curr) => {
-                                return Math.abs(
-                                    Number(curr.replace(':', '')) - Number(d.time.replace(':', ''))
-                                ) <
-                                    Math.abs(
-                                        Number(prev.replace(':', '')) -
-                                        Number(d.time.replace(':', ''))
-                                    )
-                                    ? curr
-                                    : prev
-                            }
-                        )
-                        return { ...d, wind_speed: windDataMap[closestTime] || 0 }
-                    })
-                    setData(mergedData)
-                }
-            } catch (error) {
-                console.error('풍속 데이터 가져오기 실패:', error)
-                setData(graphData)
-            }
-        }
-
-        if (navigator.geolocation && viewMode === 'general') {
-            navigator.geolocation.getCurrentPosition(
-                position => {
-                    const { latitude, longitude } = position.coords
-                    fetchWindData(latitude, longitude)
-                },
-                error => {
-                    console.warn('사용자 위치 가져오기 실패:', error)
-                    setData(graphData)
-                }
-            )
-        } else if (viewMode === 'general') {
-            console.warn('Geolocation API를 지원하지 않는 브라우저입니다.')
+        if (viewMode !== 'general') {
             setData(graphData)
+            return
         }
-    }, [graphData, viewMode])
 
+        if (!weather?.windSpeed) {
+            setData(graphData)
+            return
+        }
+
+        const merged = (graphData as GraphDataPoint[]).map(d => ({
+            ...d,
+            wind_speed: weather.windSpeed, // ✅ 현재 풍속 값 그대로 붙여줌
+        }))
+
+        setData(merged)
+    }, [graphData, viewMode, weather?.windSpeed])
+
+    // --- Y축 도메인 계산 ---
     const getYDomainAndTicks = (
         data: GraphDataPoint[] | DeltaGraphPoint[] | AvgDeltaDataPoint[]
     ) => {
@@ -205,18 +172,17 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                 const point = d as AvgDeltaDataPoint
                 return [point.avgX]
             })
-            if (values.length === 0) return { domain: [-1, 1], ticks: [-1, 0, 1] }
+            if (values.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] }
             const maxAbs = Math.max(...values.map(Math.abs))
 
-            let boundary = 1
-            for (let i = 1; i <= 10; i++) {
-                if (maxAbs > i) {
-                    boundary = i + 1
-                } else {
-                    break
-                }
+            let boundary: number
+            if (maxAbs > 10) {
+                boundary = 15
+            } else if (maxAbs > 5) {
+                boundary = 10
+            } else {
+                boundary = 5
             }
-            boundary = Math.min(boundary, 10)
 
             return { domain: [-boundary, boundary], ticks: [-boundary, 0, boundary] }
         }
@@ -224,29 +190,27 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
     const { domain: yDomain, ticks: yTicks } = getYDomainAndTicks(data)
 
+    // --- 풍속 Y축 도메인 ---
     const getWindDomainAndTicks = (data: GraphDataPoint[]) => {
         const maxWind = Math.max(...data.map(d => d.wind_speed || 0))
         const top = Math.ceil(maxWind / 10) * 10 || 20
         const ticks: number[] = []
 
-        // 기본 10단위 tick
         for (let i = 0; i <= top; i += 10) {
             ticks.push(i)
         }
-
-        // ✅ 5를 중간에 추가 (단, top이 5 이상일 때만)
         if (top >= 5 && !ticks.includes(5)) {
-            ticks.splice(1, 0, 5) // 0 다음에 5 삽입
+            ticks.splice(1, 0, 5)
         }
 
         return { domain: [0, top], ticks }
     }
 
-
     const { domain: windDomain, ticks: windTicks } = getWindDomainAndTicks(
         data as GraphDataPoint[]
     )
 
+    // --- X축 도메인 ---
     const getXAxisTicksAndDomain = (
         hours: number
     ): { ticks: number[]; domain: [number, number] } => {
@@ -314,7 +278,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     const { ticks: xAxisTicks, domain: xAxisDomain } =
         getXAxisTicksAndDomain(hours)
 
-    // 데이터에 날짜 정보를 유추하여 타임스탬프 속성 추가
+    // --- 데이터 타임스탬프 변환 ---
     const transformedData = data.map(d => {
         const [h, m] = d.time.split(':').map(Number)
         const now = new Date()
@@ -328,19 +292,14 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             0
         )
 
-        // 현재 시간을 기준으로 데이터의 날짜를 추론
         if (hours < 24) {
-            // 1, 6, 12시간 선택 시, 데이터가 현재보다 미래면 어제 날짜로 간주
             if (dataDate.getTime() > now.getTime()) {
                 dataDate.setDate(dataDate.getDate() - 1)
             }
         } else {
-            // 24시간 선택 시
-            // 데이터가 현재 시간보다 미래면 어제 날짜로 간주
             if (dataDate.getTime() > now.getTime()) {
                 dataDate.setDate(dataDate.getDate() - 1)
             }
-            // 데이터가 시작 시간보다 과거면 이틀 전 날짜로 간주
             if (dataDate.getTime() < xAxisDomain[0]) {
                 dataDate.setDate(dataDate.getDate() - 1)
             }
@@ -352,55 +311,13 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         }
     })
 
-    const interpolateWindData = (data: any[]) => {
-        const validWindData = data.filter(
-            d => d.wind_speed !== undefined && d.wind_speed !== null
-        )
+    const finalData = transformedData
 
-        if (validWindData.length <= 1) return data
-
-        const interpolatedData = data.map(d => {
-            if (d.wind_speed !== undefined && d.wind_speed !== null) {
-                return d
-            }
-
-            const prevPoint = validWindData
-                .slice()
-                .reverse()
-                .find(p => p.timestamp < d.timestamp)
-            const nextPoint = validWindData.find(p => p.timestamp > d.timestamp)
-
-            if (prevPoint && nextPoint) {
-                const timeDiff = nextPoint.timestamp - prevPoint.timestamp
-                const windDiff = nextPoint.wind_speed - prevPoint.wind_speed
-                const ratio = (d.timestamp - prevPoint.timestamp) / timeDiff
-                const interpolatedWind = prevPoint.wind_speed + windDiff * ratio
-                return { ...d, wind_speed: interpolatedWind }
-            }
-
-            // 시작점이나 끝점에 데이터가 없는 경우 가장 가까운 값으로 채움
-            if (prevPoint && !nextPoint) {
-                return { ...d, wind_speed: prevPoint.wind_speed }
-            }
-            if (!prevPoint && nextPoint) {
-                return { ...d, wind_speed: nextPoint.wind_speed }
-            }
-
-            return d
-        })
-
-        return interpolatedData
-    }
-
-    const finalData =
-        viewMode === 'general'
-            ? interpolateWindData(transformedData)
-            : transformedData
-
+    // --- Chart UI Helper ---
     const getChartMargins = () => {
         if (isMobile) return { top: 10, right: 10, left: 0, bottom: 18 }
         if (isTablet) return { top: 15, right: 20, left: 5, bottom: 22 }
-        return { top: -30, right: 50, left: -20, bottom: 20 }
+        return { top: -20, right: 50, left: -20, bottom: 30 }
     }
 
     const formatXAxisTick = (value: number) => {
@@ -414,9 +331,6 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         Math.max(min, Math.min(value, max))
 
     const formatYAxisTick = (value: number): string => {
-        if (viewMode === 'delta' || viewMode === 'avgDelta') {
-            return Number.isInteger(value) ? value.toString() : value.toString()
-        }
         return value.toString()
     }
 
@@ -433,6 +347,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         const minutes = String(date.getMinutes()).padStart(2, '0')
         return `${hours}:${minutes}`
     }
+
 
     return (
         <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[69.4%] 2xl:w-[68.8%] pb-5 md:-mr-2 2xl:-mr-5 2xl:h-[20%]'>
@@ -513,10 +428,10 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
 
                 <CardContent
-                    className='p-0 pt-2 overflow-x-hidden'
+                    className='p-0 pt-2 overflow-x-hidden overflow-visible'
                     ref={containerRef}
                 >
-                    <div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[38vh] 2xl:h-[46.5vh] px-1 sm:px-2 '>
+                    <div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[37.8vh] 2xl:h-[46.5vh] px-1 sm:px-2 '>
                         <ResponsiveContainer
                             width={viewMode === 'general' ? '108%' : '100%'}
                             height='100%'
@@ -643,11 +558,12 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                         layout="horizontal"
                                         wrapperStyle={{
                                             position: "absolute",
-                                            top: 0,   // 그래프 안쪽 위에서 조금 내려옴
+                                            top: -20,   // 그래프 안쪽 위에서 조금 내려옴
                                             right: 100, // 그래프 오른쪽 안쪽으로 들어옴
                                             fontSize: "12px",
                                             borderRadius: "6px",
-                                            padding: "2px 6px"
+                                            padding: "2px 6px",
+                                            zIndex: 1,
                                         }}
                                     />
                                 )}
@@ -658,23 +574,25 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                 {viewMode === 'general' && (
                                     <>
                                         {/* 위험 (빨강) */}
-                                        <ReferenceArea yAxisId='angle' y1={clamp(yDomain[0], yDomain[0], yDomain[1])} y2={clamp(-R, yDomain[0], yDomain[1])} fill='#ef4444' fillOpacity={0.1} />
-                                        <ReferenceArea yAxisId='angle' y1={clamp(R, yDomain[0], yDomain[1])} y2={clamp(yDomain[1], yDomain[0], yDomain[1])} fill='#ef4444' fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId="angle" y1={yDomain[0]} y2={clamp(-R, yDomain[0], yDomain[1])} fill="#ef4444" fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId="angle" y1={clamp(R, yDomain[0], yDomain[1])} y2={yDomain[1]} fill="#ef4444" fillOpacity={0.1} />
 
                                         {/* 경고 (노랑) */}
-                                        <ReferenceArea yAxisId='angle' y1={clamp(-R, yDomain[0], yDomain[1])} y2={clamp(-Y, yDomain[0], yDomain[1])} fill='#eab308' fillOpacity={0.1} />
-                                        <ReferenceArea yAxisId='angle' y1={clamp(Y, yDomain[0], yDomain[1])} y2={clamp(R, yDomain[0], yDomain[1])} fill='#eab308' fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId="angle" y1={clamp(-R, yDomain[0], yDomain[1])} y2={clamp(-Y, yDomain[0], yDomain[1])} fill="#eab308" fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId="angle" y1={clamp(Y, yDomain[0], yDomain[1])} y2={clamp(R, yDomain[0], yDomain[1])} fill="#eab308" fillOpacity={0.1} />
 
                                         {/* 주의 (초록) */}
-                                        <ReferenceArea yAxisId='angle' y1={clamp(-Y, yDomain[0], yDomain[1])} y2={clamp(-G, yDomain[0], yDomain[1])} fill='#22c55e' fillOpacity={0.1} />
-                                        <ReferenceArea yAxisId='angle' y1={clamp(G, yDomain[0], yDomain[1])} y2={clamp(Y, yDomain[0], yDomain[1])} fill='#22c55e' fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId="angle" y1={clamp(-Y, yDomain[0], yDomain[1])} y2={clamp(-G, yDomain[0], yDomain[1])} fill="#22c55e" fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId="angle" y1={clamp(G, yDomain[0], yDomain[1])} y2={clamp(Y, yDomain[0], yDomain[1])} fill="#22c55e" fillOpacity={0.1} />
 
                                         {/* 정상 (파랑) */}
-                                        <ReferenceArea yAxisId='angle' y1={clamp(-G, yDomain[0], yDomain[1])} y2={clamp(-B, yDomain[0], yDomain[1])} fill='#3b82f6' fillOpacity={0.1} />
-                                        <ReferenceArea yAxisId='angle' y1={clamp(B, yDomain[0], yDomain[1])} y2={clamp(G, yDomain[0], yDomain[1])} fill='#3b82f6' fillOpacity={0.1} />
-                                        <ReferenceArea yAxisId='angle' y1={clamp(-B, yDomain[0], yDomain[1])} y2={clamp(B, yDomain[0], yDomain[1])} fill='#3b82f6' fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId="angle" y1={clamp(-G, yDomain[0], yDomain[1])} y2={clamp(-B, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId="angle" y1={clamp(B, yDomain[0], yDomain[1])} y2={clamp(G, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId="angle" y1={clamp(-B, yDomain[0], yDomain[1])} y2={clamp(B, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
                                     </>
                                 )}
+
+
 
 
                                 {viewMode === 'general' ? (
