@@ -14,6 +14,50 @@ interface WeatherData {
     pty?: string           // PTY 원본 값
 }
 
+// ----------------------------
+// 위도/경도 → 기상청 격자 변환 함수
+// ----------------------------
+function dfs_xy_conv(lat: number, lon: number) {
+    const RE = 6371.00877     // 지구 반경(km)
+    const GRID = 5.0          // 격자 간격(km)
+    const SLAT1 = 30.0        // 투영 위도1(degree)
+    const SLAT2 = 60.0        // 투영 위도2(degree)
+    const OLON = 126.0        // 기준점 경도
+    const OLAT = 38.0         // 기준점 위도
+    const XO = 43             // 기준점 X좌표 (GRID)
+    const YO = 136            // 기준점 Y좌표 (GRID)
+
+    const DEGRAD = Math.PI / 180.0
+
+    const re = RE / GRID
+    const slat1 = SLAT1 * DEGRAD
+    const slat2 = SLAT2 * DEGRAD
+    const olon = OLON * DEGRAD
+    const olat = OLAT * DEGRAD
+
+    let sn = Math.tan(Math.PI * 0.25 + slat2 * 0.5) / Math.tan(Math.PI * 0.25 + slat1 * 0.5)
+    sn = Math.log(Math.cos(slat1) / Math.cos(slat2)) / Math.log(sn)
+
+    let sf = Math.tan(Math.PI * 0.25 + slat1 * 0.5)
+    sf = Math.pow(sf, sn) * Math.cos(slat1) / sn
+
+    let ro = Math.tan(Math.PI * 0.25 + olat * 0.5)
+    ro = re * sf / Math.pow(ro, sn)
+
+    let ra = Math.tan(Math.PI * 0.25 + lat * DEGRAD * 0.5)
+    ra = re * sf / Math.pow(ra, sn)
+
+    let theta = lon * DEGRAD - olon
+    if (theta > Math.PI) theta -= 2.0 * Math.PI
+    if (theta < -Math.PI) theta += 2.0 * Math.PI
+    theta *= sn
+
+    const x = Math.floor(ra * Math.sin(theta) + XO + 0.5)
+    const y = Math.floor(ro - ra * Math.cos(theta) + YO + 0.5)
+
+    return { nx: x, ny: y }
+}
+
 export const useWeather = () => {
     const [weather, setWeather] = useState<WeatherData | null>(null)
     const [loading, setLoading] = useState(true)
@@ -25,10 +69,9 @@ export const useWeather = () => {
                 "ntz%2BGOSlBMCP%2FxMVTqY2d3Ik%2FlRw5RIeQM6FRNZD0Z3%2FWXUI3n%2F7v4lRHAy1yB5ovSRBepiK09V0yUi1od55eg%3D%3D"
 
             // ----------------------------
-            // 1. 기상청 단기예보 API 호출
+            // 1. 위경도 → 기상청 격자 좌표 변환
             // ----------------------------
-            const nx = 60 // TODO: 위도/경도 → 격자 좌표 변환 필요 (예시: 서울 종로구)
-            const ny = 127
+            const { nx, ny } = dfs_xy_conv(lat, lon)
 
             const now = new Date()
             let baseDate = now.toISOString().slice(0, 10).replace(/-/g, "") // yyyyMMdd
@@ -157,16 +200,34 @@ export const useWeather = () => {
             return
         }
 
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords
-                fetchWeather(latitude, longitude)
-            },
-            () => {
-                setError("위치 정보를 가져오는 데 실패했습니다.")
-                setLoading(false)
-            }
-        )
+        const updateWeather = () => {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
+                () => {
+                    setError("위치 정보를 가져오는 데 실패했습니다.")
+                    setLoading(false)
+                }
+            )
+        }
+
+        // 최초 실행
+        updateWeather()
+
+        // 다음 발표 시각 계산
+        const now = new Date()
+        const baseHours = [2, 5, 8, 11, 14, 17, 20, 23] // 발표 시각(시)
+        let nextHour = baseHours.find(h => h > now.getHours())
+        if (!nextHour) nextHour = 2 // 자정 넘어가면 새날 02시
+
+        const next = new Date(now)
+        next.setHours(nextHour, 0, 0, 0)
+
+        const timeout = next.getTime() - now.getTime()
+
+        // 다음 발표 시각에 맞춰 갱신 예약
+        const timer = setTimeout(updateWeather, timeout)
+
+        return () => clearTimeout(timer)
     }, [])
 
     return { weather, loading, error }
