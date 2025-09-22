@@ -21,6 +21,7 @@ import {
     Tooltip,
     XAxis,
     YAxis,
+    Label,
 } from 'recharts'
 import WeatherInfo from '@/dashboard/components/shared-dash/WeatherInfographic'
 
@@ -226,10 +227,21 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     const getWindDomainAndTicks = (data: GraphDataPoint[]) => {
         const maxWind = Math.max(...data.map(d => d.wind_speed || 0))
         const top = Math.ceil(maxWind / 10) * 10 || 20
-        const ticks = []
-        for (let i = 0; i <= top; i += 10) ticks.push(i)
+        const ticks: number[] = []
+
+        // 기본 10단위 tick
+        for (let i = 0; i <= top; i += 10) {
+            ticks.push(i)
+        }
+
+        // ✅ 5를 중간에 추가 (단, top이 5 이상일 때만)
+        if (top >= 5 && !ticks.includes(5)) {
+            ticks.splice(1, 0, 5) // 0 다음에 5 삽입
+        }
+
         return { domain: [0, top], ticks }
     }
+
 
     const { domain: windDomain, ticks: windTicks } = getWindDomainAndTicks(
         data as GraphDataPoint[]
@@ -388,7 +400,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     const getChartMargins = () => {
         if (isMobile) return { top: 10, right: 10, left: 0, bottom: 18 }
         if (isTablet) return { top: 15, right: 20, left: 5, bottom: 22 }
-        return { top: 20, right: 30, left: 20, bottom: 26 }
+        return { top: -30, right: 50, left: -20, bottom: 20 }
     }
 
     const formatXAxisTick = (value: number) => {
@@ -403,7 +415,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
     const formatYAxisTick = (value: number): string => {
         if (viewMode === 'delta' || viewMode === 'avgDelta') {
-            return value.toFixed(2)
+            return Number.isInteger(value) ? value.toString() : value.toString()
         }
         return value.toString()
     }
@@ -425,38 +437,36 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     return (
         <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[69.4%] 2xl:w-[68.8%] pb-5 md:-mr-2 2xl:-mr-5 2xl:h-[20%]'>
             <Card className='w-full border shadow-sm border-slate-400 mt-4 sm:mt-6'>
-                <CardHeader className='p-3 sm:p-4 space-y-2'>
-                    <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2'>
-                        <CardTitle className='text-sm sm:text-base md:text-lg text-gray-900'>
-                            비계전도 실시간 데이터{' '}
-                            {viewMode === 'general' && doorNum !== null && (
-                                <span className='text-blue-400 font-bold text-sm sm:text-base md:text-lg'>
+                <CardHeader className="p-3 sm:p-4 space-y-2">
+                    {/* 제목 + 오른쪽 컨트롤 (같은 줄) */}
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                        {/* 제목 */}
+                        <CardTitle className="text-sm sm:text-base md:text-lg text-gray-900">
+                            비계전도 실시간 데이터{" "}
+                            {viewMode === "general" && doorNum !== null && (
+                                <span className="text-blue-400 font-bold text-sm sm:text-base md:text-lg">
                                     Node-{doorNum}
                                 </span>
                             )}
-                            {viewMode === 'delta' && doorNum !== null && (
-                                <span className='text-purple-400 font-bold text-sm sm:text-base md:text-lg'>
+                            {viewMode === "delta" && doorNum !== null && (
+                                <span className="text-purple-400 font-bold text-sm sm:text-base md:text-lg">
                                     Node-{doorNum} (변화량)
                                 </span>
                             )}
-                            {viewMode === 'avgDelta' && doorNum !== null && (
-                                <span className='text-green-400 font-bold text-sm sm:text-base md:text-lg'>
+                            {viewMode === "avgDelta" && doorNum !== null && (
+                                <span className="text-green-400 font-bold text-sm sm:text-base md:text-lg">
                                     Node-{doorNum} (평균변화)
                                 </span>
                             )}
                         </CardTitle>
 
-                        {/* 날씨 정보 추가 */}
-                            <div className='flex items-center px-2 py-1'>
-                                <WeatherInfo />
-                            </div>
-
-                        <div className='flex flex-row items-center justify-between sm:justify-end gap-3'>
+                        {/* 오른쪽 컨트롤 */}
+                        <div className="flex flex-row items-center justify-between sm:justify-end gap-3">
                             {/* 기간 선택기 */}
-                            <div className='flex items-center gap-x-2'>
+                            <div className="flex items-center gap-x-2">
                                 <label
-                                    htmlFor='time-filter'
-                                    className='text-xs font-medium text-gray-700 whitespace-nowrap'
+                                    htmlFor="time-filter"
+                                    className="text-xs font-medium text-gray-700 whitespace-nowrap"
                                 >
                                     기간:
                                 </label>
@@ -464,20 +474,20 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                     value={hours.toString()}
                                     onValueChange={v => onSelectTime(Number(v))}
                                 >
-                                    <SelectTrigger className='h-3 sm:h-6 w-[90px] sm:w-[120px] text-xs md:text-sm border border-slate-400'>
-                                        <SelectValue placeholder='Select time' />
+                                    <SelectTrigger className="h-3 sm:h-6 w-[90px] sm:w-[120px] text-xs md:text-sm border border-slate-400">
+                                        <SelectValue placeholder="Select time" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value='1' className='text-xs md:text-sm'>
+                                        <SelectItem value="1" className="text-xs md:text-sm">
                                             1 시간
                                         </SelectItem>
-                                        <SelectItem value='6' className='text-xs md:text-sm'>
+                                        <SelectItem value="6" className="text-xs md:text-sm">
                                             6 시간
                                         </SelectItem>
-                                        <SelectItem value='12' className='text-xs md:text-sm'>
+                                        <SelectItem value="12" className="text-xs md:text-sm">
                                             12 시간
                                         </SelectItem>
-                                        <SelectItem value='24' className='text-xs md:text-sm'>
+                                        <SelectItem value="24" className="text-xs md:text-sm">
                                             24 시간
                                         </SelectItem>
                                     </SelectContent>
@@ -486,54 +496,130 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
                             {/* 도어번호 / 데이터 수 */}
                             <Badge
-                                variant='outline'
-                                className='h-3 sm:h-6 text-xs md:text-sm border-slate-400'
+                                variant="outline"
+                                className="h-3 sm:h-6 text-xs md:text-sm border-slate-400"
                             >
                                 데이터 수: {data.length}
                             </Badge>
                         </div>
                     </div>
+
+                    {/* 날씨 정보 → 제목 아래 전체 너비 */}
+                    <div className="flex items-center px-2 py-1">
+                        <WeatherInfo />
+                    </div>
                 </CardHeader>
 
 
-                <CardContent className='p-0 pt-2' ref={containerRef}>
-                    <div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[44.1vh] 2xl:h-[46.5vh] px-1 sm:px-2'>
-                        <ResponsiveContainer width='103%' height='100%'>
+
+                <CardContent
+                    className='p-0 pt-2 overflow-x-hidden'
+                    ref={containerRef}
+                >
+                    <div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[38vh] 2xl:h-[46.5vh] px-1 sm:px-2 '>
+                        <ResponsiveContainer
+                            width={viewMode === 'general' ? '108%' : '100%'}
+                            height='100%'
+                        >
                             <LineChart
                                 key={finalData.length}
                                 data={finalData as any}
                                 margin={getChartMargins()}
                             >
                                 <CartesianGrid strokeDasharray='3 3' stroke='#f0f0f0' />
+                                {/* X축 - 시간 */}
                                 <XAxis
                                     dataKey='timestamp'
                                     domain={xAxisDomain}
                                     tick={{ fontSize: isMobile ? 9 : 12 }}
                                     tickFormatter={formatXAxisTick}
-                                    height={isMobile ? 20 : 30}
+                                    height={isMobile ? 30 : 40}
                                     tickMargin={isMobile ? 5 : 10}
                                     ticks={xAxisTicks}
                                     type='number'
-                                />
+                                >
+                                    <Label
+                                        position="bottom"
+                                        content={({ viewBox }) => {
+                                            const { x, y, width } = viewBox as any
+                                            const centerX = x + width / 2
+                                            return (
+                                                <text
+                                                    x={centerX}
+                                                    y={y + 50}
+                                                    textAnchor="middle"
+                                                    style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold", fill: "#000" }}
+                                                >
+                                                    시간
+                                                </text>
+                                            )
+                                        }}
+                                    />
+                                </XAxis>
                                 <YAxis
-                                    yAxisId='angle'
+                                    yAxisId="angle"
                                     domain={yDomain}
                                     ticks={yTicks}
                                     tick={{ fontSize: isMobile ? 9 : 12 }}
-                                    width={isMobile ? 25 : 35}
+                                    width={isMobile ? 40 : 60}
                                     tickMargin={isMobile ? 2 : 5}
                                     tickFormatter={formatYAxisTick}
-                                />
-                                {viewMode === 'general' && (
+                                >
+                                    <Label
+                                        position="left"
+                                        offset={0}
+                                        content={({ viewBox }) => {
+                                            const { x, y, height } = viewBox as any
+                                            const centerY = y + height / 2 // 세로 중앙
+                                            const posX = x + 31            // 고정된 X 좌표
+                                            return (
+                                                <text
+                                                    x={posX}
+                                                    y={centerY}
+                                                    textAnchor="middle"
+                                                    style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold" }}
+                                                >
+                                                    <tspan x={posX} dy="-0.6em">기</tspan>
+                                                    <tspan x={posX} dy="1.2em">울</tspan>
+                                                    <tspan x={posX} dy="1.2em">기</tspan>
+                                                </text>
+                                            )
+                                        }}
+                                    />
+                                </YAxis>
+
+                                {/* 오른쪽 Y축 - 풍속 */}
+                                {viewMode === "general" && (
                                     <YAxis
-                                        yAxisId='wind'
-                                        orientation='right'
+                                        yAxisId="wind"
+                                        orientation="right"
                                         domain={windDomain}
                                         ticks={windTicks}
                                         tick={{ fontSize: isMobile ? 9 : 12 }}
-                                        width={isMobile ? 25 : 35}
+                                        width={isMobile ? 40 : 60}
                                         tickMargin={isMobile ? 2 : 5}
-                                    />
+                                    >
+                                        <Label
+                                            position="right"
+                                            offset={0}
+                                            content={({ viewBox }) => {
+                                                const { x, y, height } = viewBox as any
+                                                const centerY = y + height / 2
+                                                const posX = x + 35            // 고정된 X 좌표
+                                                return (
+                                                    <text
+                                                        x={posX}
+                                                        y={centerY}
+                                                        textAnchor="middle"
+                                                        style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold" }}
+                                                    >
+                                                        <tspan x={posX} dy="0">풍</tspan>
+                                                        <tspan x={posX} dy="1.2em">속</tspan>
+                                                    </text>
+                                                )
+                                            }}
+                                        />
+                                    </YAxis>
                                 )}
 
                                 <Tooltip
@@ -552,81 +638,44 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
                                 {!isMobile && (
                                     <Legend
+                                        verticalAlign="top"
+                                        align="right"
+                                        layout="horizontal"
                                         wrapperStyle={{
-                                            fontSize: '12px',
-                                            marginBottom: '-10px',
-                                            paddingTop: '10px',
+                                            position: "absolute",
+                                            top: 0,   // 그래프 안쪽 위에서 조금 내려옴
+                                            right: 100, // 그래프 오른쪽 안쪽으로 들어옴
+                                            fontSize: "12px",
+                                            borderRadius: "6px",
+                                            padding: "2px 6px"
                                         }}
                                     />
                                 )}
 
+
+
+
                                 {viewMode === 'general' && (
                                     <>
-                                        <ReferenceArea
-                                            yAxisId='angle'
-                                            y1={clamp(yDomain[0], yDomain[0], yDomain[1])}
-                                            y2={clamp(-R, yDomain[0], yDomain[1])}
-                                            fill='#ef4444'
-                                            fillOpacity={0.1}
-                                        />
-                                        <ReferenceArea
-                                            yAxisId='angle'
-                                            y1={clamp(R, yDomain[0], yDomain[1])}
-                                            y2={clamp(yDomain[1], yDomain[0], yDomain[1])}
-                                            fill='#ef4444'
-                                            fillOpacity={0.1}
-                                        />
-                                        <ReferenceArea
-                                            yAxisId='angle'
-                                            y1={clamp(-R, yDomain[0], yDomain[1])}
-                                            y2={clamp(-Y, yDomain[0], yDomain[1])}
-                                            fill='#ef4444'
-                                            fillOpacity={0.1}
-                                        />
-                                        <ReferenceArea
-                                            yAxisId='angle'
-                                            y1={clamp(Y, yDomain[0], yDomain[1])}
-                                            y2={clamp(R, yDomain[0], yDomain[1])}
-                                            fill='#ef4444'
-                                            fillOpacity={0.1}
-                                        />
-                                        <ReferenceArea
-                                            yAxisId='angle'
-                                            y1={clamp(-Y, yDomain[0], yDomain[1])}
-                                            y2={clamp(-G, yDomain[0], yDomain[1])}
-                                            fill='#eab308'
-                                            fillOpacity={0.1}
-                                        />
-                                        <ReferenceArea
-                                            yAxisId='angle'
-                                            y1={clamp(G, yDomain[0], yDomain[1])}
-                                            y2={clamp(Y, yDomain[0], yDomain[1])}
-                                            fill='#eab308'
-                                            fillOpacity={0.1}
-                                        />
-                                        <ReferenceArea
-                                            yAxisId='angle'
-                                            y1={clamp(-G, yDomain[0], yDomain[1])}
-                                            y2={clamp(-B, yDomain[0], yDomain[1])}
-                                            fill='#22c55e'
-                                            fillOpacity={0.1}
-                                        />
-                                        <ReferenceArea
-                                            yAxisId='angle'
-                                            y1={clamp(B, yDomain[0], yDomain[1])}
-                                            y2={clamp(G, yDomain[0], yDomain[1])}
-                                            fill='#22c55e'
-                                            fillOpacity={0.1}
-                                        />
-                                        <ReferenceArea
-                                            yAxisId='angle'
-                                            y1={clamp(-B, yDomain[0], yDomain[1])}
-                                            y2={clamp(B, yDomain[0], yDomain[1])}
-                                            fill='#3b82f6'
-                                            fillOpacity={0.1}
-                                        />
+                                        {/* 위험 (빨강) */}
+                                        <ReferenceArea yAxisId='angle' y1={clamp(yDomain[0], yDomain[0], yDomain[1])} y2={clamp(-R, yDomain[0], yDomain[1])} fill='#ef4444' fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId='angle' y1={clamp(R, yDomain[0], yDomain[1])} y2={clamp(yDomain[1], yDomain[0], yDomain[1])} fill='#ef4444' fillOpacity={0.1} />
+
+                                        {/* 경고 (노랑) */}
+                                        <ReferenceArea yAxisId='angle' y1={clamp(-R, yDomain[0], yDomain[1])} y2={clamp(-Y, yDomain[0], yDomain[1])} fill='#eab308' fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId='angle' y1={clamp(Y, yDomain[0], yDomain[1])} y2={clamp(R, yDomain[0], yDomain[1])} fill='#eab308' fillOpacity={0.1} />
+
+                                        {/* 주의 (초록) */}
+                                        <ReferenceArea yAxisId='angle' y1={clamp(-Y, yDomain[0], yDomain[1])} y2={clamp(-G, yDomain[0], yDomain[1])} fill='#22c55e' fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId='angle' y1={clamp(G, yDomain[0], yDomain[1])} y2={clamp(Y, yDomain[0], yDomain[1])} fill='#22c55e' fillOpacity={0.1} />
+
+                                        {/* 정상 (파랑) */}
+                                        <ReferenceArea yAxisId='angle' y1={clamp(-G, yDomain[0], yDomain[1])} y2={clamp(-B, yDomain[0], yDomain[1])} fill='#3b82f6' fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId='angle' y1={clamp(B, yDomain[0], yDomain[1])} y2={clamp(G, yDomain[0], yDomain[1])} fill='#3b82f6' fillOpacity={0.1} />
+                                        <ReferenceArea yAxisId='angle' y1={clamp(-B, yDomain[0], yDomain[1])} y2={clamp(B, yDomain[0], yDomain[1])} fill='#3b82f6' fillOpacity={0.1} />
                                     </>
                                 )}
+
 
                                 {viewMode === 'general' ? (
                                     <>
