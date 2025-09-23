@@ -134,6 +134,28 @@ const AngleNodeScroll = ({
     return 'bg-gray-100'
   }
 
+  // ✅ 게이트웨이 색상 결정 함수
+  const getGatewayColorClass = (gw: IGateway) => {
+    const gwNodes = building_angle_nodes.filter(
+      node => node.gateway_id?.serial_number === gw.serial_number
+    )
+    if (!gwNodes.length) return 'bg-gray-300 text-gray-700' // 노드 없으면 회색
+
+    // 절대값 기준 가장 위험한 노드 찾기
+    const worstNode = [...gwNodes].sort(
+      (a, b) => Math.abs(b.angle_x) - Math.abs(a.angle_x)
+    )[0]
+
+    if (!gw.gateway_alive) {
+      // 게이트웨이 자체가 죽어있으면 회색 유지
+      return 'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
+    }
+
+    // ✅ 노드 색상 재활용
+    return getNodeColorClass(worstNode.angle_x) + ' text-gray-800'
+  }
+
+
   const generateOptions = (min: number) => {
     return Array.from({ length: 21 }, (_, i) =>
       Number.parseFloat((i * 0.5).toFixed(1))
@@ -232,25 +254,22 @@ const AngleNodeScroll = ({
         {/* 뷰 모드 */}
         <div className='flex justify-center mb-4 gap-2'>
           <button
-            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-              viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
-            }`}
+            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
             onClick={() => setViewMode('general')}
           >
             기울기
           </button>
           <button
-            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-              viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
-            }`}
+            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
             onClick={() => setViewMode('delta')}
           >
             변화량
           </button>
           <button
-            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-              viewMode === 'avgDelta' ? 'bg-green-600' : 'bg-gray-400 hover:bg-gray-500'
-            }`}
+            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-green-600' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
             onClick={() => setViewMode('avgDelta')}
           >
             평균변화
@@ -384,11 +403,10 @@ const AngleNodeScroll = ({
           <div className='flex flex-col items-center md:col-span-1 col-span-2 h-[27vh] rounded-md bg-gray-50 text-gray-600 '>
             <ScrollArea className='pr-3 pl-1 py-1 border-none'>
               <button
-                className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${
-                  !selectedGateway
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-300 text-gray-700'
-                }`}
+                className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-300 text-gray-700'
+                  }`}
                 onClick={() => setSelectedGateway('')}
               >
                 전체구역
@@ -399,28 +417,31 @@ const AngleNodeScroll = ({
                     onClick={() => onToggleGatewaySelection(gw)}
                     key={index}
                     className={cn(
-                      'bg-blue-500 text-white text-[12px] p-1 rounded-md flex flex-col items-center justify-center shadow-md cursor-pointer hover:bg-blue-600',
-                      !gw.gateway_alive &&
-                        'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
+                      'text-[12px] p-1 rounded-md flex flex-col items-center justify-center shadow-md cursor-pointer',
+                      getGatewayColorClass(gw) // ✅ 노드 위험도 기반 색상 적용
                     )}
                   >
                     <span className='border-b pb-1'>{gw.zone_name}</span>
-                    <span className='truncate mt-2 tex'>gw-{gw.serial_number}</span>
+                    <span className='truncate mt-2'>gw-{gw.serial_number}</span>
                   </div>
                 ))}
               </div>
+
             </ScrollArea>
           </div>
 
           <div
             onClick={() => togglePlanImg()}
-            className='flex flex-col items-center cursor-pointer'
+            className="relative flex items-center justify-center cursor-pointer h-[26vh] w-full bg-white rounded-lg"
           >
             <img
               src={mainImageUrl}
-              alt='도면 사진'
-              className='w-full h-[26vh] object-cover rounded-lg'
+              alt="도면 사진"
+              className="max-h-full max-w-full object-contain"
             />
+            <p className="absolute bottom-2 right-2 text-[12px] text-black px-2 py-0.5 rounded">
+              🔹눌러서 도면보기
+            </p>
           </div>
         </div>
 
