@@ -439,9 +439,10 @@ const AngleNodeScroll = ({
               alt="도면 사진"
               className="max-h-full max-w-full object-contain"
             />
-            <p className="absolute bottom-2 right-2 text-[12px] text-black px-2 py-0.5 rounded">
-              🔹눌러서 도면보기
+            <p className="absolute bottom-1 right-2 text-[12px] text-black px-2 py-0.5 rounded border border-black">
+              🔹도면보기
             </p>
+
           </div>
         </div>
 

@@ -1,5 +1,3 @@
-// SensorGraph.jsx
-
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -24,9 +22,9 @@ import {
     Label,
 } from 'recharts'
 import WeatherInfo from '@/dashboard/components/shared-dash/WeatherInfographic'
-import { useWeather } from '@/hooks/useWeatherInfo'
+import { fetchWindData, WindData } from "@/hooks/wind"
 
-// useMediaQuery 훅
+// ✅ 반응형 미디어쿼리 훅
 const useMediaQuery = (query: string) => {
     const [matches, setMatches] = useState(false)
 
@@ -45,12 +43,12 @@ const useMediaQuery = (query: string) => {
     return matches
 }
 
-// 타입 정의
+// ✅ 타입 정의
 export interface GraphDataPoint {
     time: string
     angle_x: number
     angle_y: number
-    wind_speed?: number
+    wind_speed?: number | null
     nodeId?: string
 }
 
@@ -96,32 +94,180 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     const isMobile = useMediaQuery('(max-width: 640px)')
     const isTablet = useMediaQuery('(max-width: 1024px)')
 
-    const { weather } = useWeather()
+    // ✅ 풍속 상태
+    const [windHistory, setWindHistory] = useState<WindData[]>([])
 
-    // 일반 데이터 업데이트
+    // 기본 데이터 업데이트
     useEffect(() => setData(graphData), [graphData])
 
-    // 풍속 병합
+    // ✅ hours 바뀔 때 백엔드에서 풍속 데이터 불러오기
     useEffect(() => {
-        if (viewMode !== 'general') {
+        const loadWind = async () => {
+            const now = new Date()
+            const end = now.toISOString().slice(0, 16).replace(/[-T:]/g, "")
+            const startDate = new Date(now.getTime() - hours * 60 * 60 * 1000)
+            const start = startDate.toISOString().slice(0, 16).replace(/[-T:]/g, "")
+
+            try {
+                const res = await fetchWindData(start, end)
+                setWindHistory(res)
+            } catch (e) {
+                console.error("풍속 데이터 불러오기 실패", e)
+            }
+        }
+
+        if (viewMode === "general") {
+            loadWind()
+        }
+    }, [hours, viewMode])
+
+    const getXAxisTicksAndDomain = (
+        hours: number
+    ): { ticks: number[]; domain: [number, number] } => {
+        const now = new Date()
+        let startPoint: Date
+        let endPoint: Date
+        const ticks: number[] = []
+
+        if (hours === 1) {
+            const roundedMinutes = Math.ceil(now.getMinutes() / 10) * 10
+            endPoint = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                now.getHours(),
+                roundedMinutes,
+                0,
+                0
+            )
+            startPoint = new Date(endPoint.getTime() - 60 * 60 * 1000)
+
+            for (let i = 0; i <= 6; i++) {
+                const tickTime = new Date(startPoint.getTime() + i * 10 * 60 * 1000)
+                ticks.push(tickTime.getTime())
+            }
+        } else if (hours === 24) {
+            // ✅ 오른쪽 끝 = 현재시간 올림한 정각
+            endPoint = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                now.getHours() + 1,
+                0,
+                0,
+                0
+            )
+
+            // ✅ 왼쪽 끝 = 24시간 전 같은 시각
+            startPoint = new Date(
+                endPoint.getFullYear(),
+                endPoint.getMonth(),
+                endPoint.getDate(),
+                endPoint.getHours() - 24,
+                0,
+                0,
+                0
+            )
+
+            // ✅ 2시간 간격으로 tick 생성
+            for (let i = 0; i <= 24; i += 2) {
+                const tickTime = new Date(
+                    startPoint.getFullYear(),
+                    startPoint.getMonth(),
+                    startPoint.getDate(),
+                    startPoint.getHours() + i,
+                    0,
+                    0,
+                    0
+                )
+                ticks.push(tickTime.getTime())
+            }
+        } else {
+            endPoint = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                now.getHours() + (now.getMinutes() > 0 ? 1 : 0),
+                0,
+                0,
+                0
+            )
+            startPoint = new Date(endPoint.getTime() - hours * 60 * 60 * 1000)
+
+            for (let i = 0; i <= hours; i++) {
+                const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000)
+                ticks.push(tickTime.getTime())
+            }
+        }
+
+        const domain = [startPoint.getTime(), endPoint.getTime()] as [
+            number,
+            number
+        ]
+
+        return { ticks, domain }
+    }
+
+
+    const { ticks: xAxisTicks, domain: xAxisDomain } =
+        getXAxisTicksAndDomain(hours)
+
+    // ✅ 풍속 데이터 병합 (timestamp 기반 + 5분 이내 차이 허용)
+    useEffect(() => {
+        if (viewMode !== "general") {
+            setData(graphData)
+            return
+        }
+        if (windHistory.length === 0) {
             setData(graphData)
             return
         }
 
-        if (!weather?.windSpeed) {
-            setData(graphData)
-            return
-        }
+        const baseDate = new Date(xAxisDomain[0])   // ✅ domain 시작일 기준으로 날짜 보정
 
-        const merged = (graphData as GraphDataPoint[]).map(d => ({
-            ...d,
-            wind_speed: weather.windSpeed, // ✅ 현재 풍속 값 그대로 붙여줌
-        }))
+        const merged = (graphData as GraphDataPoint[]).map(d => {
+            const [h, m] = d.time.split(":").map(Number)
+            const dTs = new Date(
+                baseDate.getFullYear(),
+                baseDate.getMonth(),
+                baseDate.getDate(),
+                h,
+                m,
+                0,
+                0
+            ).getTime()
+
+            let nearest: WindData | null = null
+            let minDiff = Infinity
+
+            windHistory.forEach((w) => {
+                const [wh, wm] = w.time.split(":").map(Number)
+                const wTs = new Date(
+                    baseDate.getFullYear(),
+                    baseDate.getMonth(),
+                    baseDate.getDate(),
+                    wh,
+                    wm,
+                    0,
+                    0
+                ).getTime()
+
+                const diff = Math.abs(dTs - wTs)
+                if (diff < minDiff && diff <= 5 * 60 * 1000) { // ✅ 5분 이내 허용
+                    minDiff = diff
+                    nearest = w
+                }
+            })
+
+            return { ...d, wind_speed: nearest !== null ? (nearest as WindData).windSpeed : null, }
+        })
 
         setData(merged)
-    }, [graphData, viewMode, weather?.windSpeed])
+    }, [graphData, viewMode, windHistory, xAxisDomain])
 
-    // --- Y축 도메인 계산 ---
+
+
+    // --- Y축 (기울기)
     const getYDomainAndTicks = (
         data: GraphDataPoint[] | DeltaGraphPoint[] | AvgDeltaDataPoint[]
     ) => {
@@ -156,16 +302,10 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             })
             if (values.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] }
             const maxAbs = Math.max(...values.map(Math.abs))
-
             let boundary: number
-            if (maxAbs > 10) {
-                boundary = 15
-            } else if (maxAbs > 5) {
-                boundary = 10
-            } else {
-                boundary = 5
-            }
-
+            if (maxAbs > 10) boundary = 15
+            else if (maxAbs > 5) boundary = 10
+            else boundary = 5
             return { domain: [-boundary, boundary], ticks: [-boundary, 0, boundary] }
         } else {
             const values = data.flatMap(d => {
@@ -174,16 +314,10 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             })
             if (values.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] }
             const maxAbs = Math.max(...values.map(Math.abs))
-
             let boundary: number
-            if (maxAbs > 10) {
-                boundary = 15
-            } else if (maxAbs > 5) {
-                boundary = 10
-            } else {
-                boundary = 5
-            }
-
+            if (maxAbs > 10) boundary = 15
+            else if (maxAbs > 5) boundary = 10
+            else boundary = 5
             return { domain: [-boundary, boundary], ticks: [-boundary, 0, boundary] }
         }
     }
@@ -210,73 +344,9 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         data as GraphDataPoint[]
     )
 
-    // --- X축 도메인 ---
-    const getXAxisTicksAndDomain = (
-        hours: number
-    ): { ticks: number[]; domain: [number, number] } => {
-        const now = new Date()
-        const ticks = []
-        let startPoint
-        let endPoint
 
-        if (hours === 1) {
-            const roundedMinutes = Math.ceil(now.getMinutes() / 10) * 10
-            endPoint = new Date(
-                now.getFullYear(),
-                now.getMonth(),
-                now.getDate(),
-                now.getHours(),
-                roundedMinutes,
-                0
-            )
-            startPoint = new Date(endPoint.getTime() - 60 * 60 * 1000)
 
-            for (let i = 0; i <= 6; i++) {
-                const tickTime = new Date(startPoint.getTime() + i * 10 * 60 * 1000)
-                ticks.push(tickTime.getTime())
-            }
-        } else if (hours === 24) {
-            endPoint = new Date(
-                now.getFullYear(),
-                now.getMonth(),
-                now.getDate(),
-                now.getHours() + 1,
-                0,
-                0
-            )
-            startPoint = new Date(endPoint.getTime() - 24 * 60 * 60 * 1000)
 
-            for (let i = 0; i <= 6; i++) {
-                const tickTime = new Date(startPoint.getTime() + i * 4 * 60 * 60 * 1000)
-                ticks.push(tickTime.getTime())
-            }
-        } else {
-            endPoint = new Date(
-                now.getFullYear(),
-                now.getMonth(),
-                now.getDate(),
-                now.getHours() + (now.getMinutes() > 0 ? 1 : 0),
-                0,
-                0
-            )
-            startPoint = new Date(endPoint.getTime() - hours * 60 * 60 * 1000)
-
-            for (let i = 0; i <= hours; i++) {
-                const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000)
-                ticks.push(tickTime.getTime())
-            }
-        }
-
-        const domain = [startPoint.getTime(), endPoint.getTime()] as [
-            number,
-            number
-        ]
-
-        return { ticks, domain }
-    }
-
-    const { ticks: xAxisTicks, domain: xAxisDomain } =
-        getXAxisTicksAndDomain(hours)
 
     // --- 데이터 타임스탬프 변환 ---
     const transformedData = data.map(d => {
@@ -298,9 +368,6 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             }
         } else {
             if (dataDate.getTime() > now.getTime()) {
-                dataDate.setDate(dataDate.getDate() - 1)
-            }
-            if (dataDate.getTime() < xAxisDomain[0]) {
                 dataDate.setDate(dataDate.getDate() - 1)
             }
         }
@@ -343,10 +410,14 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
     const formatTooltipLabel = (value: number) => {
         const date = new Date(value)
-        const hours = String(date.getHours()).padStart(2, '0')
-        const minutes = String(date.getMinutes()).padStart(2, '0')
-        return `${hours}:${minutes}`
+        const yyyy = date.getFullYear()
+        const MM = String(date.getMonth() + 1).padStart(2, '0')
+        const dd = String(date.getDate()).padStart(2, '0')
+        const hh = String(date.getHours()).padStart(2, '0')
+        const mm = String(date.getMinutes()).padStart(2, '0')
+        return `${yyyy}-${MM}-${dd} ${hh}:${mm}`
     }
+
 
 
     return (
@@ -598,6 +669,17 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                 {viewMode === 'general' ? (
                                     <>
                                         <Line
+                                            yAxisId='wind'
+                                            type='monotone'
+                                            dataKey='wind_speed'
+                                            stroke='#22c55e'
+                                            strokeOpacity={0.6}
+                                            strokeWidth={isMobile ? 1.5 : 2}
+                                            dot={false}
+                                            name='Wind Speed (m/s)'
+
+                                        />
+                                        <Line
                                             yAxisId='angle'
                                             type='monotone'
                                             dataKey='angle_x'
@@ -614,16 +696,6 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                             strokeWidth={isMobile ? 1.5 : 2}
                                             dot={false}
                                             name='Angle Y'
-                                        />
-                                        <Line
-                                            yAxisId='wind'
-                                            type='monotone'
-                                            dataKey='wind_speed'
-                                            stroke='#22c55e'
-                                            strokeWidth={isMobile ? 1.5 : 2}
-                                            dot={false}
-                                            name='Wind Speed (m/s)'
-
                                         />
                                     </>
                                 ) : viewMode === 'delta' ? (
@@ -658,3 +730,4 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 }
 
 export default SensorGraph
+

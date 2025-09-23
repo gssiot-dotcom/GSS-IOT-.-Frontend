@@ -43,35 +43,23 @@ const WeatherInfographic = () => {
                 {error && <span className='text-red-600'>{error}</span>}
                 {weather && !loading && !error && (
                     <>
-                        {/* 온도 */}
-                        <div className='flex items-center gap-0.5 mx-1'>
-                            <span>🌡️:</span>
-                            <span>{weather.temp.toFixed(1)}℃</span>
-                        </div>
-
-                        {/* 습도 */}
-                        <div className='flex items-center gap-0.5 mx-1'>
-                            <span>💧:</span>
-                            <span>{weather.humidity}%</span>
-                        </div>
-
                         {/* 풍속 */}
                         <div className='flex items-center gap-0.5 mx-1'>
-                            <span>💨:</span>
+                            <span>💨풍속:</span>
                             <span>{weather.windSpeed} m/s</span>
                         </div>
 
                         {/* 풍향 */}
                         {weather.windDeg !== undefined && (
                             <div className='flex items-center gap-0.5 mx-1'>
-                                <span>🧭:</span>
-                                <span>{getWindDirection(weather.windDeg)}</span>
+                                <span>🧭풍향:</span>
+                                <span>{getWindDirection(weather.windDeg)}풍</span>
                             </div>
                         )}
 
                         {/* 하늘 상태 (SKY+PTY 조합) */}
                         <div className='flex items-center gap-0.5 mx-1'>
-                            <span>☁️:</span>
+                            <span>☁️날씨:</span>
                             <span>
                                 {getSkyDescription(
                                     weather.sky ?? "0",
@@ -80,19 +68,31 @@ const WeatherInfographic = () => {
                             </span>
                         </div>
 
-                        {/* 지진 특보 */}
+                        {/* 온도 */}
                         <div className='flex items-center gap-0.5 mx-1'>
-                            <span>🌋:</span>
-                            {weather.earthquake
-                                ? <span className='text-red-600'>지진 특보</span>
-                                : <span className='text-gray-500'>없음</span>}
+                            <span>🌡️온도:</span>
+                            <span>{weather.temp.toFixed(1)}℃</span>
+                        </div>
+
+                        {/* 습도 */}
+                        <div className='flex items-center gap-0.5 mx-1'>
+                            <span>💧습도:</span>
+                            <span>{weather.humidity}%</span>
                         </div>
 
                         {/* 태풍 특보 */}
                         <div className='flex items-center gap-0.5 mx-1'>
-                            <span>🌀:</span>
+                            <span>🌀태풍:</span>
                             {weather.typhoon
                                 ? <span className='text-purple-600'>태풍 특보</span>
+                                : <span className='text-gray-500'>없음</span>}
+                        </div>
+
+                        {/* 지진 특보 */}
+                        <div className='flex items-center gap-0.5 mx-1'>
+                            <span>🌋지진:</span>
+                            {weather.earthquake
+                                ? <span className='text-red-600'>지진 특보</span>
                                 : <span className='text-gray-500'>없음</span>}
                         </div>
                     </>

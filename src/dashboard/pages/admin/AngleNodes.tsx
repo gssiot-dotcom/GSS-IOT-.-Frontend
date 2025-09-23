@@ -26,7 +26,7 @@ interface ResQuery {
 
 const AngleNodes = () => {
 	const [selectedDoorNum, setSelectedDoorNum] = useState<number | null>(null)
-	const [selectedHours, setSelectedHours] = useState<number>(6)
+	const [selectedHours, setSelectedHours] = useState<number>(24)
 	const [data, setData] = useState<GraphDataPoint[]>([])
 	const [deltaData, setDeltaData] = useState<DeltaGraphPoint[]>([])
 	const [isFirstLoad, setIsFirstLoad] = useState(true)
