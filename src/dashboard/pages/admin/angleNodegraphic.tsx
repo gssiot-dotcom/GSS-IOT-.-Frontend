@@ -223,37 +223,18 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             return
         }
 
-        const baseDate = new Date(xAxisDomain[0])   // ✅ domain 시작일 기준으로 날짜 보정
+    
 
         const merged = (graphData as GraphDataPoint[]).map(d => {
-            const [h, m] = d.time.split(":").map(Number)
-            const dTs = new Date(
-                baseDate.getFullYear(),
-                baseDate.getMonth(),
-                baseDate.getDate(),
-                h,
-                m,
-                0,
-                0
-            ).getTime()
+            const dTs = new Date(d.time).getTime()
 
             let nearest: WindData | null = null
             let minDiff = Infinity
 
             windHistory.forEach((w) => {
-                const [wh, wm] = w.time.split(":").map(Number)
-                const wTs = new Date(
-                    baseDate.getFullYear(),
-                    baseDate.getMonth(),
-                    baseDate.getDate(),
-                    wh,
-                    wm,
-                    0,
-                    0
-                ).getTime()
-
+                const wTs = new Date(w.time).getTime()
                 const diff = Math.abs(dTs - wTs)
-                if (diff < minDiff && diff <= 5 * 60 * 1000) { // ✅ 5분 이내 허용
+                if (diff < minDiff) {   // ✅ 차이 제한 제거
                     minDiff = diff
                     nearest = w
                 }
@@ -261,6 +242,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
             return { ...d, wind_speed: nearest !== null ? (nearest as WindData).windSpeed : null, }
         })
+
 
         setData(merged)
     }, [graphData, viewMode, windHistory, xAxisDomain])
@@ -349,34 +331,11 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
 
     // --- 데이터 타임스탬프 변환 ---
-    const transformedData = data.map(d => {
-        const [h, m] = d.time.split(':').map(Number)
-        const now = new Date()
-        const dataDate = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
-            h,
-            m,
-            0,
-            0
-        )
+    const transformedData = data.map(d => ({
+        ...d,
+        timestamp: new Date(d.time).getTime(), // ✅ ISO full datetime
+    }))
 
-        if (hours < 24) {
-            if (dataDate.getTime() > now.getTime()) {
-                dataDate.setDate(dataDate.getDate() - 1)
-            }
-        } else {
-            if (dataDate.getTime() > now.getTime()) {
-                dataDate.setDate(dataDate.getDate() - 1)
-            }
-        }
-
-        return {
-            ...d,
-            timestamp: dataDate.getTime(),
-        }
-    })
 
     const finalData = transformedData
 
