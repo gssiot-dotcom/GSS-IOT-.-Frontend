@@ -466,6 +466,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                         dateFormat="yyyy-MM-dd"
                                         className="border border-slate-400 rounded px-2 py-1 text-xs"
                                         placeholderText="날짜 선택"
+                                        popperClassName="z-[9999]"
+                                        portalId="root"
                                     />
                                 )}
 
@@ -476,6 +478,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                         locale={ko}
                                         customInput={<WeekInput />}   // ✅ UI는 day/month와 동일, value만 주차 표시
                                         placeholderText="주차 선택"
+                                        popperClassName="z-[9999]"
+                                        portalId="root"
                                     />
                                 )}
 
@@ -489,6 +493,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                         dateFormat="yyyy-MM"
                                         className="border border-slate-400 rounded px-2 py-1 text-xs"
                                         placeholderText="월 선택"
+                                        popperClassName="z-[9999]"
+                                        portalId="root"
                                     />
                                 )}
                             </div>
