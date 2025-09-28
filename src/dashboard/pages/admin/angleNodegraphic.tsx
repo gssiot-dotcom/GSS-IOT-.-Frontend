@@ -461,7 +461,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                     className='p-0 pt-2 overflow-x-hidden overflow-visible'
                     ref={containerRef}
                 >
-                    <div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[37.8vh] 2xl:h-[46.5vh] px-1 sm:px-2 '>
+                    <div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[38.9vh] 2xl:h-[46.5vh] px-1 sm:px-2 '>
                         <ResponsiveContainer
                             width={viewMode === 'general' ? '108%' : '100%'}
                             height='100%'
