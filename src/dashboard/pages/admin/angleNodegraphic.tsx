@@ -7,7 +7,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import type React from 'react'
+import React, { forwardRef } from "react"
 import { useEffect, useRef, useState } from 'react'
 import {
     CartesianGrid,
@@ -23,27 +23,62 @@ import {
 } from 'recharts'
 import WeatherInfo from '@/dashboard/components/shared-dash/WeatherInfographic'
 import { fetchWindData, WindData } from "@/hooks/wind"
+import DatePicker from "react-datepicker"
+import "react-datepicker/dist/react-datepicker.css"
+import { format } from "date-fns"
+import { ko } from "date-fns/locale"
 
-// ✅ 반응형 미디어쿼리 훅
+// --- 월 기준 주차 계산 ---
+function getWeekOfMonth(date: Date) {
+    const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1)
+    const dayOfWeek = startOfMonth.getDay() // 0=일
+    const offsetDate = date.getDate() + dayOfWeek
+    return Math.ceil(offsetDate / 7)
+}
+
+// --- custom input for week picker ---
+type WeekInputProps = React.ComponentPropsWithoutRef<"input"> & {
+    value?: string
+    onClick?: React.MouseEventHandler<HTMLInputElement>
+}
+const WeekInput = forwardRef<HTMLInputElement, WeekInputProps>(
+    ({ value, onClick, ...rest }, ref) => {
+        let display = value || ""
+        if (value) {
+            const d = new Date(value)
+            if (!isNaN(d.getTime())) {
+                display = `${format(d, "yyyy-MM")}-(${getWeekOfMonth(d)}주)`
+            }
+        }
+        return (
+            <input
+                ref={ref}
+                onClick={onClick}
+                value={display}
+                readOnly
+                {...rest}
+                className="border border-slate-400 rounded px-2 py-1 text-xs"
+            />
+        )
+    }
+)
+
+// --- 반응형 미디어쿼리 훅 ---
 const useMediaQuery = (query: string) => {
     const [matches, setMatches] = useState(false)
-
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const mediaQueryList = window.matchMedia(query)
             setMatches(mediaQueryList.matches)
-
             const listener = (e: MediaQueryListEvent) => setMatches(e.matches)
             mediaQueryList.addEventListener('change', listener)
-
             return () => mediaQueryList.removeEventListener('change', listener)
         }
     }, [query])
-
     return matches
 }
 
-// ✅ 타입 정의
+// --- 타입 정의 ---
 export interface GraphDataPoint {
     time: string
     angle_x: number
@@ -51,12 +86,10 @@ export interface GraphDataPoint {
     wind_speed?: number | null
     nodeId?: string
 }
-
 export interface DeltaGraphPoint {
     time: string
     [key: string]: number | string
 }
-
 export interface AvgDeltaDataPoint {
     time: string
     avgX: number
@@ -73,6 +106,11 @@ type SensorGraphProps = {
     G?: number
     B?: number
     viewMode: 'general' | 'delta' | 'avgDelta'
+    // ✅ 부모에서 내려주는 새로운 props
+    timeMode: "hour" | "day" | "week" | "month"
+    setTimeMode: (mode: "hour" | "day" | "week" | "month") => void
+    selectedDate: Date | null
+    setSelectedDate: (date: Date | null) => void
 }
 
 const SensorGraph: React.FC<SensorGraphProps> = ({
@@ -85,6 +123,10 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     G = 0,
     B = 0,
     viewMode,
+    timeMode,
+    setTimeMode,
+    selectedDate,
+    setSelectedDate,
 }) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const [data, setData] = useState<
@@ -94,13 +136,12 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     const isMobile = useMediaQuery('(max-width: 640px)')
     const isTablet = useMediaQuery('(max-width: 1024px)')
 
-    // ✅ 풍속 상태
     const [windHistory, setWindHistory] = useState<WindData[]>([])
 
     // 기본 데이터 업데이트
     useEffect(() => setData(graphData), [graphData])
 
-    // ✅ hours 바뀔 때 백엔드에서 풍속 데이터 불러오기
+    // ✅ 풍속 데이터 불러오기
     useEffect(() => {
         const loadWind = async () => {
             const now = new Date()
@@ -116,20 +157,30 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             }
         }
 
-        if (viewMode === "general") {
+        if (viewMode === "general" && timeMode === "hour") {
             loadWind()
         }
-    }, [hours, viewMode])
+    }, [hours, viewMode, timeMode])
 
-    const getXAxisTicksAndDomain = (
-        hours: number
-    ): { ticks: number[]; domain: [number, number] } => {
+    // ✅ X축 계산 (시간 모드 / 일 모드 분리)
+    const getXAxisTicksAndDomain = (): { ticks: number[]; domain: [number, number] } => {
         const now = new Date()
         let startPoint: Date
         let endPoint: Date
         const ticks: number[] = []
 
-        if (hours === 1) {
+        if (timeMode === "day" && selectedDate) {
+            startPoint = new Date(selectedDate)
+            startPoint.setHours(0, 0, 0, 0)
+            endPoint = new Date(selectedDate)
+            endPoint.setHours(23, 59, 59, 999)
+
+            for (let i = 0; i <= 24; i += 2) {
+                const tickTime = new Date(startPoint.getTime())
+                tickTime.setHours(i, 0, 0, 0)
+                ticks.push(tickTime.getTime())
+            }
+        } else if (hours === 1) {
             const roundedMinutes = Math.ceil(now.getMinutes() / 10) * 10
             endPoint = new Date(
                 now.getFullYear(),
@@ -141,13 +192,11 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                 0
             )
             startPoint = new Date(endPoint.getTime() - 60 * 60 * 1000)
-
             for (let i = 0; i <= 6; i++) {
                 const tickTime = new Date(startPoint.getTime() + i * 10 * 60 * 1000)
                 ticks.push(tickTime.getTime())
             }
         } else if (hours === 24) {
-            // ✅ 오른쪽 끝 = 현재시간 올림한 정각
             endPoint = new Date(
                 now.getFullYear(),
                 now.getMonth(),
@@ -157,29 +206,9 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                 0,
                 0
             )
-
-            // ✅ 왼쪽 끝 = 24시간 전 같은 시각
-            startPoint = new Date(
-                endPoint.getFullYear(),
-                endPoint.getMonth(),
-                endPoint.getDate(),
-                endPoint.getHours() - 24,
-                0,
-                0,
-                0
-            )
-
-            // ✅ 2시간 간격으로 tick 생성
+            startPoint = new Date(endPoint.getTime() - 24 * 60 * 60 * 1000)
             for (let i = 0; i <= 24; i += 2) {
-                const tickTime = new Date(
-                    startPoint.getFullYear(),
-                    startPoint.getMonth(),
-                    startPoint.getDate(),
-                    startPoint.getHours() + i,
-                    0,
-                    0,
-                    0
-                )
+                const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000)
                 ticks.push(tickTime.getTime())
             }
         } else {
@@ -193,26 +222,18 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                 0
             )
             startPoint = new Date(endPoint.getTime() - hours * 60 * 60 * 1000)
-
             for (let i = 0; i <= hours; i++) {
                 const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000)
                 ticks.push(tickTime.getTime())
             }
         }
 
-        const domain = [startPoint.getTime(), endPoint.getTime()] as [
-            number,
-            number
-        ]
-
-        return { ticks, domain }
+        return { ticks, domain: [startPoint.getTime(), endPoint.getTime()] }
     }
 
+    const { ticks: xAxisTicks, domain: xAxisDomain } = getXAxisTicksAndDomain()
 
-    const { ticks: xAxisTicks, domain: xAxisDomain } =
-        getXAxisTicksAndDomain(hours)
-
-    // ✅ 풍속 데이터 병합 (timestamp 기반 + 5분 이내 차이 허용)
+    // ✅ 풍속 데이터 병합
     useEffect(() => {
         if (viewMode !== "general") {
             setData(graphData)
@@ -223,27 +244,20 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             return
         }
 
-    
-
         const merged = (graphData as GraphDataPoint[]).map(d => {
             const dTs = new Date(d.time).getTime()
-
             let nearest: WindData | null = null
             let minDiff = Infinity
-
             windHistory.forEach((w) => {
                 const wTs = new Date(w.time).getTime()
                 const diff = Math.abs(dTs - wTs)
-                if (diff < minDiff) {   // ✅ 차이 제한 제거
+                if (diff < minDiff) {
                     minDiff = diff
                     nearest = w
                 }
             })
-
             return { ...d, wind_speed: nearest !== null ? (nearest as WindData).windSpeed : null, }
         })
-
-
         setData(merged)
     }, [graphData, viewMode, windHistory, xAxisDomain])
 
@@ -405,44 +419,83 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                             )}
                         </CardTitle>
 
+
                         {/* 오른쪽 컨트롤 */}
                         <div className="flex flex-row items-center justify-between sm:justify-end gap-3">
                             {/* 기간 선택기 */}
                             <div className="flex items-center gap-x-2">
-                                <label
-                                    htmlFor="time-filter"
-                                    className="text-xs font-medium text-gray-700 whitespace-nowrap"
-                                >
+                                <label className="text-xs font-medium text-gray-700 whitespace-nowrap">
                                     기간:
                                 </label>
-                                <Select
-                                    value={hours.toString()}
-                                    onValueChange={v => onSelectTime(Number(v))}
-                                >
-                                    <SelectTrigger className="h-3 sm:h-6 w-[90px] sm:w-[120px] text-xs md:text-sm border border-slate-400">
-                                        <SelectValue placeholder="Select time" />
+
+                                {/* 모드 선택 */}
+                                <Select value={timeMode} onValueChange={v => setTimeMode(v as any)}>
+                                    <SelectTrigger className="h-6 w-[90px] sm:w-[120px] text-xs md:text-sm border border-slate-400">
+                                        <SelectValue placeholder="Select mode" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="1" className="text-xs md:text-sm">
-                                            1 시간
-                                        </SelectItem>
-                                        <SelectItem value="6" className="text-xs md:text-sm">
-                                            6 시간
-                                        </SelectItem>
-                                        <SelectItem value="12" className="text-xs md:text-sm">
-                                            12 시간
-                                        </SelectItem>
-                                        <SelectItem value="24" className="text-xs md:text-sm">
-                                            24 시간
-                                        </SelectItem>
+                                        <SelectItem value="hour">시간</SelectItem>
+                                        <SelectItem value="day">일</SelectItem>
+                                        <SelectItem value="week">주</SelectItem>
+                                        <SelectItem value="month">월</SelectItem>
                                     </SelectContent>
                                 </Select>
+
+                                {timeMode === "hour" && (
+                                    <Select
+                                        value={hours.toString()}
+                                        onValueChange={v => onSelectTime(Number(v))}
+                                    >
+                                        <SelectTrigger className="h-6 w-[90px] sm:w-[120px] text-xs md:text-sm border border-slate-400">
+                                            <SelectValue placeholder="Select time" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="1">1 시간</SelectItem>
+                                            <SelectItem value="6">6 시간</SelectItem>
+                                            <SelectItem value="12">12 시간</SelectItem>
+                                            <SelectItem value="24">24 시간</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+
+                                {timeMode === "day" && (
+                                    <DatePicker
+                                        selected={selectedDate}
+                                        onChange={(date) => setSelectedDate(date)}
+                                        locale={ko}
+                                        dateFormat="yyyy-MM-dd"
+                                        className="border border-slate-400 rounded px-2 py-1 text-xs"
+                                        placeholderText="날짜 선택"
+                                    />
+                                )}
+
+                                {timeMode === "week" && (
+                                    <DatePicker
+                                        selected={selectedDate}
+                                        onChange={(date) => setSelectedDate(date)}
+                                        locale={ko}
+                                        customInput={<WeekInput />}   // ✅ UI는 day/month와 동일, value만 주차 표시
+                                        placeholderText="주차 선택"
+                                    />
+                                )}
+
+
+                                {timeMode === "month" && (
+                                    <DatePicker
+                                        selected={selectedDate}
+                                        onChange={(date) => setSelectedDate(date)}
+                                        locale={ko}
+                                        showMonthYearPicker
+                                        dateFormat="yyyy-MM"
+                                        className="border border-slate-400 rounded px-2 py-1 text-xs"
+                                        placeholderText="월 선택"
+                                    />
+                                )}
                             </div>
 
-                            {/* 도어번호 / 데이터 수 */}
                             <Badge
                                 variant="outline"
-                                className="h-3 sm:h-6 text-xs md:text-sm border-slate-400"
+                                className="h-6 text-xs md:text-sm border-slate-400"
                             >
                                 데이터 수: {data.length}
                             </Badge>

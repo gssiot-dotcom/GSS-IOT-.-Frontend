@@ -26,7 +26,12 @@ interface ResQuery {
 
 const AngleNodes = () => {
   const [selectedDoorNum, setSelectedDoorNum] = useState<number | null>(null)
-  const [selectedHours, setSelectedHours] = useState<number>(12)
+
+  // ✅ 시간/일 모드 상태
+  const [selectedHours, setSelectedHours] = useState<number>(12) // 시간 모드에서만 사용
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
+  const [timeMode, setTimeMode] = useState<"hour" | "day" | "week" | "month">("hour")
+
   const [data, setData] = useState<GraphDataPoint[]>([])
   const [deltaData, setDeltaData] = useState<DeltaGraphPoint[]>([])
   const [isFirstLoad, setIsFirstLoad] = useState(true)
@@ -60,7 +65,6 @@ const AngleNodes = () => {
   // ⚡ 서버에서 가져온 alarm_level로 초기화
   useEffect(() => {
     if (buildingData?.alarm_level) {
-      // B도 있지만, G 값과 동일하게만 사용
       setG(buildingData.alarm_level.green)
       setY(buildingData.alarm_level.yellow)
       setR(buildingData.alarm_level.red)
@@ -91,14 +95,36 @@ const AngleNodes = () => {
     }
   }, [dangerAngleNodes, buildingAngleNodes, isFirstLoad])
 
+  // ✅ 데이터 가져오기 (시간 / 일 모드 분기)
   useEffect(() => {
     if (!selectedDoorNum) return
 
-    const now = new Date()
-    const from = new Date(
-      now.getTime() - selectedHours * 60 * 60 * 1000
-    ).toISOString()
-    const to = now.toISOString()
+    let from: string
+    let to: string
+
+    if (timeMode === "day" && selectedDate) {
+      // ✅ 하루 전체 범위 (00:00 ~ 23:59:59)
+      const startOfDay = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        0, 0, 0
+      )
+      const endOfDay = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        23, 59, 59
+      )
+      from = startOfDay.toISOString()
+      to = endOfDay.toISOString()
+    } else {
+      // ✅ 기존 시간 기반
+      const now = new Date()
+      from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
+      to = now.toISOString()
+    }
+
     const doorNums = [selectedDoorNum]
 
     axios
@@ -119,7 +145,7 @@ const AngleNodes = () => {
         if (viewMode === 'general') {
           const dataMap: Record<string, any> = {}
           sortedData.forEach(item => {
-            const time = new Date(item.createdAt).toISOString() // ✅ full datetime
+            const time = new Date(item.createdAt).toISOString()
             if (!dataMap[time]) dataMap[time] = { time }
             dataMap[time].angle_x = item.angle_x
             dataMap[time].angle_y = item.angle_y
@@ -131,7 +157,7 @@ const AngleNodes = () => {
           const uniqueMinutesMap: Record<string, SensorData> = {}
 
           sortedData.forEach(item => {
-            const timeKey = new Date(item.createdAt).toISOString() // ✅ full datetime
+            const timeKey = new Date(item.createdAt).toISOString()
             uniqueMinutesMap[timeKey] = item
           })
 
@@ -153,22 +179,20 @@ const AngleNodes = () => {
           const chunkSize = 5
           const averages: { time: string; avgX: number }[] = []
 
-          // 1️⃣ 5개씩 묶어서 평균 계산
           for (let i = 0; i < sortedData.length; i += chunkSize) {
             const chunk = sortedData.slice(i, i + chunkSize)
             if (chunk.length === 0) continue
             const avgX =
               chunk.reduce((sum, node) => sum + node.angle_x, 0) /
               chunk.length
-            const time = new Date(chunk[0].createdAt).toISOString() // ✅ full datetime
+            const time = new Date(chunk[0].createdAt).toISOString()
             averages.push({ time, avgX })
           }
 
-          // 2️⃣ 평균값들의 차이를 계산
           for (let i = 1; i < averages.length; i++) {
             const delta = averages[i].avgX - averages[i - 1].avgX
             avgDeltaGraphData.push({
-              time: averages[i].time, // ISO datetime
+              time: averages[i].time,
               [`node_${selectedDoorNum}`]: delta,
             })
           }
@@ -178,8 +202,9 @@ const AngleNodes = () => {
         }
       })
       .catch(err => console.error('Data fetch error:', err))
-  }, [selectedDoorNum, selectedHours, viewMode])
+  }, [selectedDoorNum, selectedHours, selectedDate, timeMode, viewMode])
 
+  // ✅ 소켓으로 실시간 업데이트
   useEffect(() => {
     if (!buildingId) return
     const topic = `${buildingId}_angle-nodes`
@@ -223,7 +248,7 @@ const AngleNodes = () => {
 
       if (viewMode === 'general' && selectedDoorNum === newData.doorNum) {
         const point: GraphDataPoint = {
-          time: new Date(newData.updatedAt).toISOString(), // ✅ full datetime
+          time: new Date(newData.updatedAt).toISOString(),
           angle_x: newData.angle_x,
           angle_y: newData.angle_y,
         }
@@ -249,7 +274,7 @@ const AngleNodes = () => {
     if (!buildingId) return
     try {
       await setBuildingAlarmLevelRequest(buildingId, {
-        B: levels.G, // ✅ 자동으로 B=G
+        B: levels.G,
         G: levels.G,
         Y: levels.Y,
         R: levels.R,
@@ -289,11 +314,15 @@ const AngleNodes = () => {
           doorNum={selectedDoorNum}
           onSelectTime={setSelectedHours}
           hours={selectedHours}
-          B={G} // ✅ 항상 G 값과 동일
+          B={G}
           G={G}
           Y={Y}
           R={R}
           viewMode={viewMode}
+          timeMode={timeMode}         // ✅ 자식에게 모드 전달
+          setTimeMode={setTimeMode}
+          selectedDate={selectedDate} // ✅ 자식에게 선택한 날짜 전달
+          setSelectedDate={setSelectedDate}
         />
       </div>
     </div>
