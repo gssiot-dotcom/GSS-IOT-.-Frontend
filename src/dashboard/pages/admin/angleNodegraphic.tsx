@@ -395,7 +395,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
 
     return (
-        <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[69.4%] 2xl:w-[68.8%] pb-5 md:-mr-2 2xl:-mr-5 2xl:h-[20%]'>
+        <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[69.4%] 2xl:w-[68.8%] 3xl:w-[69%] pb-5 md:-mr-2 2xl:-mr-5 3xl:-mr-2 2xl:h-[20%]'>
             <Card className='w-full border shadow-sm border-slate-400 mt-4 sm:mt-6'>
                 <CardHeader className="p-3 sm:p-4 space-y-2">
                     {/* 제목 + 오른쪽 컨트롤 (같은 줄) */}
@@ -523,7 +523,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                     className='p-0 pt-2 overflow-x-hidden overflow-visible'
                     ref={containerRef}
                 >
-                    <div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[38.9vh] 2xl:h-[46.5vh] px-1 sm:px-2 '>
+                    <div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[38.9vh] 2xl:h-[46.5vh] 3xl:h-[42.3vh] px-1 sm:px-2 '>
                         <ResponsiveContainer
                             width={viewMode === 'general' ? '108%' : '100%'}
                             height='100%'

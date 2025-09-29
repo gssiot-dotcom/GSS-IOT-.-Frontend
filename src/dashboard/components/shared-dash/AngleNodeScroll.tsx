@@ -216,15 +216,20 @@ const AngleNodeScroll = ({
         {/* BGYR 설정 & 알람 저장 */}
         <div className='flex justify-between mb-4 gap-2 items-end'>
           {/* 정상(B) → 드롭박스 제거, 숫자 표시만 */}
-          <div className='flex flex-col items-center'>
+          <div className='flex flex-col items-center
+                3xl:items-center'>
             <label className='flex items-center text-xs font-semibold mb-1 gap-1'>
               <span className='w-3 h-3 bg-blue-500 inline-block rounded-sm'></span>
               정상
             </label>
-            <div className="border border-gray-400 rounded-md w-10 h-[3.1vh] flex items-center justify-center text-sm">
-              {G}
+            <div
+              className="border border-gray-400 rounded-md w-10 h-[3.1vh] flex items-center justify-center text-sm 3xl:w-[2.5vw] 3xl:h-[2.4vh] 3xl:text-base"
+            >
+              <span className="text-sm">{G}</span>
+              <span className="ml-1 text-xs 3xl:text-xs">이하</span>
             </div>
           </div>
+
 
           {[
             {
