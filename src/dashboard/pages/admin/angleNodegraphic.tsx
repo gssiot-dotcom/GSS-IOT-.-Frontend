@@ -21,7 +21,7 @@ import {
     YAxis,
     Label,
 } from 'recharts'
-import WeatherInfo from '@/dashboard/components/shared-dash/WeatherInfographic'
+import WeatherInfographic from '@/dashboard/components/shared-dash/WeatherInfographic'
 import { fetchWindData, WindData } from "@/hooks/wind"
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
@@ -114,6 +114,7 @@ type SensorGraphProps = {
 }
 
 const SensorGraph: React.FC<SensorGraphProps> = ({
+    buildingId,
     doorNum,
     graphData,
     hours,
@@ -508,10 +509,12 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                         </div>
                     </div>
 
+
                     {/* 날씨 정보 → 제목 아래 전체 너비 */}
                     <div className="flex items-center px-2 py-1">
-                        <WeatherInfo />
+                        <WeatherInfographic buildingId={buildingId!} />
                     </div>
+
                 </CardHeader>
 
 

@@ -7,6 +7,7 @@ import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
 import { Eye } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { NodeDetailModal } from './angleNodeDetail'
+import axios from 'axios'
 
 interface Props {
   building_angle_nodes: IAngleNode[]
@@ -41,12 +42,18 @@ const AngleNodeScroll = ({
   viewMode,
   setViewMode,
   onSetAlarmLevels,
+  allNodes,
 }: Props) => {
   const [selectedGateway, setSelectedGateway] = useState<string>('')
-  const [selectedNode, setSelectedNode] = useState<number | ''>('')
+  const [selectedNode, setSelectedNode] = useState<number | ''>('') // 단일 선택
   const [isModalOpen, setIsModalOpen] = useState(true)
   const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
   const [isPlanImgOpen, setIsPlanImgOpen] = useState(false)
+
+  // ✅ 초기화 모달 관련 상태
+  const [isInitModalOpen, setIsInitModalOpen] = useState(false)
+  const [selectedNodesForInit, setSelectedNodesForInit] = useState<number[]>([])
+
   const IMG_SERVER_BASE_URL = `${import.meta.env.VITE_SERVER_BASE_URL}/static/images/`
 
   // ============= Main Image memo rendering Field =================== //
@@ -66,7 +73,8 @@ const AngleNodeScroll = ({
     if (!selectedGateway) return null
     return (
       building_angle_nodes?.find(
-        n => n.gateway_id?.serial_number === selectedGateway && n.angle_node_img
+        (n) =>
+          n.gateway_id?.serial_number === selectedGateway && n.angle_node_img
       ) ?? null
     )
   }, [selectedGateway, building_angle_nodes])
@@ -75,7 +83,7 @@ const AngleNodeScroll = ({
     if (selectedNode === '' || typeof selectedNode !== 'number') return null
     return (
       building_angle_nodes?.find(
-        n => n.doorNum === selectedNode && n.angle_node_img
+        (n) => n.doorNum === selectedNode && n.angle_node_img
       ) ?? null
     )
   }, [selectedNode, building_angle_nodes])
@@ -103,63 +111,45 @@ const AngleNodeScroll = ({
     let nodes = [...sortedNodes]
     if (selectedGateway) {
       nodes = nodes.filter(
-        node => node.gateway_id?.serial_number === selectedGateway
+        (node) => node.gateway_id?.serial_number === selectedGateway
       )
     }
     if (selectedNode !== '') {
-      nodes = nodes.filter(node => node.doorNum === selectedNode)
+      nodes = nodes.filter((node) => node.doorNum === selectedNode)
     }
     return nodes
   }, [sortedNodes, selectedGateway, selectedNode])
 
-  const aliveNodes = nodesToDisplay.filter(node => node.node_alive)
-  const deadNodes = nodesToDisplay.filter(node => !node.node_alive)
+  const aliveNodes = nodesToDisplay.filter((node) => node.node_alive)
+  const deadNodes = nodesToDisplay.filter((node) => !node.node_alive)
 
   // ✅ 색상 결정 함수 (절대값 기준)
   const getNodeColorClass = (x: number) => {
     const absX = Math.abs(x)
-
-    if (absX >= R) {
-      return 'bg-gradient-to-r from-red-100 to-red-300 hover:to-red-400' // 위험
-    }
-    if (absX >= Y) {
-      return 'bg-gradient-to-r from-yellow-50 to-yellow-200 hover:to-yellow-300' // 경고
-    }
-    if (absX >= G) {
-      return 'bg-gradient-to-r from-green-50 to-green-200 hover:to-green-300' // 주의
-    }
-    if (absX < G) {
-      return 'bg-gradient-to-r from-blue-50 to-blue-200 hover:to-blue-300' // 정상
-    }
+    if (absX >= R) return 'bg-gradient-to-r from-red-100 to-red-300 hover:to-red-400'
+    if (absX >= Y) return 'bg-gradient-to-r from-yellow-50 to-yellow-200 hover:to-yellow-300'
+    if (absX >= G) return 'bg-gradient-to-r from-green-50 to-green-200 hover:to-green-300'
+    if (absX < G) return 'bg-gradient-to-r from-blue-50 to-blue-200 hover:to-blue-300'
     return 'bg-gray-100'
   }
 
   // ✅ 게이트웨이 색상 결정 함수
   const getGatewayColorClass = (gw: IGateway) => {
     const gwNodes = building_angle_nodes.filter(
-      node => node.gateway_id?.serial_number === gw.serial_number
+      (node) => node.gateway_id?.serial_number === gw.serial_number
     )
-    if (!gwNodes.length) return 'bg-gray-300 text-gray-700' // 노드 없으면 회색
-
-    // 절대값 기준 가장 위험한 노드 찾기
+    if (!gwNodes.length) return 'bg-gray-300 text-gray-700'
     const worstNode = [...gwNodes].sort(
       (a, b) => Math.abs(b.angle_x) - Math.abs(a.angle_x)
     )[0]
-
-    if (!gw.gateway_alive) {
-      // 게이트웨이 자체가 죽어있으면 회색 유지
-      return 'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
-    }
-
-    // ✅ 노드 색상 재활용
+    if (!gw.gateway_alive) return 'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
     return getNodeColorClass(worstNode.angle_x) + ' text-gray-800'
   }
-
 
   const generateOptions = (min: number) => {
     return Array.from({ length: 21 }, (_, i) =>
       Number.parseFloat((i * 0.5).toFixed(1))
-    ).filter(num => num >= min)
+    ).filter((num) => num >= min)
   }
 
   const handleNodeCardClick = (node: any) => {
@@ -179,6 +169,43 @@ const AngleNodeScroll = ({
   const onToggleGatewaySelection = (gateway: IGateway) => {
     setSelectedGateway(gateway.serial_number)
     setSelectedNode('')
+  }
+
+  // ✅ 초기화 API
+  const postCalibrationStart = async (payload: {
+    doorNum?: number
+    doorNums?: number[]
+  }) => {
+    const res = await axios.post(
+      '/api/angles/calibration/start-all',
+      payload,
+      { baseURL: import.meta.env.VITE_SERVER_BASE_URL }
+    )
+    return res.data
+  }
+
+  // ✅ 초기화 핸들러 (선택된 노드들만)
+  const handleInitSelected = async () => {
+    if (selectedNodesForInit.length === 0) {
+      alert('노드를 선택하세요.')
+      return
+    }
+    const body =
+      selectedNodesForInit.length === 1
+        ? { doorNum: selectedNodesForInit[0] }
+        : { doorNums: selectedNodesForInit }
+    const data = await postCalibrationStart(body)
+    alert(`초기화 시작: ${data?.doors?.join(', ')}`)
+  }
+  // ✅ 전체 선택 (토글)
+  const handleSelectAll = () => {
+    if (selectedNodesForInit.length === allNodes.length) {
+      // 이미 전체 선택 상태면 해제
+      setSelectedNodesForInit([])
+    } else {
+      // 전체 선택
+      setSelectedNodesForInit(allNodes.map((n) => n.doorNum))
+    }
   }
 
   return (
@@ -273,6 +300,16 @@ const AngleNodeScroll = ({
             onClick={() => setViewMode('avgDelta')}
           >
             평균변화
+          </button>
+        </div>
+
+        {/* ✅ 초기화 버튼 */}
+        <div className="flex justify-center mb-4">
+          <button
+            className="w-full px-3 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600"
+            onClick={() => setIsInitModalOpen(true)}
+          >
+            노드 초기화
           </button>
         </div>
 
@@ -493,6 +530,65 @@ const AngleNodeScroll = ({
         node={selectedNodeForModal}
         onClose={() => setIsModalOpen(false)}
       />
+
+      {/* ✅ 초기화 모달 */}
+      {isInitModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-[90%] max-w-lg">
+            <h2 className="text-lg font-bold mb-4">노드 초기화</h2>
+            <div className="flex flex-col gap-3 mb-4">
+              <button
+                onClick={handleSelectAll}
+                className="px-3 py-2 bg-blue-500 text-white rounded-md"
+              >
+                {selectedNodesForInit.length === allNodes.length
+                  ? '전체 선택 해제'
+                  : '전체 선택'} ({selectedNodesForInit.length}/{allNodes.length})
+              </button>
+              <button
+                onClick={handleInitSelected}
+                className="px-3 py-2 bg-red-500 text-white rounded-md"
+              >
+                초기화
+              </button>
+            </div>
+
+            {/* 체크박스 리스트 */}
+            <div className="max-h-40 overflow-y-auto border p-2 rounded">
+              {allNodes.map((node) => (
+                <label key={node.doorNum} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    value={node.doorNum}
+                    checked={selectedNodesForInit.includes(node.doorNum)}
+                    onChange={(e) => {
+                      const val = Number(e.target.value)
+                      setSelectedNodesForInit((prev) =>
+                        e.target.checked
+                          ? [...prev, val]
+                          : prev.filter((n) => n !== val)
+                      )
+                    }}
+                    className="accent-blue-500 w-4 h-4"
+                  />
+                  Node-{node.doorNum}
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setIsInitModalOpen(false)}
+                className="px-3 py-1 bg-gray-400 text-white rounded-md"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
     </div>
   )
 }

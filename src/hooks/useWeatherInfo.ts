@@ -1,4 +1,6 @@
+// src/hooks/useWeatherInfo.ts
 import { useEffect, useState } from "react"
+import axios from "axios"
 
 interface WeatherData {
   temp: number
@@ -10,141 +12,100 @@ interface WeatherData {
   pm10?: number
   earthquake?: boolean
   typhoon?: boolean
-  sky?: string
-  pty?: string
 }
 
-// ----------------------------
-// 위도/경도 → 기상청 격자 변환
-// ----------------------------
-function dfs_xy_conv(lat: number, lon: number) {
-  const RE = 6371.00877
-  const GRID = 5.0
-  const SLAT1 = 30.0
-  const SLAT2 = 60.0
-  const OLON = 126.0
-  const OLAT = 38.0
-  const XO = 43
-  const YO = 136
-
-  const DEGRAD = Math.PI / 180.0
-
-  const re = RE / GRID
-  const slat1 = SLAT1 * DEGRAD
-  const slat2 = SLAT2 * DEGRAD
-  const olon = OLON * DEGRAD
-  const olat = OLAT * DEGRAD
-
-  let sn = Math.tan(Math.PI * 0.25 + slat2 * 0.5) / Math.tan(Math.PI * 0.25 + slat1 * 0.5)
-  sn = Math.log(Math.cos(slat1) / Math.cos(slat2)) / Math.log(sn)
-
-  let sf = Math.tan(Math.PI * 0.25 + slat1 * 0.5)
-  sf = Math.pow(sf, sn) * Math.cos(slat1) / sn
-
-  let ro = Math.tan(Math.PI * 0.25 + olat * 0.5)
-  ro = re * sf / Math.pow(ro, sn)
-
-  let ra = Math.tan(Math.PI * 0.25 + lat * DEGRAD * 0.5)
-  ra = re * sf / Math.pow(ra, sn)
-
-  let theta = lon * DEGRAD - olon
-  if (theta > Math.PI) theta -= 2.0 * Math.PI
-  if (theta < -Math.PI) theta += 2.0 * Math.PI
-  theta *= sn
-
-  const x = Math.floor(ra * Math.sin(theta) + XO + 0.5)
-  const y = Math.floor(ro - ra * Math.cos(theta) + YO + 0.5)
-
-  return { nx: x, ny: y }
+// 영어 → 한국어 매핑
+const weatherMap: Record<string, string> = {
+  Clear: "맑음",
+  Clouds: "구름많음",
+  Cloudy: "흐림",
+  Rain: "비",
+  Drizzle: "이슬비",
+  Thunderstorm: "천둥번개",
+  Snow: "눈",
+  Mist: "옅은안개",
+  Smoke: "연기",
+  Haze: "실안개",
+  Dust: "황사",
+  Fog: "안개",
+  Sand: "모래",
+  Ash: "화산재",
+  Squall: "돌풍",
+  Tornado: "토네이도",
 }
 
-export const useWeather = () => {
+export const useWeather = (buildingId: string) => {
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchWeather = async (lat: number, lon: number) => {
+  const fetchWeather = async () => {
     try {
-      const apiKey = "f9d0ac2f06dd719db58be8c04d008e76"
-      const serviceKey =
-        "ntz%2BGOSlBMCP%2FxMVTqY2d3Ik%2FlRw5RIeQM6FRNZD0Z3%2FWXUI3n%2F7v4lRHAy1yB5ovSRBepiK09V0yUi1od55eg%3D%3D"
-
-      // ----------------------------
-      // 1. OpenWeather → temp/humidity/wind
-      // ----------------------------
-      const owRes = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=kr`
-      )
-      const owData = await owRes.json()
-
-      const temp = owData.main?.temp ?? 0
-      const humidity = owData.main?.humidity ?? 0
-      const windSpeed = owData.wind?.speed ?? 0
-      const windDeg = owData.wind?.deg ?? 0
-
-      // ----------------------------
-      // 2. 기상청 → 날씨 상태(SKY+PTY)
-      // ----------------------------
-      const { nx, ny } = dfs_xy_conv(lat, lon)
-
-      const now = new Date()
-      let baseDate = now.toISOString().slice(0, 10).replace(/-/g, "")
-      const baseTimes = ["2300", "0200", "0500", "0800", "1100", "1400", "1700", "2000"]
-      let baseTime = "0200"
-      for (let t of baseTimes) {
-        const h = parseInt(t.slice(0, 2), 10)
-        if (now.getHours() >= h) baseTime = t
-      }
-      if (now.getHours() < 2) {
-        const yest = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-        baseDate = yest.toISOString().slice(0, 10).replace(/-/g, "")
-        baseTime = "2300"
+      if (!buildingId) {
+        setError("빌딩 ID가 필요합니다.")
+        setLoading(false)
+        return
       }
 
-      const fcstResponse = await fetch(
-        `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${serviceKey}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`
+      // ✅ 1. 백엔드에서 최신 날씨 가져오기
+      const res = await axios.get(
+        `${import.meta.env.VITE_SERVER_BASE_URL}/api/weather/latest`,
+        { params: { buildingId } }
       )
-      const fcstData = await fcstResponse.json()
 
-      let sky = "0", pty = "0", description = "정보 없음"
-      if (fcstData?.response?.body?.items?.item) {
-        fcstData.response.body.items.item.forEach((it: any) => {
-          if (it.category === "SKY") sky = it.fcstValue
-          if (it.category === "PTY") pty = it.fcstValue
-        })
-        if (pty !== "0") {
-          switch (pty) {
-            case "1": description = "비"; break
-            case "2": description = "비/눈"; break
-            case "3": description = "눈"; break
-            case "4": description = "소나기"; break
-            case "5": description = "빗방울"; break
-            case "6": description = "빗방울/눈날림"; break
-            case "7": description = "눈날림"; break
-          }
-        } else {
-          switch (sky) {
-            case "1": description = "맑음"; break
-            case "3": description = "구름많음"; break
-            case "4": description = "흐림"; break
-          }
-        }
+      console.log("✅ Weather API Response:", res.data)
+
+      const latest = res.data
+      if (!latest) {
+        setError("날씨 데이터가 없습니다.")
+        setWeather(null)
+        return
       }
 
-      // ----------------------------
-      // 3. OpenWeather → 미세먼지
-      // ----------------------------
-      const airRes = await fetch(
-        `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`
-      )
-      const airData = await airRes.json()
-      const pm10 = airData.list?.[0]?.components.pm10
+      // 기본 값 매핑
+      const temp = latest.temperature ?? 0
+      const humidity = latest.humidity ?? 0
+      const windSpeed = latest.wind_speed ?? 0
+      const description =
+        weatherMap[latest.weather] ?? latest.weather ?? "정보 없음"
+      const windDirection = latest.wind_direction ?? "N"
+
+      const directionMap: Record<string, number> = {
+        N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
+        E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+        S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
+        W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
+      }
+      const windDeg = directionMap[windDirection] ?? 0
 
       // ----------------------------
-      // 4. 기상청 → 특보(지진/태풍)
+      // 2. OpenWeather → 미세먼지
       // ----------------------------
-      let earthquake = false, typhoon = false
+      let pm10: number | undefined = undefined
       try {
+        const lat = 37.5665 // 서울 기본 (실제로는 building 좌표 필요)
+        const lon = 126.9780
+        const apiKey = import.meta.env.VITE_OPENWEATHER_KEY || "f9d0ac2f06dd719db58be8c04d008e76"
+
+        const airRes = await fetch(
+          `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`
+        )
+        const airData = await airRes.json()
+        pm10 = airData.list?.[0]?.components?.pm10
+      } catch (e) {
+        console.warn("미세먼지 API 호출 실패", e)
+      }
+
+      // ----------------------------
+      // 3. 기상청 → 특보(지진/태풍)
+      // ----------------------------
+      let earthquake = false
+      let typhoon = false
+      try {
+        const serviceKey =
+          import.meta.env.VITE_KMA_KEY ||
+          "ntz%2BGOSlBMCP%2FxMVTqY2d3Ik%2FlRw5RIeQM6FRNZD0Z3%2FWXUI3n%2F7v4lRHAy1yB5ovSRBepiK09V0yUi1od55eg%3D%3D"
+
         const wrnRes = await fetch(
           `https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnList?serviceKey=${serviceKey}&pageNo=1&numOfRows=50&dataType=JSON`
         )
@@ -160,49 +121,31 @@ export const useWeather = () => {
         console.warn("특보 API 호출 실패", e)
       }
 
-      // ----------------------------
-      // 최종 상태 업데이트
-      // ----------------------------
+      // ✅ 최종 상태 업데이트
       setWeather({
         temp,
         humidity,
         windSpeed,
         windDeg,
-        description, // ✅ 기상청 SKY/PTY 문구
-        icon: owData.weather?.[0]?.icon ?? "",
+        description,
+        icon: "",
         pm10,
         earthquake,
         typhoon,
-        sky,
-        pty,
       })
     } catch (err) {
       setError("날씨 정보를 불러오는 데 실패했습니다.")
-      console.error(err)
+      console.error("❌ Weather API Error:", err)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setError("위치 정보를 지원하지 않는 브라우저입니다.")
-      setLoading(false)
-      return
-    }
-    const updateWeather = () => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => fetchWeather(pos.coords.latitude, pos.coords.longitude),
-        () => {
-          setError("위치 정보를 가져오는 데 실패했습니다.")
-          setLoading(false)
-        }
-      )
-    }
-    updateWeather()
-    const timer = setInterval(updateWeather, 10 * 60 * 1000)
+    fetchWeather()
+    const timer = setInterval(fetchWeather, 10 * 60 * 1000) // 10분마다 갱신
     return () => clearInterval(timer)
-  }, [])
+  }, [buildingId])
 
   return { weather, loading, error }
 }
