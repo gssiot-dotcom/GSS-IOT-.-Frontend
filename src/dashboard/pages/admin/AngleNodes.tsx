@@ -8,7 +8,7 @@ import {
 } from '@/services/apiRequests'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react' // useState, useEffect 추가
 import { useParams } from 'react-router-dom'
 import {
   DeltaGraphPoint,
@@ -24,27 +24,54 @@ interface ResQuery {
   angle_nodes: IAngleNode[]
 }
 
+// ✨ 풍속 데이터 타입을 위한 인터페이스 추가
+interface WindPoint {
+  timestamp: string;
+  wind_speed: number;
+}
+
+
 const AngleNodes = () => {
   const [selectedDoorNum, setSelectedDoorNum] = useState<number | null>(null)
 
-  // ✅ 시간/일 모드 상태
-  const [selectedHours, setSelectedHours] = useState<number>(12) // 시간 모드에서만 사용
+  const [selectedHours, setSelectedHours] = useState<number>(12)
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
   const [timeMode, setTimeMode] = useState<"hour" | "day" | "week" | "month">("hour")
 
   const [data, setData] = useState<GraphDataPoint[]>([])
   const [deltaData, setDeltaData] = useState<DeltaGraphPoint[]>([])
   const [isFirstLoad, setIsFirstLoad] = useState(true)
-  const [viewMode, setViewMode] = useState<'general' | 'delta' | 'avgDelta'>(
-    'general'
-  )
+  const [viewMode, setViewMode] = useState<'general' | 'delta' | 'avgDelta'>('general')
   const { buildingId } = useParams()
   const queryClient = useQueryClient()
 
-  // ✅ B는 별도 상태 없음 → 항상 G 값과 동일하게 처리
+  // ✨ 풍속 데이터를 저장할 상태 추가
+  const [windHistory, setWindHistory] = useState<WindPoint[]>([]);
+
   const [G, setG] = useState(0)
   const [Y, setY] = useState(0)
   const [R, setR] = useState(0)
+
+  // ✨ 풍속 데이터를 여기서 한번만 불러옵니다.
+  useEffect(() => {
+    if (!buildingId) return;
+
+    const loadWind = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_SERVER_BASE_URL}/api/weather/${buildingId}/wind-series`);
+        if (!res.ok) throw new Error("Wind-series API 호출 실패");
+        const json = await res.json();
+        setWindHistory(json.data);
+      } catch (e) {
+        console.error("풍속 데이터 불러오기 실패:", e);
+      }
+    };
+
+    loadWind();
+    const timer = setInterval(loadWind, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [buildingId]);
+
 
   const queryData = useQueries({
     queries: [
@@ -62,7 +89,6 @@ const AngleNodes = () => {
   const buildingAngleNodes =
     (queryData[0].data?.angle_nodes as IAngleNode[]) || []
 
-  // ⚡ 서버에서 가져온 alarm_level로 초기화
   useEffect(() => {
     if (buildingData?.alarm_level) {
       setG(buildingData.alarm_level.green)
@@ -95,7 +121,6 @@ const AngleNodes = () => {
     }
   }, [dangerAngleNodes, buildingAngleNodes, isFirstLoad])
 
-  // ✅ 데이터 가져오기 (시간 / 일 모드 분기)
   useEffect(() => {
     if (!selectedDoorNum) return
 
@@ -103,23 +128,11 @@ const AngleNodes = () => {
     let to: string
 
     if (timeMode === "day" && selectedDate) {
-      // ✅ 하루 전체 범위 (00:00 ~ 23:59:59)
-      const startOfDay = new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
-        0, 0, 0
-      )
-      const endOfDay = new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
-        23, 59, 59
-      )
+      const startOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0)
+      const endOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59)
       from = startOfDay.toISOString()
       to = endOfDay.toISOString()
     } else {
-      // ✅ 기존 시간 기반
       const now = new Date()
       from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
       to = now.toISOString()
@@ -130,17 +143,11 @@ const AngleNodes = () => {
     axios
       .get<SensorData[]>('/product/angle-node/data', {
         params: { doorNum: doorNums.join(','), from, to },
-        baseURL:
-          import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
+        baseURL: import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
       })
       .then(res => {
-        const filteredData = res.data.filter(
-          item => item.doorNum === selectedDoorNum
-        )
-        const sortedData = filteredData.sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        )
+        const filteredData = res.data.filter(item => item.doorNum === selectedDoorNum)
+        const sortedData = filteredData.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 
         if (viewMode === 'general') {
           const dataMap: Record<string, any> = {}
@@ -155,21 +162,16 @@ const AngleNodes = () => {
         } else if (viewMode === 'delta') {
           const deltaGraphData: DeltaGraphPoint[] = []
           const uniqueMinutesMap: Record<string, SensorData> = {}
-
           sortedData.forEach(item => {
             const timeKey = new Date(item.createdAt).toISOString()
             uniqueMinutesMap[timeKey] = item
           })
-
           const uniqueMinutesData = Object.values(uniqueMinutesMap)
-
           for (let i = 1; i < uniqueMinutesData.length; i++) {
             const time = new Date(uniqueMinutesData[i].createdAt).toISOString()
             deltaGraphData.push({
               time,
-              [`node_${selectedDoorNum}`]:
-                uniqueMinutesData[i].angle_x -
-                uniqueMinutesData[i - 1].angle_x,
+              [`node_${selectedDoorNum}`]: uniqueMinutesData[i].angle_x - uniqueMinutesData[i - 1].angle_x,
             })
           }
           setDeltaData(deltaGraphData)
@@ -178,17 +180,13 @@ const AngleNodes = () => {
           const avgDeltaGraphData: DeltaGraphPoint[] = []
           const chunkSize = 5
           const averages: { time: string; avgX: number }[] = []
-
           for (let i = 0; i < sortedData.length; i += chunkSize) {
             const chunk = sortedData.slice(i, i + chunkSize)
             if (chunk.length === 0) continue
-            const avgX =
-              chunk.reduce((sum, node) => sum + node.angle_x, 0) /
-              chunk.length
+            const avgX = chunk.reduce((sum, node) => sum + node.angle_x, 0) / chunk.length
             const time = new Date(chunk[0].createdAt).toISOString()
             averages.push({ time, avgX })
           }
-
           for (let i = 1; i < averages.length; i++) {
             const delta = averages[i].avgX - averages[i - 1].avgX
             avgDeltaGraphData.push({
@@ -196,7 +194,6 @@ const AngleNodes = () => {
               [`node_${selectedDoorNum}`]: delta,
             })
           }
-
           setDeltaData(avgDeltaGraphData)
           setData([])
         }
@@ -204,11 +201,9 @@ const AngleNodes = () => {
       .catch(err => console.error('Data fetch error:', err))
   }, [selectedDoorNum, selectedHours, selectedDate, timeMode, viewMode])
 
-  // ✅ 소켓으로 실시간 업데이트
   useEffect(() => {
     if (!buildingId) return
     const topic = `${buildingId}_angle-nodes`
-
     const listener = (newData: SensorData) => {
       queryClient.setQueryData<ResQuery>(
         ['get-building-angle-nodes', buildingId],
@@ -216,7 +211,6 @@ const AngleNodes = () => {
           if (!old) return old
           const list = old.angle_nodes ?? []
           let found = false
-
           const updated = list.map(n => {
             if (n.doorNum === newData.doorNum) {
               found = true
@@ -224,14 +218,11 @@ const AngleNodes = () => {
                 ...n,
                 angle_x: newData.angle_x,
                 angle_y: newData.angle_y,
-                createdAt: new Date(
-                  newData.createdAt ?? Date.now()
-                ).toISOString(),
+                createdAt: new Date(newData.createdAt ?? Date.now()).toISOString(),
               }
             }
             return n
           })
-
           if (!found) {
             updated.push({
               _id: crypto.randomUUID(),
@@ -241,11 +232,9 @@ const AngleNodes = () => {
               node_status: false,
             } as IAngleNode)
           }
-
           return { ...old, angle_nodes: updated }
         }
       )
-
       if (viewMode === 'general' && selectedDoorNum === newData.doorNum) {
         const point: GraphDataPoint = {
           time: new Date(newData.updatedAt).toISOString(),
@@ -258,27 +247,16 @@ const AngleNodes = () => {
         })
       }
     }
-
     socket.on(topic, listener)
     return () => {
       socket.off(topic, listener)
     }
   }, [buildingId, queryClient, selectedDoorNum, viewMode])
 
-  // ✅ API 호출 시 B=G 로 자동 세팅
-  const handleSetAlarmLevels = async (levels: {
-    G: number
-    Y: number
-    R: number
-  }) => {
+  const handleSetAlarmLevels = async (levels: { G: number; Y: number; R: number }) => {
     if (!buildingId) return
     try {
-      await setBuildingAlarmLevelRequest(buildingId, {
-        B: levels.G,
-        G: levels.G,
-        Y: levels.Y,
-        R: levels.R,
-      })
+      await setBuildingAlarmLevelRequest(buildingId, { B: levels.G, G: levels.G, Y: levels.Y, R: levels.R })
       alert('알람 레벨이 저장되었습니다.')
     } catch (err) {
       console.error(err)
@@ -307,9 +285,7 @@ const AngleNodes = () => {
       />
       <div className='-mt-[63.5vh]'>
         <SensorGraph
-          graphData={
-            viewMode === 'delta' || viewMode === 'avgDelta' ? deltaData : data
-          }
+          graphData={viewMode === 'delta' || viewMode === 'avgDelta' ? deltaData : data}
           buildingId={buildingId}
           doorNum={selectedDoorNum}
           onSelectTime={setSelectedHours}
@@ -319,14 +295,16 @@ const AngleNodes = () => {
           Y={Y}
           R={R}
           viewMode={viewMode}
-          timeMode={timeMode}         // ✅ 자식에게 모드 전달
+          timeMode={timeMode}
           setTimeMode={setTimeMode}
-          selectedDate={selectedDate} // ✅ 자식에게 선택한 날짜 전달
+          selectedDate={selectedDate}
           setSelectedDate={setSelectedDate}
+          // ✨ windHistory prop 전달
+          windHistory={windHistory}
         />
       </div>
     </div>
   )
 }
 
-export default AngleNodes
+export default AngleNodes;

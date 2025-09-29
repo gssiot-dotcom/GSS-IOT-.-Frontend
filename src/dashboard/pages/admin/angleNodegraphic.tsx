@@ -7,7 +7,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import React, { forwardRef, useMemo } from "react" // useMemo import 추가
+import React, { forwardRef, useMemo } from "react"
 import { useEffect, useRef, useState } from 'react'
 import {
     CartesianGrid,
@@ -27,7 +27,7 @@ import "react-datepicker/dist/react-datepicker.css"
 import { format } from "date-fns"
 import { ko } from "date-fns/locale"
 
-// --- Helper functions (원본과 동일) ---
+// --- Helper functions ---
 function getWeekOfMonth(date: Date) {
     const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1)
     const dayOfWeek = startOfMonth.getDay()
@@ -64,23 +64,28 @@ const useMediaQuery = (query: string) => {
     return matches
 }
 
-// --- 타입 정의 (원본과 동일) ---
-export interface GraphDataPoint {
+// 공통 필드 정의
+export interface BasePoint {
     time: string
-    angle_x: number
-    angle_y: number
+    timestamp?: number
     wind_speed?: number | null
+}
+
+export interface GraphDataPoint extends BasePoint {
+    angle_x: number | null
+    angle_y: number | null
     nodeId?: string
-    timestamp?: number;
 }
-export interface DeltaGraphPoint {
-    time: string
-    [key: string]: number | string
+
+export interface DeltaGraphPoint extends BasePoint {
+    [key: string]: number | string | null | undefined
 }
-export interface AvgDeltaDataPoint {
-    time: string
+
+export interface AvgDeltaDataPoint extends BasePoint {
     avgX: number
 }
+
+
 interface WindPoint {
     timestamp: string
     wind_speed: number
@@ -101,6 +106,7 @@ type SensorGraphProps = {
     setTimeMode: (mode: "hour" | "day" | "week" | "month") => void
     selectedDate: Date | null
     setSelectedDate: (date: Date | null) => void
+    windHistory: WindPoint[];
 }
 
 const SensorGraph: React.FC<SensorGraphProps> = ({
@@ -118,48 +124,25 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     setTimeMode,
     selectedDate,
     setSelectedDate,
+    windHistory,
 }) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const [data, setData] = useState<GraphDataPoint[] | DeltaGraphPoint[] | AvgDeltaDataPoint[]>(graphData)
-    const [windHistory, setWindHistory] = useState<WindPoint[]>([])
     const isMobile = useMediaQuery('(max-width: 640px)')
     const isTablet = useMediaQuery('(max-width: 1024px)')
 
     useEffect(() => setData(graphData), [graphData])
 
-    useEffect(() => {
-        if (!buildingId) return
-        const loadWind = async () => {
-            try {
-                const res = await fetch(`${import.meta.env.VITE_SERVER_BASE_URL}/api/weather/${buildingId}/wind-series`)
-                if (!res.ok) throw new Error("Wind-series API 호출 실패")
-                const json = await res.json()
-                setWindHistory(json.data)
-            } catch (e) {
-                console.error("풍속 데이터 불러오기 실패:", e)
-            }
-        }
-        loadWind()
-        const timer = setInterval(loadWind, 60 * 1000)
-        return () => clearInterval(timer)
-    }, [buildingId])
-
-    // ✅ X축 계산 (원본과 동일)
     const getXAxisTicksAndDomain = (): { ticks: number[]; domain: [number, number] } => {
         const now = new Date()
         let startPoint: Date
         let endPoint: Date
         const ticks: number[] = []
-
         if (timeMode === "day" && selectedDate) {
-            startPoint = new Date(selectedDate)
-            startPoint.setHours(0, 0, 0, 0)
-            endPoint = new Date(selectedDate)
-            endPoint.setHours(23, 59, 59, 999)
-
+            startPoint = new Date(selectedDate); startPoint.setHours(0, 0, 0, 0)
+            endPoint = new Date(selectedDate); endPoint.setHours(23, 59, 59, 999)
             for (let i = 0; i <= 24; i += 2) {
-                const tickTime = new Date(startPoint.getTime())
-                tickTime.setHours(i, 0, 0, 0)
+                const tickTime = new Date(startPoint.getTime()); tickTime.setHours(i, 0, 0, 0)
                 ticks.push(tickTime.getTime())
             }
         } else if (hours === 1) {
@@ -189,136 +172,162 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     }
     const { ticks: xAxisTicks, domain: xAxisDomain } = getXAxisTicksAndDomain()
 
-    // ✨ MODIFICATION START
-    // 1. 풍속 데이터만 사전 처리하여 효율적인 조회를 위한 Map 생성
-    const windDataMap = useMemo(() => {
-        const map = new Map<number, number>();
-        windHistory.forEach(w => {
-            // 'Z'를 제거하여 UTC가 아닌 한국 시간(KST)으로 해석하도록 강제
-            const localTimeStr = w.timestamp.slice(0, -1);
-            const date = new Date(localTimeStr);
-
-            if (!isNaN(date.getTime())) {
-                // 현지 시간 기준으로 분(minute) 단위로 정규화
-                date.setSeconds(0, 0);
-                map.set(date.getTime(), w.wind_speed);
-            }
-        });
-        return map;
-    }, [windHistory]);
-
-    // 2. 기존의 비효율적인 merge 로직을 위에서 만든 Map을 사용하도록 변경
-    const finalData = (data as GraphDataPoint[]).map(d => {
-        const sensorDate = new Date(d.time);
-        const originalTimestamp = sensorDate.getTime();
-
-        // 센서 시간도 동일하게 현지 시간 기준 분 단위로 정규화하여 키로 사용
-        sensorDate.setSeconds(0, 0);
-        const minuteTimestampKey = sensorDate.getTime();
-
-        return {
-            ...d,
-            timestamp: originalTimestamp, // 차트에는 원래의 정확한 타임스탬프 사용
-            wind_speed: windDataMap.get(minuteTimestampKey) ?? null, // Map에서 풍속 데이터 조회
-        };
-    });
-    // ✨ MODIFICATION END
-
-
-    // --- Y축 (기울기) (원본과 동일)
-    const getYDomainAndTicks = (data: GraphDataPoint[] | DeltaGraphPoint[] | AvgDeltaDataPoint[]) => {
-        if (!data || data.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] }
-        if (viewMode === 'general') {
-            const values = data.flatMap(d => [(d as GraphDataPoint).angle_x, (d as GraphDataPoint).angle_y])
-            if (values.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] }
-            const minVal = Math.min(...values)
-            const maxVal = Math.max(...values)
-            let domain: [number, number] = [-5, 5]
-            let ticks: number[] = [-5, 0, 5]
-            if (minVal < -5 || maxVal > 5) {
-                domain = [-10, 10]
-                ticks = [-10, 0, 10]
-            }
-            if (minVal < -10 || maxVal > 10) {
-                domain = [-15, 15]
-                ticks = [-15, 0, 15]
-            }
-            return { domain, ticks }
-        } else if (viewMode === 'delta') {
-            const values = data.flatMap(d => {
-                const point = d as DeltaGraphPoint
-                return Object.keys(point).filter(key => key !== 'time').map(key => point[key] as number)
-            })
-            if (values.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] }
-            const maxAbs = Math.max(...values.map(Math.abs))
-            let boundary: number
-            if (maxAbs > 10) boundary = 15
-            else if (maxAbs > 5) boundary = 10
-            else boundary = 5
-            return { domain: [-boundary, boundary], ticks: [-boundary, 0, boundary] }
-        } else {
-            const values = data.flatMap(d => [(d as AvgDeltaDataPoint).avgX])
-            if (values.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] }
-            const maxAbs = Math.max(...values.map(Math.abs))
-            let boundary: number
-            if (maxAbs > 10) boundary = 15
-            else if (maxAbs > 5) boundary = 10
-            else boundary = 5
-            return { domain: [-boundary, boundary], ticks: [-boundary, 0, boundary] }
+    // ✨ 풍속 데이터를 모든 모드에 매핑
+    const attachWindData = (points: { time: string }[]) => {
+        if (!points || points.length === 0) return [];
+        if (!windHistory || windHistory.length === 0) {
+            return points.map(p => ({
+                ...p,
+                timestamp: new Date(p.time).getTime(),
+                wind_speed: null
+            }));
         }
-    }
-    const { domain: yDomain, ticks: yTicks } = getYDomainAndTicks(data)
 
-    // --- 풍속 Y축 도메인 (원본과 동일)
-    const getWindDomainAndTicks = (data: GraphDataPoint[]) => {
-        const maxWind = Math.max(...data.map(d => d.wind_speed || 0))
+        const sortedWindHistory = windHistory
+            .map(w => ({
+                wind_speed: w.wind_speed,
+                timestampNum: new Date(w.timestamp.slice(0, -1)).getTime()
+            }))
+            .filter(w => !isNaN(w.timestampNum))
+            .sort((a, b) => a.timestampNum - b.timestampNum);
+
+        return points.map(p => {
+            const sensorTimestamp = new Date(p.time).getTime();
+            if (isNaN(sensorTimestamp)) {
+                return { ...p, timestamp: 0, wind_speed: null };
+            }
+
+            let low = 0;
+            let high = sortedWindHistory.length - 1;
+            let closestIndex = 0;
+
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                if (sortedWindHistory[mid].timestampNum === sensorTimestamp) {
+                    closestIndex = mid;
+                    break;
+                } else if (sortedWindHistory[mid].timestampNum < sensorTimestamp) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+
+            if (low >= sortedWindHistory.length) {
+                closestIndex = sortedWindHistory.length - 1;
+            } else if (low === 0) {
+                closestIndex = 0;
+            } else {
+                const diff1 = Math.abs(sensorTimestamp - sortedWindHistory[low - 1].timestampNum);
+                const diff2 = Math.abs(sensorTimestamp - sortedWindHistory[low].timestampNum);
+                closestIndex = diff1 < diff2 ? low - 1 : low;
+            }
+
+            const closestWindSpeed = sortedWindHistory[closestIndex]?.wind_speed ?? null;
+
+            return {
+                ...p,
+                timestamp: sensorTimestamp,
+                wind_speed: closestWindSpeed,
+            };
+        });
+    }
+
+    const finalData = useMemo(() => {
+        if (viewMode === 'general') {
+            return attachWindData(data as GraphDataPoint[]);
+        }
+        return [];
+    }, [data, windHistory, viewMode]);
+
+    const processedDeltaData = useMemo(() => {
+        if (viewMode === 'general') return [];
+        return attachWindData(data as DeltaGraphPoint[]);
+    }, [viewMode, data, windHistory]);
+
+    const getYDomainAndTicks = (data: (GraphDataPoint | DeltaGraphPoint | AvgDeltaDataPoint)[]) => {
+        if (!data || data.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] };
+
+        if (viewMode === 'general') {
+            const values = data.flatMap(d => [(d as GraphDataPoint).angle_x, (d as GraphDataPoint).angle_y]).filter(v => v != null && !isNaN(v as number)) as number[];
+            if (values.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] };
+            const minVal = Math.min(...values);
+            const maxVal = Math.max(...values);
+            let domain: [number, number] = [-5, 5];
+            let ticks: number[] = [-5, 0, 5];
+            if (minVal < -5 || maxVal > 5) { domain = [-10, 10]; ticks = [-10, 0, 10]; }
+            if (minVal < -10 || maxVal > 10) { domain = [-15, 15]; ticks = [-15, 0, 15]; }
+            return { domain, ticks };
+        } else {
+            const values = data.flatMap(d => {
+                const point = d as DeltaGraphPoint;
+                const dataKey = Object.keys(point).find(key => key.startsWith('node_'));
+                if (!dataKey) return [];
+                const rawValue = point[dataKey];
+                const numValue = parseFloat(rawValue as string);
+                return isNaN(numValue) ? [] : [numValue];
+            });
+            if (values.length === 0) return { domain: [-5, 5], ticks: [-5, 0, 5] };
+            const maxAbs = Math.max(...values.map(v => Math.abs(v)));
+            let boundary = 5;
+            if (maxAbs > 10) boundary = 15;
+            else if (maxAbs > 5) boundary = 10;
+            return { domain: [-boundary, boundary], ticks: [-boundary, 0, boundary] };
+        }
+    };
+    const { domain: yDomain, ticks: yTicks } = getYDomainAndTicks(viewMode === 'general' ? finalData : processedDeltaData);
+
+    const getWindDomainAndTicks = (data: any[]) => {
+        const windValues = data.map(d => d.wind_speed).filter(v => v != null && !isNaN(v as number)) as number[];
+        if (windValues.length === 0) return { domain: [0, 20], ticks: [0, 5, 10, 20] };
+        const maxWind = Math.max(...windValues)
         const top = Math.ceil(maxWind / 10) * 10 || 20
         const ticks: number[] = []
         for (let i = 0; i <= top; i += 10) ticks.push(i)
         if (top >= 5 && !ticks.includes(5)) ticks.splice(1, 0, 5)
         return { domain: [0, top], ticks }
     }
-    const { domain: windDomain, ticks: windTicks } = getWindDomainAndTicks(finalData)
+    const { domain: windDomain, ticks: windTicks } = getWindDomainAndTicks(viewMode === 'general' ? finalData : processedDeltaData);
 
-    // --- Chart UI Helper (원본과 동일) ---
     const getChartMargins = () => {
         if (isMobile) return { top: 10, right: 10, left: 0, bottom: 18 }
         if (isTablet) return { top: 15, right: 20, left: 5, bottom: 22 }
         return { top: -20, right: 50, left: -20, bottom: 30 }
     }
     const formatXAxisTick = (value: number) => {
-        const date = new Date(value)
-        const hours = String(date.getHours()).padStart(2, '0')
-        const minutes = String(date.getMinutes()).padStart(2, '0')
-        return `${hours}:${minutes}`
+        const date = new Date(value);
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
     }
-    const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max))
-    const formatYAxisTick = (value: number): string => value.toString()
+    const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
+    const formatYAxisTick = (value: number): string => value.toString();
     const formatTooltipValue = (value: number, name: string) => {
-        if (name.includes('변화량') || name.includes('평균변화')) return value.toFixed(2)
-        return value
+        if (name.includes('변화량') || name.includes('평균변화')) return value.toFixed(2);
+        return value;
     }
     const formatTooltipLabel = (value: number) => {
-        const date = new Date(value)
-        const yyyy = date.getFullYear()
-        const MM = String(date.getMonth() + 1).padStart(2, '0')
-        const dd = String(date.getDate()).padStart(2, '0')
-        const hh = String(date.getHours()).padStart(2, '0')
-        const mm = String(date.getMinutes()).padStart(2, '0')
-        return `${yyyy}-${MM}-${dd} ${hh}:${mm}`
+        const date = new Date(value);
+        const yyyy = date.getFullYear();
+        const MM = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const mm = String(date.getMinutes()).padStart(2, '0');
+        return `${yyyy}-${MM}-${dd} ${hh}:${mm}`;
     }
+
+    const chartData = viewMode === 'general' ? finalData : processedDeltaData;
 
     return (
         <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[69.4%] 2xl:w-[68.8%] 3xl:w-[69%] pb-5 md:-mr-2 2xl:-mr-5 3xl:-mr-2 2xl:h-[20%]'>
             <Card className='w-full border shadow-sm border-slate-400 mt-4 sm:mt-6'>
-                {/* CardHeader와 내부 로직 모두 원본과 동일 */}
                 <CardHeader className="p-3 sm:p-4 space-y-2">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                         <CardTitle className="text-sm sm:text-base md:text-lg text-gray-900">
                             비계전도 실시간 데이터{" "}
                             {viewMode === "general" && doorNum !== null && <span className="text-blue-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum}</span>}
                             {viewMode === "delta" && doorNum !== null && <span className="text-purple-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum} (변화량)</span>}
-                            {viewMode === "avgDelta" && doorNum !== null && <span className="text-green-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum} (평균변화)</span>}
+                            {viewMode === "avgDelta" && doorNum !== null && <span className="text-orange-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum} (평균변화)</span>}
                         </CardTitle>
                         <div className="flex flex-row items-center justify-between sm:justify-end gap-3">
                             <div className="flex items-center gap-x-2">
@@ -342,31 +351,25 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                     </div>
                     <div className="flex items-center px-2 py-1"><WeatherInfographic buildingId={buildingId!} /></div>
                 </CardHeader>
-
-                {/* CardContent와 내부 차트 로직 모두 원본과 동일 */}
                 <CardContent className='p-0 pt-2 overflow-x-hidden overflow-visible' ref={containerRef}>
                     <div className='w-full h-[280px] sm:h-[320px] md:h-[350px] lg:h-[38.9vh] 2xl:h-[46.5vh] 3xl:h-[42.3vh] px-1 sm:px-2 '>
-                        <ResponsiveContainer width={viewMode === 'general' ? '108%' : '100%'} height='100%'>
-                            <LineChart data={finalData} margin={getChartMargins()}>
+                        <ResponsiveContainer
+                            width={(viewMode === 'general' || viewMode === 'delta' || viewMode === 'avgDelta') ? '108%' : '100%'}
+                            height='100%'
+                        >
+
+                            <LineChart data={chartData} margin={getChartMargins()}>
                                 <CartesianGrid strokeDasharray='3 3' stroke='#f0f0f0' />
                                 <XAxis dataKey='timestamp' domain={xAxisDomain} tick={{ fontSize: isMobile ? 9 : 12 }} tickFormatter={formatXAxisTick} height={isMobile ? 30 : 40} tickMargin={isMobile ? 5 : 10} ticks={xAxisTicks} type='number'>
-                                    <Label position="bottom" content={({ viewBox }) => {
-                                        const { x, y, width } = viewBox as any;
-                                        return <text x={x + width / 2} y={y + 50} textAnchor="middle" style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold", fill: "#000" }}>시간</text>
-                                    }} />
+                                    <Label position="bottom" content={({ viewBox }) => { const { x, y, width } = viewBox as any; return <text x={x + width / 2} y={y + 50} textAnchor="middle" style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold", fill: "#000" }}>시간</text> }} />
                                 </XAxis>
                                 <YAxis yAxisId="angle" domain={yDomain} ticks={yTicks} tick={{ fontSize: isMobile ? 9 : 12 }} width={isMobile ? 40 : 60} tickMargin={isMobile ? 2 : 5} tickFormatter={formatYAxisTick}>
-                                    <Label position="left" offset={0} content={({ viewBox }) => {
-                                        const { x, y, height } = viewBox as any;
-                                        return <text x={x + 31} y={y + height / 2} textAnchor="middle" style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold" }}><tspan x={x + 31} dy="-0.6em">기</tspan><tspan x={x + 31} dy="1.2em">울</tspan><tspan x={x + 31} dy="1.2em">기</tspan></text>
-                                    }} />
+                                    <Label position="left" offset={0} content={({ viewBox }) => { const { x, y, height } = viewBox as any; return <text x={x + 31} y={y + height / 2} textAnchor="middle" style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold" }}><tspan x={x + 31} dy="-0.6em">기</tspan><tspan x={x + 31} dy="1.2em">울</tspan><tspan x={x + 31} dy="1.2em">기</tspan></text> }} />
                                 </YAxis>
-                                {viewMode === "general" && <YAxis yAxisId="wind" orientation="right" domain={windDomain} ticks={windTicks} tick={{ fontSize: isMobile ? 9 : 12 }} width={isMobile ? 40 : 60} tickMargin={isMobile ? 2 : 5}>
-                                    <Label position="right" offset={0} content={({ viewBox }) => {
-                                        const { x, y, height } = viewBox as any;
-                                        return <text x={x + 35} y={y + height / 2} textAnchor="middle" style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold" }}><tspan x={x + 35} dy="0">풍</tspan><tspan x={x + 35} dy="1.2em">속</tspan></text>
-                                    }} />
-                                </YAxis>}
+                                {/* 풍속 축 항상 표시 */}
+                                <YAxis yAxisId="wind" orientation="right" domain={windDomain} ticks={windTicks} tick={{ fontSize: isMobile ? 9 : 12 }} width={isMobile ? 40 : 60} tickMargin={isMobile ? 2 : 5}>
+                                    <Label position="right" offset={0} content={({ viewBox }) => { const { x, y, height } = viewBox as any; return <text x={x + 35} y={y + height / 2} textAnchor="middle" style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold" }}><tspan x={x + 35} dy="0">풍</tspan><tspan x={x + 35} dy="1.2em">속</tspan></text> }} />
+                                </YAxis>
                                 <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '8px', fontSize: isMobile ? '12px' : '14px', padding: isMobile ? '4px' : '8px' }} itemStyle={{ padding: isMobile ? '1px 0' : '2px 0' }} labelStyle={{ marginBottom: isMobile ? '2px' : '5px' }} formatter={formatTooltipValue} labelFormatter={formatTooltipLabel} />
                                 {!isMobile && <Legend verticalAlign="top" align="right" layout="horizontal" wrapperStyle={{ position: "absolute", top: -20, right: 100, fontSize: "12px", borderRadius: "6px", padding: "2px 6px", zIndex: 1 }} />}
                                 {viewMode === 'general' && <>
@@ -380,11 +383,24 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                     <ReferenceArea yAxisId="angle" y1={clamp(B, yDomain[0], yDomain[1])} y2={clamp(G, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
                                     <ReferenceArea yAxisId="angle" y1={clamp(-B, yDomain[0], yDomain[1])} y2={clamp(B, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
                                 </>}
-                                {viewMode === 'general' ? <>
-                                    <Line yAxisId='wind' type='monotone' dataKey='wind_speed' stroke='#22c55e' strokeOpacity={0.8} strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Wind Speed (m/s)' connectNulls />
-                                    <Line yAxisId='angle' type='monotone' dataKey='angle_x' stroke='#ef4444' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle X' connectNulls />
-                                    <Line yAxisId='angle' type='monotone' dataKey='angle_y' stroke='#3b82f6' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle Y' connectNulls />
-                                </> : <Line yAxisId='angle' type='monotone' dataKey={viewMode === 'delta' ? `node_${doorNum}` : 'avgX'} stroke={viewMode === 'delta' ? '#8b5cf6' : '#22c55e'} strokeWidth={isMobile ? 1.5 : 2} dot={false} name={`Node-${doorNum} (${viewMode === 'delta' ? '변화량' : '평균변화'})`} />}
+                                {/* 풍속 그래프는 항상 표시 */}
+                                <Line yAxisId='wind' type='monotone' dataKey='wind_speed' stroke='#22c55e' strokeOpacity={0.8} strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Wind Speed (m/s)' connectNulls />
+                                {viewMode === 'general' ? (
+                                    <>
+                                        <Line yAxisId='angle' type='monotone' dataKey='angle_x' stroke='#ef4444' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle X' connectNulls />
+                                        <Line yAxisId='angle' type='monotone' dataKey='angle_y' stroke='#3b82f6' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle Y' connectNulls />
+                                    </>
+                                ) : (
+                                    <Line
+                                        yAxisId='angle'
+                                        type='monotone'
+                                        dataKey={`node_${doorNum}`}
+                                        stroke={viewMode === 'delta' ? '#8b5cf6' : '#ffa600ff'}
+                                        strokeWidth={isMobile ? 1.5 : 2}
+                                        dot={false}
+                                        name={`Node-${doorNum} (${viewMode === 'delta' ? '변화량' : '평균변화'})`}
+                                    />
+                                )}
                             </LineChart>
                         </ResponsiveContainer>
                     </div>

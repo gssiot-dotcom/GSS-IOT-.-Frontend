@@ -300,7 +300,7 @@ const AngleNodeScroll = ({
             변화량
           </button>
           <button
-            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-green-600' : 'bg-gray-400 hover:bg-gray-500'
+            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
               }`}
             onClick={() => setViewMode('avgDelta')}
           >

@@ -237,8 +237,8 @@ export interface SensorData {
 
 export interface GraphDataPoint {
 	time: string
-	angle_x: number
-	angle_y: number
+	angle_x: number | null // null 허용
+	angle_y: number | null // null 허용
 	wind_speed?: number
 	nodeId?: string
 }
