@@ -223,10 +223,10 @@ const AngleNodeScroll = ({
               정상
             </label>
             <div
-              className="border border-gray-400 rounded-md w-10 h-[3.1vh] flex items-center justify-center text-sm 3xl:w-[2.5vw] 3xl:h-[2.4vh] 3xl:text-base"
+              className="border border-gray-400 rounded-md w-10 h-[3.1vh] flex items-center justify-center text-sm 3xl:w-[2.6vw] 3xl:h-[2.3vh] 3xl:text-base"
             >
               <span className="text-sm">{G}</span>
-              <span className="ml-1 text-xs 3xl:text-xs">이하</span>
+              <span className="ml-1 mt-[0.1vh] text-xs 3xl:text-xs">이하</span>
             </div>
           </div>
 
