@@ -37,7 +37,7 @@ const MainFooter = () => {
 							onClick={handleLoginClick}
 							className='md:w-[330px] w-full md:text-xl font-bold text-black/70 p-2 rounded-full bg-gray-300/50 hover:bg-gray-300/65'
 						>
-							로기인인 <br />
+							로그인 <br />
 							<span className='text-sm font-thin md:block hidden'>
 								로그인 하고 더 많은 서비스를 형험해보세요
 							</span>
@@ -73,7 +73,7 @@ const MainFooter = () => {
 				<div className='md:mt-0 mt-5 border-b md:border-b-0'>
 					<ul className='space-y-2'>
 						<li>김재현 (gssiot@naver.com)</li>
-						<li>010-5945-0242</li>
+						<li>010-5969-0242</li>
 						<li>02-6404-2370</li>
 						<li>
 							경기도 고양시 덕양구 삼막3길 5, (618호) (고양삼송한강듀클래스)
