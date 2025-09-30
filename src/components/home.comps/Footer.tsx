@@ -38,9 +38,6 @@ const MainFooter = () => {
 							className='md:w-[330px] w-full md:text-xl font-bold text-black/70 p-2 rounded-full bg-gray-300/50 hover:bg-gray-300/65'
 						>
 							로그인 <br />
-							<span className='text-sm font-thin md:block hidden'>
-								로그인 하고 더 많은 서비스를 형험해보세요
-							</span>
 						</button>
 
 						<button
@@ -48,9 +45,6 @@ const MainFooter = () => {
 							className='md:w-[330px] w-full md:text-xl font-bold text-black/70 p-2 rounded-full bg-gray-300/50 hover:bg-gray-300/65'
 						>
 							회원가입 <br />
-							<span className='text-sm font-thin md:block hidden'>
-								GSS의 회원 되러 바로 가기
-							</span>
 						</button>
 					</div>
 				</div>
