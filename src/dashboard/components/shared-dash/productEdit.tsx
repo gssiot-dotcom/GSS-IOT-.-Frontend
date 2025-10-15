@@ -30,52 +30,51 @@ const toKeyPart = (s?: string | number) =>
 
 const PLACEHOLDER = '/no-image.png'
 function ImageOnce({
-  src,
-  alt,
-  className,
+	src,
+	alt,
+	className,
 }: {
-  src?: string
-  alt?: string
-  className?: string
+	src?: string
+	alt?: string
+	className?: string
 }) {
-  const [state, setState] = React.useState<'loading' | 'ok' | 'error'>(
-    src ? 'loading' : 'error'
-  )
-  const [finalSrc, setFinalSrc] = React.useState<string | undefined>(src)
+	const [state, setState] = React.useState<'loading' | 'ok' | 'error'>(
+		src ? 'loading' : 'error'
+	)
+	const [finalSrc, setFinalSrc] = React.useState<string | undefined>(src)
 
-  React.useEffect(() => {
-    setFinalSrc(src)
-    setState(src ? 'loading' : 'error')
-  }, [src])
+	React.useEffect(() => {
+		setFinalSrc(src)
+		setState(src ? 'loading' : 'error')
+	}, [src])
 
-  if (!finalSrc || state === 'error') {
-    return (
-      <div className="w-16 h-16 flex items-center justify-center text-[10px] text-gray-400 border rounded bg-white">
-        No image
-      </div>
-    )
-  }
+	if (!finalSrc || state === 'error') {
+		return (
+			<div className="w-16 h-16 flex items-center justify-center text-[10px] text-gray-400 border rounded bg-white">
+				No image
+			</div>
+		)
+	}
 
-  return (
-    <div className="relative">
-      {state === 'loading' && (
-        <div className="w-16 h-16 rounded border bg-gray-100 animate-pulse" />
-      )}
-      <img
-        src={finalSrc}
-        alt={alt}
-        loading="lazy"
-        className={`w-16 h-auto object-cover rounded border bg-white transition-opacity duration-200 ${
-          state === 'loading' ? 'opacity-0' : 'opacity-100'
-        } ${className || ''}`}
-        onLoad={() => setState('ok')}
-        onError={() => {
-          setFinalSrc(PLACEHOLDER)
-          setState('error')
-        }}
-      />
-    </div>
-  )
+	return (
+		<div className="relative">
+			{state === 'loading' && (
+				<div className="w-16 h-16 rounded border bg-gray-100 animate-pulse" />
+			)}
+			<img
+				src={finalSrc}
+				alt={alt}
+				loading="lazy"
+				className={`w-16 h-auto object-cover rounded border bg-white transition-opacity duration-200 ${state === 'loading' ? 'opacity-0' : 'opacity-100'
+					} ${className || ''}`}
+				onLoad={() => setState('ok')}
+				onError={() => {
+					setFinalSrc(PLACEHOLDER)
+					setState('error')
+				}}
+			/>
+		</div>
+	)
 }
 
 // ============================ Nodes Edit Modal ============================= //
@@ -275,19 +274,21 @@ export const NodesEditModal = ({
 		return `${imageBasUrl}/${node.angle_node_img || 'placeholder.svg'}`
 	}
 
+	// 슬래시 제거 + 트림 → 그 다음에 인코딩
+	const sanitizePosForFilename = (s?: string) =>
+		(s ?? '').trim().replace(/[\/\\]/g, ''); // '/' '\' 제거
+
 	// 🔥 S3 파일명 = 설치구간_게이트웨이시리얼_노드번호.jpg
 	const getS3UrlByTriple = (node: IAngleNode, building?: string) => {
 		if (!building) return undefined
 		const folder = toS3Folder(building)
 
-		const pos = toKeyPart(node.position) // 설치구간
-		const gw = toKeyPart(node.gateway_id?.serial_number) // 게이트웨이 시리얼
-		const door = toKeyPart(node.doorNum) // 노드번호
+		const pos = encodeURIComponent(sanitizePosForFilename(node.position)) // ✅ 여기!
+		const gw = toKeyPart(node.gateway_id?.serial_number)
+		const door = toKeyPart(node.doorNum)
 
 		if (!pos || !gw || !door) return undefined
 		const fileBase = `${pos}_${gw}_${door}`
-
-		// const currentExt = extMap[node._id] ?? 'jpg' // (보관 주석)
 		return `${S3_BASE_URL}/${folder}/${fileBase}.jpg`
 	}
 
