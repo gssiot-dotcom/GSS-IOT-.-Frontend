@@ -227,13 +227,51 @@ const AngleNodeScroll = ({
     }
   }
 
-  // ✅ 시간 HH:mm (24시간) 포맷 함수
   function formatKSTTime(dateStr: string) {
     const d = new Date(dateStr)
+    const month = d.getMonth() + 1
+    const day = d.getDate()
     const h = d.getHours().toString().padStart(2, '0')
     const m = d.getMinutes().toString().padStart(2, '0')
-    return `${h}:${m}`
+
+    return `${month}월${day}일 ${h}시${m}분`
   }
+
+
+
+  function formatMetricLabel(metric: string) {
+    const lower = metric?.toLowerCase?.()
+    if (lower === 'angle_x') return 'Axis-X'
+    if (lower === 'angle_y') return 'Axis-Y'
+    return metric ?? ''
+  }
+
+  const renderPositionAndGateway = (item: IAngleNode) => (
+    <>
+      <div className='flex flex-col mb-1 font-medium'>
+        <p className='truncate max-w-full'>{item.position || 'N/A'}</p>
+      </div>
+      <div className='flex flex-col mb-1 font-medium'>
+        <p className='truncate max-w-full'>({item.gateway_id?.serial_number ? `gw-${item.gateway_id.serial_number}` : 'N/A'})</p>
+      </div>
+    </>
+  )
+
+  const gatewayDownRows = useMemo(
+    () =>
+      (gateways ?? [])
+        .filter((gw) => gw && gw.gateway_alive === false)
+        .map((gw) => ({
+          createdAt: gw.lastSeen
+            ? new Date(gw.lastSeen).toISOString()
+            : new Date().toISOString(),
+          serial: gw.serial_number,
+          zone: gw.zone_name ?? 'N/A',
+        })),
+    [gateways]
+  )
+
+
 
   return (
     <div className='grid grid-cols-12 gap-4 w-full h-screen px-4 py-4'>
@@ -380,9 +418,7 @@ const AngleNodeScroll = ({
                   <p>Axis-Y:</p>
                   <p>{item.angle_y}</p>
                 </div>
-                <div className='flex justify-between mb-1 font-medium'>
-                  <p className='mt-1'>{item.position || 'N/A'}</p>
-                </div>
+                {renderPositionAndGateway(item)}
                 <button
                   onClick={e => handleNodeDetailClick(e, item)}
                   className='mt-2 w-full flex items-center justify-center gap-2 py-1 text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
@@ -508,6 +544,20 @@ const AngleNodeScroll = ({
         style={{ height: '40%', width: '109%' }}
       >
         <div className='flex flex-col gap-2 text-sm'>
+          {/* ✅ 게이트웨이 다운 표시: 항상 위험로그 리스트 가장 위에 */}
+          {gatewayDownRows.length > 0 && (
+            <>
+              {gatewayDownRows.map((g) => (
+                <div
+                  key={g.serial}
+                  className='px-2 py-1 rounded-lg bg-gray-400 text-white font-semibold lg:text-[11px] 2xl:text-[19px]'
+                >
+                  {`${formatKSTTime(g.createdAt)} | gw-${g.serial} | ${g.zone}`}
+                </div>
+              ))}
+              <hr className=' opacity-40' />
+            </>
+          )}
           {todayLogs && todayLogs.length ? (
             [...todayLogs]
               .sort(
@@ -525,9 +575,9 @@ const AngleNodeScroll = ({
                 return (
                   <div
                     key={idx}
-                    className={`px-2 py-1 rounded ${bg} text-sm font-medium`}
+                    className={`px-2 py-1 rounded ${bg} lg:text-[13px] 2xl:text-[19px] font-medium`}
                   >
-                    {`${formatKSTTime(log.createdAt)} | num: ${log.doorNum} | ${log.metric}: ${log.value} | 기준: ${log.threshold}`}
+                    {`${formatKSTTime(log.createdAt)} | 노드: ${log.doorNum} | ${formatMetricLabel(log.metric)}: ${log.value}`}
                   </div>
                 )
               })

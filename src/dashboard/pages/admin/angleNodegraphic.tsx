@@ -34,6 +34,17 @@ function getWeekOfMonth(date: Date) {
     const offsetDate = date.getDate() + dayOfWeek
     return Math.ceil(offsetDate / 7)
 }
+
+function getMondayOf(date: Date) {
+    const d = new Date(date)
+    const day = d.getDay() // 0=Sun, 1=Mon, ...
+    // 월요일(1)이 되도록 이동. 일요일(0)이면 -6일, 그 외에는 1 - day
+    const diff = day === 0 ? -6 : 1 - day
+    d.setDate(d.getDate() + diff)
+    d.setHours(0, 0, 0, 0)
+    return d
+}
+
 type WeekInputProps = React.ComponentPropsWithoutRef<"input"> & {
     value?: string
     onClick?: React.MouseEventHandler<HTMLInputElement>
@@ -133,43 +144,124 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
     useEffect(() => setData(graphData), [graphData])
 
-    const getXAxisTicksAndDomain = (): { ticks: number[]; domain: [number, number] } => {
-        const now = new Date()
-        let startPoint: Date
-        let endPoint: Date
-        const ticks: number[] = []
-        if (timeMode === "day" && selectedDate) {
-            startPoint = new Date(selectedDate); startPoint.setHours(0, 0, 0, 0)
-            endPoint = new Date(selectedDate); endPoint.setHours(23, 59, 59, 999)
-            for (let i = 0; i <= 24; i += 2) {
-                const tickTime = new Date(startPoint.getTime()); tickTime.setHours(i, 0, 0, 0)
-                ticks.push(tickTime.getTime())
-            }
-        } else if (hours === 1) {
-            const roundedMinutes = Math.ceil(now.getMinutes() / 10) * 10
-            endPoint = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), roundedMinutes, 0, 0)
-            startPoint = new Date(endPoint.getTime() - 60 * 60 * 1000)
-            for (let i = 0; i <= 6; i++) {
-                const tickTime = new Date(startPoint.getTime() + i * 10 * 60 * 1000)
-                ticks.push(tickTime.getTime())
-            }
-        } else if (hours === 24) {
-            endPoint = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0, 0, 0)
-            startPoint = new Date(endPoint.getTime() - 24 * 60 * 60 * 1000)
-            for (let i = 0; i <= 24; i += 2) {
-                const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000)
-                ticks.push(tickTime.getTime())
-            }
-        } else {
-            endPoint = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + (now.getMinutes() > 0 ? 1 : 0), 0, 0, 0)
-            startPoint = new Date(endPoint.getTime() - hours * 60 * 60 * 1000)
-            for (let i = 0; i <= hours; i++) {
-                const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000)
-                ticks.push(tickTime.getTime())
+    // ▶ 추가: "일 → 주" 전환 시, 기존 날짜의 월요일로 자동 보정
+    useEffect(() => {
+        if (timeMode === 'week') {
+            const base = selectedDate ?? new Date()
+            const monday = getMondayOf(base)
+            // 이미 월요일이면 불필요한 업데이트 방지
+            if (!selectedDate || selectedDate.getDay() !== 1 ||
+                selectedDate.getFullYear() !== monday.getFullYear() ||
+                selectedDate.getMonth() !== monday.getMonth() ||
+                selectedDate.getDate() !== monday.getDate()) {
+                setSelectedDate(monday)
             }
         }
-        return { ticks, domain: [startPoint.getTime(), endPoint.getTime()] }
-    }
+    }, [timeMode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ✅ 여기만 수정: month 모드에서 양 끝만 틱, 도메인은 그 달 전체
+    const getXAxisTicksAndDomain = (): { ticks: number[]; domain: [number, number] } => {
+        const now = new Date();
+        let startPoint: Date;
+        let endPoint: Date;
+        const ticks: number[] = [];
+
+        if (timeMode === "week" && selectedDate) {
+            const monday = new Date(selectedDate);
+            monday.setHours(0, 0, 0, 0);
+
+            const sundayEnd = new Date(monday);
+            sundayEnd.setDate(monday.getDate() + 6);
+            sundayEnd.setHours(23, 59, 59, 999);
+
+            startPoint = monday;
+            endPoint = sundayEnd;
+
+            // 월~일 자정 + 마지막 눈금
+            for (let i = 0; i < 7; i++) {
+                const tick = new Date(monday);
+                tick.setDate(monday.getDate() + i);
+                tick.setHours(0, 0, 0, 0);
+                ticks.push(tick.getTime());
+            }
+            ticks.push(sundayEnd.getTime());
+        } else if (timeMode === "day" && selectedDate) {
+            startPoint = new Date(selectedDate);
+            startPoint.setHours(0, 0, 0, 0);
+            endPoint = new Date(selectedDate);
+            endPoint.setHours(23, 59, 59, 999);
+            for (let i = 0; i <= 24; i += 2) {
+                const tickTime = new Date(startPoint.getTime());
+                tickTime.setHours(i, 0, 0, 0);
+                ticks.push(tickTime.getTime());
+            }
+        } else if (timeMode === "month" && selectedDate) {
+            // ✅ 월간 모드: 그 달 1일부터 말일까지 tick 생성
+            const year = selectedDate.getFullYear();
+            const month = selectedDate.getMonth();
+
+            startPoint = new Date(year, month, 1, 0, 0, 0, 0);
+            endPoint = new Date(year, month + 1, 0, 23, 59, 59, 999); // 그달 마지막 날
+
+            const lastDay = endPoint.getDate();
+
+            for (let i = 1; i <= lastDay; i++) {
+                const tickTime = new Date(year, month, i, 0, 0, 0, 0);
+                ticks.push(tickTime.getTime());
+            }
+            // 마지막 눈금도 추가 (그래프 오른쪽 끝)
+            ticks.push(endPoint.getTime());
+        } else if (hours === 1) {
+            const roundedMinutes = Math.ceil(now.getMinutes() / 10) * 10;
+            endPoint = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                now.getHours(),
+                roundedMinutes,
+                0,
+                0
+            );
+            startPoint = new Date(endPoint.getTime() - 60 * 60 * 1000);
+            for (let i = 0; i <= 6; i++) {
+                const tickTime = new Date(startPoint.getTime() + i * 10 * 60 * 1000);
+                ticks.push(tickTime.getTime());
+            }
+        } else if (hours === 24) {
+            endPoint = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                now.getHours() + 1,
+                0,
+                0,
+                0
+            );
+            startPoint = new Date(endPoint.getTime() - 24 * 60 * 60 * 1000);
+            for (let i = 0; i <= 24; i += 2) {
+                const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000);
+                ticks.push(tickTime.getTime());
+            }
+        } else {
+            endPoint = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                now.getHours() + (now.getMinutes() > 0 ? 1 : 0),
+                0,
+                0,
+                0
+            );
+            startPoint = new Date(endPoint.getTime() - hours * 60 * 60 * 1000);
+            for (let i = 0; i <= hours; i++) {
+                const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000);
+                ticks.push(tickTime.getTime());
+            }
+        }
+
+        return { ticks, domain: [startPoint.getTime(), endPoint.getTime()] };
+    };
+
     const { ticks: xAxisTicks, domain: xAxisDomain } = getXAxisTicksAndDomain()
 
     // ✨ 풍속 데이터를 모든 모드에 매핑
@@ -294,27 +386,40 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         if (isTablet) return { top: 15, right: 20, left: 5, bottom: 22 }
         return { top: -20, right: 50, left: -20, bottom: 30 }
     }
+
     const formatXAxisTick = (value: number) => {
         const date = new Date(value);
+        if (timeMode === 'week' || timeMode === 'month') {
+            const MM = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${MM}-${dd}`; // 필요 시 'yyyy-MM-dd'로 변경 가능
+        }
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
         return `${hours}:${minutes}`;
-    }
+    };
+
     const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
     const formatYAxisTick = (value: number): string => value.toString();
     const formatTooltipValue = (value: number, name: string) => {
         if (name.includes('변화량') || name.includes('평균변화')) return value.toFixed(2);
         return value;
     }
+
     const formatTooltipLabel = (value: number) => {
         const date = new Date(value);
         const yyyy = date.getFullYear();
         const MM = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
+
+        if (timeMode === 'week' || timeMode === 'month') {
+            return `${yyyy}-${MM}-${dd}`;
+        }
+
         const hh = String(date.getHours()).padStart(2, '0');
         const mm = String(date.getMinutes()).padStart(2, '0');
         return `${yyyy}-${MM}-${dd} ${hh}:${mm}`;
-    }
+    };
 
     const chartData = viewMode === 'general' ? finalData : processedDeltaData;
 
@@ -360,9 +465,34 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
                             <LineChart data={chartData} margin={getChartMargins()}>
                                 <CartesianGrid strokeDasharray='3 3' stroke='#f0f0f0' />
-                                <XAxis dataKey='timestamp' domain={xAxisDomain} tick={{ fontSize: isMobile ? 9 : 12 }} tickFormatter={formatXAxisTick} height={isMobile ? 30 : 40} tickMargin={isMobile ? 5 : 10} ticks={xAxisTicks} type='number'>
-                                    <Label position="bottom" content={({ viewBox }) => { const { x, y, width } = viewBox as any; return <text x={x + width / 2} y={y + 50} textAnchor="middle" style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold", fill: "#000" }}>시간</text> }} />
+                                <XAxis
+                                    dataKey='timestamp'
+                                    domain={xAxisDomain}
+                                    tick={{ fontSize: isMobile ? 9 : 12 }}
+                                    tickFormatter={formatXAxisTick}
+                                    height={isMobile ? 30 : 40}
+                                    tickMargin={isMobile ? 5 : 10}
+                                    ticks={xAxisTicks}
+                                    type='number'
+                                >
+                                    <Label
+                                        position="bottom"
+                                        content={({ viewBox }) => {
+                                            const { x, y, width } = viewBox as any
+                                            return (
+                                                <text
+                                                    x={x + width / 2}
+                                                    y={y + 50}
+                                                    textAnchor="middle"
+                                                    style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold", fill: "#000" }}
+                                                >
+                                                    {timeMode === 'week' || timeMode === 'month' ? '날짜' : '시간'}
+                                                </text>
+                                            )
+                                        }}
+                                    />
                                 </XAxis>
+
                                 <YAxis yAxisId="angle" domain={yDomain} ticks={yTicks} tick={{ fontSize: isMobile ? 9 : 12 }} width={isMobile ? 40 : 60} tickMargin={isMobile ? 2 : 5} tickFormatter={formatYAxisTick}>
                                     <Label position="left" offset={0} content={({ viewBox }) => { const { x, y, height } = viewBox as any; return <text x={x + 31} y={y + height / 2} textAnchor="middle" style={{ fontSize: isMobile ? 10 : 12, fontWeight: "bold" }}><tspan x={x + 31} dy="-0.6em">기</tspan><tspan x={x + 31} dy="1.2em">울</tspan><tspan x={x + 31} dy="1.2em">기</tspan></text> }} />
                                 </YAxis>

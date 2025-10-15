@@ -99,6 +99,7 @@ const NodesMultipleButtonsField = ({
 
   const handleSaveNodes = (updatedNodes: IAngleNode[]) => {
     console.log('Saving updated nodes:', updatedNodes)
+    // TODO: 백엔드 저장 로직이 들어갈 수 있는 자리
   }
 
   return (
@@ -154,12 +155,13 @@ const NodesMultipleButtonsField = ({
           />
         )}
 
-        {/* Nodes Edit Modal */}
+        {/* ✅ Nodes Edit Modal — S3 이미지 자동 매칭을 위해 buildingName 전달 */}
         <NodesEditModal
           isOpen={isNodesModalOpen}
           onClose={() => setIsNodesModalOpen(false)}
           angleNodes={angle_nodes}
           onSave={handleSaveNodes}
+          buildingName={building?.building_name} // 🔥 추가
         />
 
         {/* Gateways Edit Modal */}

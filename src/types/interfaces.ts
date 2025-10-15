@@ -93,6 +93,7 @@ export interface IAngleNode {
 	position: string
 	angle_node_img?: string
 	node_alive: boolean
+	createdAt?: string
 }
 
 export interface ICreateNode {

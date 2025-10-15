@@ -14,14 +14,79 @@ import { IAngleNode, IGateway } from '@/types/interfaces'
 import axios from 'axios'
 import { Edit2, Save, Upload, X } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
+
 const imageBasUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/static/images/`
 const SERVER_BASE_URL = import.meta.env.VITE_SERVER_BASE_URL
+
+// ✅ S3 기본 URL
+const S3_BASE_URL = 'http://gssiot-image-bucket.s3.us-east-1.amazonaws.com'
+// ✅ 빌딩명 폴더: 공백 -> '+' 로 보정
+const toS3Folder = (name: string) => encodeURIComponent(name).replace(/%20/g, '+')
+// ✅ 파일명 세그먼트 안전 인코딩
+const toKeyPart = (s?: string | number) =>
+	s == null ? '' : encodeURIComponent(String(s).trim())
+
+// ============================ 깜빡임 방지 이미지 ============================ //
+
+const PLACEHOLDER = '/no-image.png'
+function ImageOnce({
+  src,
+  alt,
+  className,
+}: {
+  src?: string
+  alt?: string
+  className?: string
+}) {
+  const [state, setState] = React.useState<'loading' | 'ok' | 'error'>(
+    src ? 'loading' : 'error'
+  )
+  const [finalSrc, setFinalSrc] = React.useState<string | undefined>(src)
+
+  React.useEffect(() => {
+    setFinalSrc(src)
+    setState(src ? 'loading' : 'error')
+  }, [src])
+
+  if (!finalSrc || state === 'error') {
+    return (
+      <div className="w-16 h-16 flex items-center justify-center text-[10px] text-gray-400 border rounded bg-white">
+        No image
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative">
+      {state === 'loading' && (
+        <div className="w-16 h-16 rounded border bg-gray-100 animate-pulse" />
+      )}
+      <img
+        src={finalSrc}
+        alt={alt}
+        loading="lazy"
+        className={`w-16 h-auto object-cover rounded border bg-white transition-opacity duration-200 ${
+          state === 'loading' ? 'opacity-0' : 'opacity-100'
+        } ${className || ''}`}
+        onLoad={() => setState('ok')}
+        onError={() => {
+          setFinalSrc(PLACEHOLDER)
+          setState('error')
+        }}
+      />
+    </div>
+  )
+}
+
+// ============================ Nodes Edit Modal ============================= //
 
 interface NodesEditModalProps {
 	isOpen: boolean
 	onClose: () => void
 	angleNodes: IAngleNode[]
 	onSave: (updatedNodes: IAngleNode[]) => void
+	// 🔥 추가: 빌딩명 전달(예: '호계동 현장')
+	buildingName?: string
 }
 
 export const NodesEditModal = ({
@@ -29,6 +94,7 @@ export const NodesEditModal = ({
 	onClose,
 	angleNodes,
 	onSave,
+	buildingName,
 }: NodesEditModalProps) => {
 	const [editingId, setEditingId] = useState<string | null>(null)
 	const [editedNodes, setEditedNodes] = useState<IAngleNode[]>(angleNodes)
@@ -38,9 +104,24 @@ export const NodesEditModal = ({
 
 	const [previews, setPreviews] = useState<Record<string, string>>({})
 	const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+	// // 🔥 확장자 폴백 상태(이제 사용 안 함 — 주석으로 보관)
+	// const [errorOnce, setErrorOnce] = useState<Record<string, boolean>>({})
+	// const [extMap, setExtMap] = useState<Record<string, 'jpg' | 'png' | 'webp'>>({})
+
+	// 🔍 이미지 뷰어(라이트박스) 상태
+	const [viewerSrc, setViewerSrc] = useState<string | null>(null)
+
 	useEffect(() => {
 		setEditedNodes(angleNodes)
 	}, [angleNodes])
+
+	// Esc로 라이트박스 닫기 (선택)
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setViewerSrc(null)
+		window.addEventListener('keydown', onKey)
+		return () => window.removeEventListener('keydown', onKey)
+	}, [])
 
 	if (!isOpen) return null
 
@@ -148,7 +229,7 @@ export const NodesEditModal = ({
 		// Preview uchun object URL
 		const url = URL.createObjectURL(file)
 		setPreviews(prev => ({ ...prev, [nodeId]: url }))
-		// (ixtiyoriy) UI da ko‘rinishi uchun node modeliga ham yozib qo‘ysak bo‘ladi
+		// (ixtiyoriy) UI da ko‘rinishi uchun node modeliga ham yozib qo‘ysak 보‘iladi
 		setEditedNodes(prev =>
 			prev.map(n => (n._id === nodeId ? { ...n, angle_node_img: url } : n))
 		)
@@ -174,7 +255,7 @@ export const NodesEditModal = ({
 		const input = fileInputRefs.current[nodeId]
 		if (input) input.value = ''
 
-		// UI: preview o‘rniga eski rasm yoki hech narsa
+		// UI: preview o‘rniga eski rasm yoki hech нarsa
 		setEditedNodes(prev =>
 			prev.map(n =>
 				n._id === nodeId ? { ...n, angle_node_img: n.angle_node_img ?? '' } : n
@@ -187,10 +268,27 @@ export const NodesEditModal = ({
 		onClose()
 	}
 
+	// 기존 서버 저장 경로(옵션)
 	const getNodeImageSrc = (node: IAngleNode) => {
 		if (!node.angle_node_img) return undefined
 		// Talab bo‘yicha: mavjud bo‘lsa doim bazaviy URL bilan
 		return `${imageBasUrl}/${node.angle_node_img || 'placeholder.svg'}`
+	}
+
+	// 🔥 S3 파일명 = 설치구간_게이트웨이시리얼_노드번호.jpg
+	const getS3UrlByTriple = (node: IAngleNode, building?: string) => {
+		if (!building) return undefined
+		const folder = toS3Folder(building)
+
+		const pos = toKeyPart(node.position) // 설치구간
+		const gw = toKeyPart(node.gateway_id?.serial_number) // 게이트웨이 시리얼
+		const door = toKeyPart(node.doorNum) // 노드번호
+
+		if (!pos || !gw || !door) return undefined
+		const fileBase = `${pos}_${gw}_${door}`
+
+		// const currentExt = extMap[node._id] ?? 'jpg' // (보관 주석)
+		return `${S3_BASE_URL}/${folder}/${fileBase}.jpg`
 	}
 
 	return (
@@ -219,7 +317,11 @@ export const NodesEditModal = ({
 							{editedNodes.map(node => {
 								const isEditing = editingId === node._id
 								const selectedPreview = previews[node._id] // data URL bo'lishi mumkin
-								const displaySrc = getNodeImageSrc(node)
+
+								// 표시 우선순위: 업로드 미리보기 > S3 매칭 > 기존 서버 이미지
+								const s3Url = getS3UrlByTriple(node, buildingName)
+								const legacyUrl = getNodeImageSrc(node)
+								const displaySrc = selectedPreview || s3Url || legacyUrl
 
 								return (
 									<TableRow key={node._id}>
@@ -280,7 +382,8 @@ export const NodesEditModal = ({
 															<img
 																src={selectedPreview}
 																alt='Node preview'
-																className='w-16 h-auto object-cover rounded border bg-white transition-transform duration-200 origin-center hover:scale-[4] relative z-0 hover:z-50 shadow'
+																className='w-16 h-auto object-cover rounded border bg-white transition-transform duration-200 origin-center hover:scale-[4] relative z-0 hover:z-50 shadow cursor-zoom-in'
+																onClick={() => setViewerSrc(selectedPreview)}
 															/>
 															<Button
 																size='icon'
@@ -298,11 +401,14 @@ export const NodesEditModal = ({
 												// View rejimi — rasm bo‘lsa bazaviy URL bilan ko‘rsatamiz
 												displaySrc && (
 													<div className='relative group'>
-														<img
-															src={displaySrc}
-															alt='Node image'
-															className='w-16 h-auto object-cover rounded border bg-white transition-transform duration-200 origin-center hover:scale-[4] relative z-0 hover:z-50 shadow'
-														/>
+														<button
+															type="button"
+															onClick={() => setViewerSrc(displaySrc)}
+															className="focus:outline-none cursor-zoom-in"
+															title="이미지 크게 보기"
+														>
+															<ImageOnce src={displaySrc} alt="Node image" />
+														</button>
 													</div>
 												)
 											)}
@@ -357,6 +463,35 @@ export const NodesEditModal = ({
 					<Button onClick={handleSaveAll}>모든 변경사항 저장</Button>
 				</div>
 			</Card>
+
+			{/* 🖼 이미지 뷰어(라이트박스) */}
+			{viewerSrc && (
+				<div
+					className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center p-4"
+					onClick={() => setViewerSrc(null)} // 배경 클릭 닫기
+				>
+					<div
+						className="relative max-w-5xl w-full"
+						onClick={(e) => e.stopPropagation()} // 이미지 클릭은 전파 막기
+					>
+						<button
+							type="button"
+							className="absolute -top-3 -right-3 bg-white/90 hover:bg-white text-black rounded-full w-8 h-8 flex items-center justify-center shadow"
+							onClick={() => setViewerSrc(null)}
+							aria-label="닫기"
+							title="닫기"
+						>
+							✕
+						</button>
+
+						<img
+							src={viewerSrc}
+							alt="preview"
+							className="w-full h-auto rounded-lg shadow-lg bg-white"
+						/>
+					</div>
+				</div>
+			)}
 		</div>
 	)
 }
@@ -383,6 +518,7 @@ export const GatewaysEditModal = ({
 
 	const [previews, setPreviews] = useState<Record<string, string>>({})
 	const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
 	useEffect(() => {
 		setEditedNodes(gatewyas)
 	}, [gatewyas])
@@ -394,18 +530,15 @@ export const GatewaysEditModal = ({
 	// const handleSave = async (nodeId: string) => {
 	// 	const nodeToSave = editedNodes.find(n => n._id === nodeId)
 	// 	if (!nodeToSave) return
-
 	// 	try {
 	// 		const fd = new FormData()
 	// 		fd.append('node_position', nodeToSave.position ?? '')
-
 	// 		const file = uploadedFiles[nodeId]
 	// 		if (file) {
 	// 			// backend: node_image — fayl field nomi
 	// 			fd.append('image', file, file.name)
 	// 		}
 	// 		// Eslatma: fayl yo‘q bo‘lsa umuman node_image append qilmaymiz
-
 	// 		const response = await axios.put(
 	// 			`${SERVER_BASE_URL}/product/angle-node/${nodeId}`,
 	// 			fd,
@@ -415,35 +548,31 @@ export const GatewaysEditModal = ({
 	// 				},
 	// 			}
 	// 		)
-
 	// 		if (response.status >= 200 && response.status < 300) {
 	// 			// tozalash
 	// 			setEditingId(null)
-
 	// 			// objectURL ni tozalash
 	// 			const url = previews[nodeId]
 	// 			if (url) URL.revokeObjectURL(url)
-
 	// 			setPreviews(prev => {
 	// 				const copy = { ...prev }
 	// 				delete copy[nodeId]
 	// 				return copy
 	// 			})
-	// 			setUploadedFiles(prev => {
-	// 				const copy = { ...prev }
-	// 				delete copy[nodeId]
-	// 				return copy
-	// 			})
-
+	// 			//setUploadedFiles(prev => {
+	// 			//	const copy = { ...prev }
+	// 			//	delete copy[nodeId]
+	// 			//	return copy
+	// 			//})
 	// 			// serverdan qaytgan yangi path bo‘lsa, local statega yozib qo‘ying (ixtiyoriy)
-	// 			const updatedPath = response.data?.angle_node_img
-	// 			if (updatedPath) {
-	// 				setEditedNodes(prev =>
-	// 					prev.map(n =>
-	// 						n._id === nodeId ? { ...n, angle_node_img: updatedPath } : n
-	// 					)
-	// 				)
-	// 			}
+	// 			// const updatedPath = response.data?.angle_node_img
+	// 			// if (updatedPath) {
+	// 			// 	setEditedNodes(prev =>
+	// 			// 		prev.map(n =>
+	// 			// 			n._id === nodeId ? { ...n, angle_node_img: updatedPath } : n
+	// 			// 		)
+	// 			// 	)
+	// 			// }
 	// 		} else {
 	// 			console.error('Failed to save node')
 	// 		}
@@ -493,7 +622,7 @@ export const GatewaysEditModal = ({
 	// 	// Preview uchun object URL
 	// 	const url = URL.createObjectURL(file)
 	// 	setPreviews(prev => ({ ...prev, [nodeId]: url }))
-	// 	// (ixtiyoriy) UI da ko‘rinishi uchun node modeliga ham yozib qo‘ysak bo‘ladi
+	// 	// (ixtiyoriy) UI da ko‘rinishi uchun node modeliga ham yozib qo‘ysak 보‘iladi
 	// 	setEditedNodes(prev =>
 	// 		prev.map(n => (n._id === nodeId ? { ...n, angle_node_img: url } : n))
 	// 	)
@@ -503,28 +632,25 @@ export const GatewaysEditModal = ({
 	// 	// objectURL ni tozalash
 	// 	const url = previews[nodeId]
 	// 	if (url) URL.revokeObjectURL(url)
-
 	// 	setPreviews(prev => {
 	// 		const copy = { ...prev }
 	// 		delete copy[nodeId]
 	// 		return copy
 	// 	})
-	// 	setUploadedFiles(prev => {
-	// 		const copy = { ...prev }
-	// 		delete copy[nodeId]
-	// 		return copy
-	// 	})
-
+	// 	// setUploadedFiles(prev => {
+	// 	// 	const copy = { ...prev }
+	// 	// 	delete copy[nodeId]
+	// 	// 	return copy
+	// 	// })
 	// 	// inputni tozalash
-	// 	const input = fileInputRefs.current[nodeId]
-	// 	if (input) input.value = ''
-
-	// 	// UI: preview o‘rniga eski rasm yoki hech narsa
-	// 	setEditedNodes(prev =>
-	// 		prev.map(n =>
-	// 			n._id === nodeId ? { ...n, angle_node_img: n.angle_node_img ?? '' } : n
-	// 		)
-	// 	)
+	// 	// const input = fileInputRefs.current[nodeId]
+	// 	// if (input) input.value = ''
+	// 	// UI: preview o‘rniga eski rasm yoki hech нarsa
+	// 	// setEditedNodes(prev =>
+	// 	// 	prev.map(n =>
+	// 	// 		n._id === nodeId ? { ...n, angle_node_img: n.angle_node_img ?? '' } : n
+	// 	// 	)
+	// 	// )
 	// }
 
 	// const handleSaveAll = () => {
@@ -623,7 +749,7 @@ export const GatewaysEditModal = ({
 															/>
 														</div>
 													) : (
-														// 2) Fayl tanlanganda — preview + cancel
+														// 2) Fayl tan랑анда — preview + cancel
 														<div className='relative inline-block'>
 															<img
 																src={selectedPreview}
