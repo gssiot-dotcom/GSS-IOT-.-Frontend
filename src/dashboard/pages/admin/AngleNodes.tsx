@@ -34,24 +34,54 @@ interface IAngleNodeDisplay extends IAngleNode {
   createdAt?: string
 }
 
-/** ---------------- 유틸: 이력에서 doorNum의 최신 1건 가져오기 ---------------- */
+/** ------------------------------------------------------------------
+ * 최신값 조회: 백의 latest API만 사용
+ * GET /api/angles/history/latest?doorNum=NN
+ *  - 응답 래퍼가 history | item | data | (직접) 인 케이스를 모두 수용
+ *  - 숫자/시간 정규화
+ * ------------------------------------------------------------------ */
 async function fetchLatestAngleForDoor(doorNum: number) {
-  const now = new Date()
-  const from = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString() // 최근 24시간
-  const to = now.toISOString()
   const baseURL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005'
+  try {
+    const res = await axios.get('/api/angles/history/latest', {
+      params: { doorNum },
+      baseURL,
+    })
+    const payload: any = res.data
 
-  const res = await axios.get<SensorData[]>('/product/angle-node/data', {
-    params: { doorNum, from, to, limit: 1, order: 'desc' }, // 서버가 미지원해도 아래 정렬로 보정
-    baseURL,
-  })
+    // ✅ 어떤 키로 오든 한 번에 잡아내기
+    const raw =
+      payload?.history ??
+      payload?.item ??
+      payload?.data ??
+      payload
 
-  const items = res.data ?? []
-  const latest = items
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+    if (!raw || (typeof raw !== 'object')) return undefined
 
-  return latest // { angle_x, angle_y, createdAt, doorNum, ... } | undefined
+    // ✅ 타입/필드 정규화
+    const angle_x = typeof raw.angle_x === 'string' ? Number(raw.angle_x) : raw.angle_x
+    const angle_y = typeof raw.angle_y === 'string' ? Number(raw.angle_y) : raw.angle_y
+    const createdAt = new Date(raw.createdAt ?? Date.now()).toISOString()
+
+    const latest: SensorData = {
+      ...raw,
+      angle_x,
+      angle_y,
+      createdAt,
+      doorNum: raw.doorNum ?? doorNum,
+    }
+
+
+    // 디버그 (원하시면 유지)
+     console.log(`[latest:${latest.doorNum}] x=${latest.angle_x}, y=${latest.angle_y}, at=${latest.createdAt}`)
+
+    return latest
+  } catch (e) {
+    console.error('latest API 호출 실패:', e)
+    return undefined
+  }
 }
+
 
 const AngleNodes = () => {
   const [selectedDoorNum, setSelectedDoorNum] = useState<number | null>(null)
@@ -80,7 +110,17 @@ const AngleNodes = () => {
       fetchGraphData()
       graphRefetchTimer.current = null
     }, 400)
-  }, []) // fetchGraphData는 아래에서 deps로 관리됨. 타이머는 별도.
+  }, []) // fetchGraphData는 아래에서 deps로 관리됨
+
+  // latest 전체 invalidate 디바운서 (소켓 폭주 대비)
+  const latestRefetchTimer = useRef<number | null>(null)
+  const scheduleLatestRefetch = useCallback(() => {
+    if (latestRefetchTimer.current) return
+    latestRefetchTimer.current = window.setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['latest-angle-history'] })
+      latestRefetchTimer.current = null
+    }, 250)
+  }, [queryClient])
 
   // ---------------- 풍속 데이터 로딩 ---------------- //
   useEffect(() => {
@@ -118,6 +158,13 @@ const AngleNodes = () => {
   const buildingData = queryData[0].data?.building
   const gateways = queryData[0].data?.gateways
   const buildingAngleNodes = (queryData[0].data?.angle_nodes as IAngleNode[]) || []
+
+  // ✅ 서버에서 받아온 데이터 콘솔로 찍기
+  useEffect(() => {
+    if (queryData[0].data) {
+      console.log('📡 [AngleNodes] 서버에서 받아온 데이터:', queryData[0].data)
+    }
+  }, [queryData[0].data])
 
   // 순서가 흔들려도 useQueries key 인덱스가 안정적이도록 정렬
   const stableNodes = useMemo(
@@ -177,15 +224,21 @@ const AngleNodes = () => {
     }
   }, [stableNodes, isFirstLoad])
 
-  // ---------------- (신규) 각 도어 최신값: anglenodehistories에서 조회 ---------------- //
+  // ---------------- doorNum 목록 ---------------- //
+  const doorNums = useMemo(
+    () => (stableNodes || []).map((n) => n.doorNum).filter(Boolean),
+    [stableNodes]
+  )
+
+  // ---------------- 모든 노드 최신값: latest API로만 조회(실시간 폴링) ---------------- //
   const latestQueries = useQueries({
-    queries: (stableNodes || []).map((n) => ({
-      queryKey: ['latest-angle-history', n.doorNum],
-      queryFn: () => fetchLatestAngleForDoor(n.doorNum),
-      enabled: !!n?.doorNum,
-      staleTime: 60 * 1000,           // 1분간 신선
-      refetchOnWindowFocus: false,    // 포커스 전환 시 재요청 방지
-      // refetchInterval: 60 * 1000,  // ❌ 폴링 제거 (소켓으로 갱신)
+    queries: doorNums.map((doorNum) => ({
+      queryKey: ['latest-angle-history', doorNum],
+      queryFn: () => fetchLatestAngleForDoor(doorNum),
+      enabled: !!doorNum,
+      staleTime: 60 * 1000,       // 캐시 신선도(표시엔 영향 없음)
+      refetchOnWindowFocus: false,
+      refetchInterval: 2000,      // ✅ 2초마다 자동 재요청 → 실시간 느낌
       retry: 1,
     })),
   })
@@ -194,11 +247,10 @@ const AngleNodes = () => {
   const latestMap = useMemo(() => {
     const map = new Map<number, { angle_x?: number; angle_y?: number; createdAt?: string }>()
     latestQueries.forEach((q, idx) => {
-      const doorNum = stableNodes?.[idx]?.doorNum
-      if (!doorNum) return
-      const latest = q.data
-      if (latest) {
-        map.set(doorNum, {
+      const dn = doorNums[idx]
+      const latest = q.data as SensorData | undefined
+      if (dn && latest) {
+        map.set(dn, {
           angle_x: latest.angle_x,
           angle_y: latest.angle_y,
           createdAt: latest.createdAt,
@@ -206,9 +258,9 @@ const AngleNodes = () => {
       }
     })
     return map
-  }, [latestQueries, stableNodes])
+  }, [latestQueries, doorNums])
 
-  // ✅ 스크롤에 내려줄 표시용 리스트: 이력 최신값으로 덮어쓰기
+  // ✅ 스크롤에 내려줄 표시용 리스트: latest API 값으로 덮어쓰기
   const nodesForScroll: IAngleNodeDisplay[] = useMemo(() => {
     return (stableNodes || []).map((n) => {
       const latest = latestMap.get(n.doorNum)
@@ -221,7 +273,7 @@ const AngleNodes = () => {
     })
   }, [stableNodes, latestMap])
 
-  // ---------------- 그래프 데이터 ---------------- //
+  // ---------------- 그래프 데이터 (과거 구간 조회) ---------------- //
   const fetchGraphData = useCallback(async () => {
     if (!selectedDoorNum) return
 
@@ -229,7 +281,6 @@ const AngleNodes = () => {
     let to: string
 
     if (timeMode === 'day' && selectedDate) {
-      // ✔ 일간: 00:00:00 ~ 23:59:59.999
       const startOfDay = new Date(
         selectedDate.getFullYear(),
         selectedDate.getMonth(),
@@ -242,33 +293,25 @@ const AngleNodes = () => {
       )
       from = startOfDay.toISOString()
       to = endOfDay.toISOString()
-
     } else if (timeMode === 'week') {
-      // ✔ 주간: 월요일 00:00:00 ~ 일요일 23:59:59.999
       const base = selectedDate ?? new Date()
-      const day = base.getDay() // 0=일, 1=월, ...
+      const day = base.getDay()
       const diffToMonday = (day + 6) % 7
       const monday = new Date(base)
       monday.setDate(base.getDate() - diffToMonday)
       monday.setHours(0, 0, 0, 0)
-
       const sunday = new Date(monday)
       sunday.setDate(monday.getDate() + 6)
       sunday.setHours(23, 59, 59, 999)
-
       from = monday.toISOString()
       to = sunday.toISOString()
-
     } else if (timeMode === 'month') {
-      // ✅ 월간: 해당 달의 1일 00:00:00 ~ 말일 23:59:59.999
       const base = selectedDate ?? new Date()
       const first = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0)
       const last = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999)
       from = first.toISOString()
       to = last.toISOString()
-
     } else {
-      // ✔ 시간 기반(최근 N시간)
       const now = new Date()
       from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
       to = now.toISOString()
@@ -280,9 +323,7 @@ const AngleNodes = () => {
         baseURL: import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
       })
 
-      const filteredData = res.data.filter(
-        (item) => item.doorNum === selectedDoorNum
-      )
+      const filteredData = res.data.filter((item) => item.doorNum === selectedDoorNum)
       const sortedData = filteredData.sort(
         (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       )
@@ -309,8 +350,7 @@ const AngleNodes = () => {
           const time = new Date(uniqueData[i].createdAt).toISOString()
           deltaGraphData.push({
             time,
-            [`node_${selectedDoorNum}`]:
-              uniqueData[i].angle_x - uniqueData[i - 1].angle_x,
+            [`node_${selectedDoorNum}`]: uniqueData[i].angle_x - uniqueData[i - 1].angle_x,
           })
         }
         setDeltaData(deltaGraphData)
@@ -341,7 +381,6 @@ const AngleNodes = () => {
     }
   }, [selectedDoorNum, selectedHours, selectedDate, timeMode, viewMode])
 
-
   useEffect(() => {
     fetchGraphData()
   }, [fetchGraphData])
@@ -351,7 +390,7 @@ const AngleNodes = () => {
     if (!buildingId) return
     const topic = `${buildingId}_angle-nodes`
     const listener = (newData: SensorData) => {
-      // 목록에 없는 새 도어는 추가(값은 이력 쿼리가 채울 것)
+      // 목록에 없는 새 도어는 angle_nodes 목록에 추가 (UI에 보여야 함)
       queryClient.setQueryData<ResQuery>(
         ['get-building-angle-nodes', buildingId],
         (old) => {
@@ -380,23 +419,14 @@ const AngleNodes = () => {
         scheduleGraphRefetch()
       }
 
-      // ✅ 해당 도어의 최신값 캐시만 즉시 업데이트 (네트워크 요청 없음)
-      queryClient.setQueryData(
-        ['latest-angle-history', newData.doorNum],
-        (old: any) => ({
-          ...old,
-          angle_x: newData.angle_x,
-          angle_y: newData.angle_y,
-          createdAt: new Date(newData.createdAt ?? Date.now()).toISOString(),
-          doorNum: newData.doorNum,
-        })
-      )
+      // ✅ 어떤 노드든 업데이트 신호가 오면, 모든 latest 쿼리 일괄 재요청
+      scheduleLatestRefetch()
     }
     socket.on(topic, listener)
     return () => {
       socket.off(topic, listener)
     }
-  }, [buildingId, queryClient, selectedDoorNum, scheduleGraphRefetch])
+  }, [buildingId, queryClient, selectedDoorNum, scheduleGraphRefetch, scheduleLatestRefetch])
 
   // ---------------- 알람 레벨 저장 ---------------- //
   const handleSetAlarmLevels = async (levels: { G: number; Y: number; R: number }) => {
@@ -420,7 +450,7 @@ const AngleNodes = () => {
     <div className="w-full max-h-screen bg-gray-50 p-2 md:p-5 overflow-hidden">
       <AngleNodeScroll
         onSelectNode={setSelectedDoorNum}
-        building_angle_nodes={nodesForScroll}  // 이력 최신값으로 덮인 리스트
+        building_angle_nodes={nodesForScroll} // latest API 값으로 덮인 리스트
         buildingData={buildingData}
         gateways={gateways}
         G={G}
