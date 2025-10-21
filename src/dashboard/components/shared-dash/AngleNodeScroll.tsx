@@ -623,7 +623,7 @@ const AngleNodeScroll = ({
                 return (
                   <div
                     key={idx}
-                    className={`px-2 py-1 rounded ${bg} lg:text-[13px] 2xl:text-[15px] 3xl:text-[18px] font-medium`}
+                    className={`px-2 py-1 rounded ${bg} lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium`}
                   >
                     {`${formatKSTTime(log.createdAt)} | 노드: ${log.doorNum} | ${formatMetricLabel(
                       log.metric
