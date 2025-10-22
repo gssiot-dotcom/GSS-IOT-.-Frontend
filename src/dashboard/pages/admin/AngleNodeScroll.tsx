@@ -380,7 +380,7 @@ const AngleNodeScroll = ({
 
 
           <button
-            className='px-2 2xl:p-3 py-1 bg-blue-600 text-white rounded-lg lg:text-[10px] 2xl:text-xs font-semibold hover:bg-blue-700 transition-colors'
+            className='px-2 2xl:p-2 py-1 bg-blue-600 text-white rounded-lg lg:text-[10px] 2xl:text-xs font-semibold hover:bg-blue-700 transition-colors'
             onClick={() => onSetAlarmLevels({ G, Y, R })}
           >
             저장
