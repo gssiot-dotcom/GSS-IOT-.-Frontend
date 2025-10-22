@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import AngleNodeScroll from '@/dashboard/components/shared-dash/AngleNodeScroll'
-import SensorGraph from '@/dashboard/components/shared-dash/angleNodegraphic'
+import AngleNodeScroll from './AngleNodeScroll'
+import SensorGraph from './angleNodegraphic'
 import socket from '@/hooks/useSocket'
 import {
   fetchBuildingAngleNodes,
