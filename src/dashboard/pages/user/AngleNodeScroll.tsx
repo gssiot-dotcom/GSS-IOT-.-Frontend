@@ -166,6 +166,16 @@ const AngleNodeScroll = ({
     })
   }, [building_angle_nodes])
 
+  // ✅ 선택된 게이트웨이에 속한 노드만 (구역 미선택 시 전체)
+  const nodesUnderSelectedGateway = useMemo(() => {
+    if (!selectedGateway) return sortedNodes
+    return sortedNodes.filter(
+      (node) => node.gateway_id?.serial_number === selectedGateway
+    )
+  }, [sortedNodes, selectedGateway])
+
+
+
   // 필터
   const nodesToDisplay = useMemo(() => {
     let nodes = [...sortedNodes]
@@ -322,20 +332,20 @@ const AngleNodeScroll = ({
   )
 
   return (
-    <div className='grid grid-cols-12 gap-4 w-full h-screen px-4 py-4'>
+    <div className='grid grid-cols-12 gap-4 w-full h-screen px-4 py-4 mt-2'>
       {/* =============== Angle-Nodes grid ================ */}
-      <ScrollArea className='col-span-12 md:col-span-4 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 2xl:h-[100%] w-[90%]'>
+      <ScrollArea className='col-span-12 md:col-span-4 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 lg:h-[96%] 2xl:h-[100%] w-[90%]'>
         {/* BGYR 설정 & 알람 저장 */}
         <div className='flex justify-between mb-4 gap-2 items-end'>
           {/* 정상(B) */}
           <div className='flex flex-col items-center 3xl:items-center'>
-            <label className='flex items-center text-xs font-semibold mb-1 gap-1'>
+            <label className='flex items-center lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1'>
               <span className='w-3 h-3 bg-blue-500 inline-block rounded-sm'></span>
               정상
             </label>
-            <div className='border border-gray-400 rounded-md w-10 h-[3.1vh] flex items-center justify-center text-sm 3xl:w-[2.6vw] 3xl:h-[2.3vh] 3xl:text-base'>
-              <span className='text-sm'>{G}</span>
-              <span className='ml-1 mt-[0.1vh] text-xs 3xl:text-xs'>이하</span>
+            <div className='border border-gray-400 rounded-md w-10 h-[3.1vh] flex items-center justify-center 2xl:w-[2.6vw] 2xl:h-[2.3vh] 2xl:text-base'>
+              <span className='lg:text-[11px] 2xl:text-xs'>{G}</span>
+              <span className='ml-1 mt-[0.1vh] lg:text-[11px] 2xl:text-xs 3xl:text-xs'>이하</span>
             </div>
           </div>
 
@@ -347,7 +357,7 @@ const AngleNodeScroll = ({
             const minValue = key === 'G' ? 0 : key === 'Y' ? G : Y
             return (
               <div key={key} className='flex flex-col items-center'>
-                <label className='flex items-center text-xs font-semibold mb-1 gap-1'>
+                <label className='flex items-center lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1'>
                   <span className={`w-3 h-3 ${color} inline-block rounded-sm`} />
                   {label}
                 </label>
@@ -366,8 +376,21 @@ const AngleNodeScroll = ({
             )
           })}
 
+          <div className='flex flex-col items-center ml-1'>
+            <label className='flex items-center lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1 text-gray-700'>
+              <span className='w-3 h-3 bg-gray-500 inline-block rounded-sm' />
+              전원
+            </label>
+
+            {/* ⬇️ 변경: 테두리 더 진하게 + 가로폭 살짝 줄임 */}
+            <div className='border border-gray-500 rounded-md px-2 min-w-[2rem] h-[3.1vh] flex items-center justify-center lg:text-[11px] 2xl:text-xs bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold'>
+              OFF
+            </div>
+          </div>
+
+
           <button
-            className='px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors'
+            className='px-2 2xl:p-2 py-1 bg-blue-600 text-white rounded-lg lg:text-[10px] 2xl:text-xs font-semibold hover:bg-blue-700 transition-colors'
             onClick={() => onSetAlarmLevels({ G, Y, R })}
           >
             저장
@@ -377,25 +400,22 @@ const AngleNodeScroll = ({
         {/* 뷰 모드 + 설정 */}
         <div className='flex justify-center mb-4 gap-2'>
           <button
-            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-              viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
-            }`}
+            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
             onClick={() => setViewMode('general')}
           >
             기울기
           </button>
           <button
-            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-              viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
-            }`}
+            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
             onClick={() => setViewMode('delta')}
           >
             변화량
           </button>
           <button
-            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-              viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
-            }`}
+            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
             onClick={() => setViewMode('avgDelta')}
           >
             평균변화
@@ -433,12 +453,15 @@ const AngleNodeScroll = ({
             }
           >
             <option value=''>전체노드</option>
-            {[...sortedNodes].sort((a, b) => a.doorNum - b.doorNum).map((node) => (
-              <option key={node.doorNum} value={node.doorNum}>
-                {node.doorNum}
-              </option>
-            ))}
+            {[...nodesUnderSelectedGateway]
+              .sort((a, b) => a.doorNum - b.doorNum)
+              .map((node) => (
+                <option key={node.doorNum} value={node.doorNum}>
+                  {node.doorNum}
+                </option>
+              ))}
           </select>
+
         </div>
 
         {/* 노드 카드 */}
@@ -526,14 +549,12 @@ const AngleNodeScroll = ({
 
       {/* 중앙: Gateway + 이미지 / CSV */}
       <div className='col-span-12 md:col-span-5 flex flex-col gap-y-2 h-[40%] md:-mt-5 2xl:-mt-5 md:-ml-[2.4vw] 2xl:-ml-[2.4vw] 3xl:-ml-[2.4vw]'>
-        <p className='text-center font-bold text-lg'>비계전도 감지 시스템</p>
         <div className='grid grid-cols-2 w-full gap-x-1 rounded-lg border border-slate-400'>
           <div className='flex flex-col items-center md:col-span-1 col-span-2 h-[27vh] rounded-md bg-gray-50 text-gray-600 '>
             <ScrollArea className='pr-3 pl-1 py-1 border-none'>
               <button
-                className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${
-                  !selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
-                }`}
+                className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
+                  }`}
                 onClick={() => setSelectedGateway('')}
               >
                 전체구역
@@ -565,7 +586,7 @@ const AngleNodeScroll = ({
               alt='도면 사진'
               className='max-h-full max-w-full object-contain'
               onError={(e) => {
-                ;(e.currentTarget as HTMLImageElement).src = planImgUrl || '/no-image.png'
+                ; (e.currentTarget as HTMLImageElement).src = planImgUrl || '/no-image.png'
               }}
             />
             <p className='absolute bottom-1 right-2 text-[12px] text-black px-2 py-0.5 rounded border border-black'>
@@ -590,7 +611,7 @@ const AngleNodeScroll = ({
 
       {/* 우측: 로그 */}
       <ScrollArea
-        className='col-span-12 md:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-3 -mt-5 h-[41%] 2xl:h-[39%] 3xl:h-[38.4%] w-[109%]'>
+        className='col-span-12 md:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-3 -mt-5 h-[36%] 2xl:h-[39%] 3xl:h-[38.4%] w-[112%]'>
         <div className='flex flex-col gap-2 text-sm'>
           {/* 게이트웨이 다운 */}
           {gatewayDownRows.length > 0 && (
@@ -616,8 +637,8 @@ const AngleNodeScroll = ({
                   log.level === 'yellow'
                     ? 'bg-yellow-200'
                     : log.level === 'red'
-                    ? 'bg-red-400'
-                    : 'bg-blue-200'
+                      ? 'bg-red-400'
+                      : 'bg-blue-200'
                 return (
                   <div
                     key={idx}

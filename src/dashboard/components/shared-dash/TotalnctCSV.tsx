@@ -132,7 +132,7 @@ const NodesMultipleButtonsField = ({
             className="flex items-center gap-2 h-auto py-2 border-slate-400"
           >
             <Edit2 className="w-4 h-4" />
-            <span className="text-xs">노드 수정</span>
+            <span className="text-xs">노드 정보</span>
           </Button>
 
           {/* Gateways Edit */}
@@ -142,7 +142,7 @@ const NodesMultipleButtonsField = ({
             className="flex items-center gap-2 h-auto py-2 border-slate-400"
           >
             <Edit2 className="w-4 h-4" />
-            <span className="text-xs">게이트웨이 수정</span>
+            <span className="text-xs">게이트웨이 정보</span>
           </Button>
         </div>
 

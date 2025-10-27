@@ -6,7 +6,7 @@ import {
   fetchBuildingAngleNodes,
   setBuildingAlarmLevelRequest,
 } from '@/services/apiRequests'
-import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQueryClient, useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
@@ -17,6 +17,7 @@ import {
   IBuilding,
   SensorData,
 } from '../../../types/interfaces'
+import WhiteHeader from '@/dashboard/components/shared-dash/dashbordHeader'
 
 interface ResQuery {
   state: string
@@ -29,16 +30,11 @@ interface WindPoint {
   wind_speed: number
 }
 
-/** 스크롤 표시용: createdAt을 선택적으로 포함 */
-interface IAngleNodeDisplay extends IAngleNode {
-  createdAt?: string
-}
+
 
 /** ------------------------------------------------------------------
  * 최신값 조회: 백의 latest API만 사용
  * GET /api/angles/history/latest?doorNum=NN
- *  - 응답 래퍼가 history | item | data | (직접) 인 케이스를 모두 수용
- *  - 숫자/시간 정규화
  * ------------------------------------------------------------------ */
 async function fetchLatestAngleForDoor(doorNum: number) {
   const baseURL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005'
@@ -48,17 +44,9 @@ async function fetchLatestAngleForDoor(doorNum: number) {
       baseURL,
     })
     const payload: any = res.data
+    const raw = payload?.history ?? payload?.item ?? payload?.data ?? payload
+    if (!raw || typeof raw !== 'object') return undefined
 
-    // ✅ 어떤 키로 오든 한 번에 잡아내기
-    const raw =
-      payload?.history ??
-      payload?.item ??
-      payload?.data ??
-      payload
-
-    if (!raw || (typeof raw !== 'object')) return undefined
-
-    // ✅ 타입/필드 정규화
     const angle_x = typeof raw.angle_x === 'string' ? Number(raw.angle_x) : raw.angle_x
     const angle_y = typeof raw.angle_y === 'string' ? Number(raw.angle_y) : raw.angle_y
     const createdAt = new Date(raw.createdAt ?? Date.now()).toISOString()
@@ -71,10 +59,9 @@ async function fetchLatestAngleForDoor(doorNum: number) {
       doorNum: raw.doorNum ?? doorNum,
     }
 
-
-    // 디버그 (원하시면 유지)
-     console.log(`[latest:${latest.doorNum}] x=${latest.angle_x}, y=${latest.angle_y}, at=${latest.createdAt}`)
-
+    console.log(
+      `[latest:${latest.doorNum}] x=${latest.angle_x}, y=${latest.angle_y}, at=${latest.createdAt}`
+    )
     return latest
   } catch (e) {
     console.error('latest API 호출 실패:', e)
@@ -82,6 +69,35 @@ async function fetchLatestAngleForDoor(doorNum: number) {
   }
 }
 
+/** ------------------------------------------------------------------
+ * 전체 노드 alive 조회 (오직 이 결과만 사용)
+ * GET /api/angle-nodes/alive
+ *  - 숫자 배열/객체 배열/래퍼(items|rows|data) 모두 수용
+ * ------------------------------------------------------------------ */
+async function fetchAliveNodes() {
+  const baseURL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005'
+  const res = await axios.get('/api/angle-nodes/alive', { baseURL })
+  const payload: any = res.data
+
+  const list: any[] =
+    Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.items)
+      ? payload.items
+      : Array.isArray(payload?.rows)
+      ? payload.rows
+      : Array.isArray(payload?.data)
+      ? payload.data
+      : []
+
+  return list
+    .map((x: any) =>
+      typeof x === 'number'
+        ? { doorNum: x }
+        : { doorNum: Number(x?.doorNum ?? x?.node ?? x?.id) }
+    )
+    .filter((x) => !Number.isNaN(x.doorNum))
+}
 
 const AngleNodes = () => {
   const [selectedDoorNum, setSelectedDoorNum] = useState<number | null>(null)
@@ -112,7 +128,7 @@ const AngleNodes = () => {
     }, 400)
   }, []) // fetchGraphData는 아래에서 deps로 관리됨
 
-  // latest 전체 invalidate 디바운서 (소켓 폭주 대비)
+  // latest invalidate 디바운서
   const latestRefetchTimer = useRef<number | null>(null)
   const scheduleLatestRefetch = useCallback(() => {
     if (latestRefetchTimer.current) return
@@ -142,7 +158,7 @@ const AngleNodes = () => {
     return () => clearInterval(timer)
   }, [buildingId])
 
-  // ---------------- 빌딩, 게이트웨이, 노드 정보 ---------------- //
+  // ---------------- 빌딩/노드 메타 ---------------- //
   const queryData = useQueries({
     queries: [
       {
@@ -159,14 +175,12 @@ const AngleNodes = () => {
   const gateways = queryData[0].data?.gateways
   const buildingAngleNodes = (queryData[0].data?.angle_nodes as IAngleNode[]) || []
 
-  // ✅ 서버에서 받아온 데이터 콘솔로 찍기
   useEffect(() => {
     if (queryData[0].data) {
       console.log('📡 [AngleNodes] 서버에서 받아온 데이터:', queryData[0].data)
     }
   }, [queryData[0].data])
 
-  // 순서가 흔들려도 useQueries key 인덱스가 안정적이도록 정렬
   const stableNodes = useMemo(
     () => [...buildingAngleNodes].sort((a, b) => a.doorNum - b.doorNum),
     [buildingAngleNodes]
@@ -212,10 +226,8 @@ const AngleNodes = () => {
     fetchAlertLogs()
   }, [buildingId, buildingData?._id])
 
-  // ---------------- 노드 목록 ---------------- //
   const allNodes = useMemo(() => [...stableNodes], [stableNodes])
 
-  // ---------------- 기본 선택 노드 ---------------- //
   useEffect(() => {
     if (!isFirstLoad) return
     if (stableNodes.length) {
@@ -224,7 +236,6 @@ const AngleNodes = () => {
     }
   }, [stableNodes, isFirstLoad])
 
-  // ---------------- doorNum 목록 ---------------- //
   const doorNums = useMemo(
     () => (stableNodes || []).map((n) => n.doorNum).filter(Boolean),
     [stableNodes]
@@ -236,14 +247,13 @@ const AngleNodes = () => {
       queryKey: ['latest-angle-history', doorNum],
       queryFn: () => fetchLatestAngleForDoor(doorNum),
       enabled: !!doorNum,
-      staleTime: 60 * 1000,       // 캐시 신선도(표시엔 영향 없음)
+      staleTime: 60 * 1000,
       refetchOnWindowFocus: false,
-      refetchInterval: 2000,      // ✅ 2초마다 자동 재요청 → 실시간 느낌
+      refetchInterval: 2000,
       retry: 1,
     })),
   })
 
-  // doorNum -> 최신값 매핑
   const latestMap = useMemo(() => {
     const map = new Map<number, { angle_x?: number; angle_y?: number; createdAt?: string }>()
     latestQueries.forEach((q, idx) => {
@@ -260,22 +270,47 @@ const AngleNodes = () => {
     return map
   }, [latestQueries, doorNums])
 
-  // ✅ 스크롤에 내려줄 표시용 리스트: latest API 값으로 덮어쓰기
-  const nodesForScroll: IAngleNodeDisplay[] = useMemo(() => {
+  // ---------------- alive 상태: /api/angle-nodes/alive 만 사용 ---------------- //
+  const { data: aliveList = [] } = useQuery({
+    queryKey: ['angle-nodes-alive'],
+    queryFn: fetchAliveNodes,
+    refetchInterval: 5000, // 5초마다
+    refetchOnWindowFocus: false,
+    staleTime: 4000,
+  })
+
+  const aliveSet = useMemo(() => {
+    const s = new Set<number>()
+    for (const it of aliveList as any[]) {
+      if (typeof it?.doorNum === 'number') s.add(it.doorNum)
+    }
+    return s
+  }, [aliveList])
+
+  // ---------------- 스크롤 표시 리스트 ---------------- //
+  const nodesForScroll: IAngleNode[] = useMemo(() => {
     return (stableNodes || []).map((n) => {
       const latest = latestMap.get(n.doorNum)
-      return {
+      const merged: IAngleNode & { createdAt?: string } = {
         ...n,
         angle_x: latest?.angle_x ?? n.angle_x,
         angle_y: latest?.angle_y ?? n.angle_y,
-        createdAt: latest?.createdAt ?? undefined,
+        node_alive: aliveSet.has(n.doorNum), // ✅ 오직 aliveSet으로만 판단
+        // 선택적 createdAt(사용할 곳이 있으면 참고)
+        ...(latest?.createdAt ? { createdAt: latest.createdAt } : {}),
       }
+      return merged
     })
-  }, [stableNodes, latestMap])
+  }, [stableNodes, latestMap, aliveSet])
 
   // ---------------- 그래프 데이터 (과거 구간 조회) ---------------- //
+  // 동시 중복 요청 방지
+  const graphInFlightRef = useRef(false)
+
   const fetchGraphData = useCallback(async () => {
     if (!selectedDoorNum) return
+    if (graphInFlightRef.current) return
+    graphInFlightRef.current = true
 
     let from: string
     let to: string
@@ -350,7 +385,8 @@ const AngleNodes = () => {
           const time = new Date(uniqueData[i].createdAt).toISOString()
           deltaGraphData.push({
             time,
-            [`node_${selectedDoorNum}`]: uniqueData[i].angle_x - uniqueData[i - 1].angle_x,
+            [`node_${selectedDoorNum}`]:
+              uniqueData[i].angle_x - uniqueData[i - 1].angle_x,
           })
         }
         setDeltaData(deltaGraphData)
@@ -378,11 +414,22 @@ const AngleNodes = () => {
       }
     } catch (err) {
       console.error('Data fetch error:', err)
+    } finally {
+      graphInFlightRef.current = false
     }
   }, [selectedDoorNum, selectedHours, selectedDate, timeMode, viewMode])
 
+  // 최초 로드
   useEffect(() => {
     fetchGraphData()
+  }, [fetchGraphData])
+
+  // 5초마다 그래프 주기 갱신
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      fetchGraphData()
+    }, 5000)
+    return () => clearInterval(id)
   }, [fetchGraphData])
 
   // ---------------- 소켓 리스너 ---------------- //
@@ -390,7 +437,7 @@ const AngleNodes = () => {
     if (!buildingId) return
     const topic = `${buildingId}_angle-nodes`
     const listener = (newData: SensorData) => {
-      // 목록에 없는 새 도어는 angle_nodes 목록에 추가 (UI에 보여야 함)
+      // 목록에 없는 새 도어는 angle_nodes 목록에 추가
       queryClient.setQueryData<ResQuery>(
         ['get-building-angle-nodes', buildingId],
         (old) => {
@@ -414,12 +461,12 @@ const AngleNodes = () => {
         }
       )
 
-      // 그래프는 선택된 도어일 때만 디바운스 갱신
+      // 선택된 도어면 그래프 빠른 반영
       if (selectedDoorNum === newData.doorNum) {
         scheduleGraphRefetch()
       }
 
-      // ✅ 어떤 노드든 업데이트 신호가 오면, 모든 latest 쿼리 일괄 재요청
+      // latest 폴링 쿼리 갱신
       scheduleLatestRefetch()
     }
     socket.on(topic, listener)
@@ -447,25 +494,28 @@ const AngleNodes = () => {
 
   // ---------------- 렌더 ---------------- //
   return (
-    <div className="w-full max-h-screen bg-gray-50 p-2 md:p-5 overflow-hidden">
-      <AngleNodeScroll
-        onSelectNode={setSelectedDoorNum}
-        building_angle_nodes={nodesForScroll} // latest API 값으로 덮인 리스트
-        buildingData={buildingData}
-        gateways={gateways}
-        G={G}
-        Y={Y}
-        R={R}
-        setG={setG}
-        setY={setY}
-        setR={setR}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        allNodes={allNodes}
-        onSetAlarmLevels={handleSetAlarmLevels}
-        alertLogs={alertLogs}
-      />
-      <div className="-mt-[63.5vh]">
+    <div className="w-full max-h-screen bg-gray-50 px-2 md:px-5 pt-0 overflow-hidden">
+      <WhiteHeader />
+      <div className="-ml-[1%]">
+        <AngleNodeScroll
+          onSelectNode={setSelectedDoorNum}
+          building_angle_nodes={nodesForScroll} // ✅ alive 반영 리스트
+          buildingData={buildingData}
+          gateways={gateways}
+          G={G}
+          Y={Y}
+          R={R}
+          setG={setG}
+          setY={setY}
+          setR={setR}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          allNodes={allNodes}
+          onSetAlarmLevels={handleSetAlarmLevels}
+          alertLogs={alertLogs}
+        />
+      </div>
+      <div className="-mt-[42.2%]">
         <SensorGraph
           graphData={viewMode === 'delta' || viewMode === 'avgDelta' ? deltaData : data}
           buildingId={buildingId}

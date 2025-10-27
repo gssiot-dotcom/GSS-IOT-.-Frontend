@@ -8,7 +8,7 @@ export const AdminLayout = () => {
 	const { user } = useUserState()
 
 	return (
-		<div className='w-full h-full flex justify-center '>
+		<div className='w-full h-full flex justify-center bg-[#F9FAFB] '>
 			{!user ? (
 				<UnauthorizedPage />
 			) : (
@@ -46,7 +46,7 @@ export const ClientLayout = () => {
 	const { user } = useUserState()
 
 	return (
-		<div className='w-full h-full flex justify-center'>
+		<div className='w-full h-full flex justify-center bg-[#F9FAFB]'>
 			{!user ? (
 				<UnauthorizedPage />
 			) : (

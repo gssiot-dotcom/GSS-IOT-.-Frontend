@@ -422,9 +422,10 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     };
 
     const chartData = viewMode === 'general' ? finalData : processedDeltaData;
+    
 
     return (
-        <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[69.4%] 2xl:w-[70%] pb-5 md:-mr-2 2xl:-mr-5'>
+        <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[70.9%] 2xl:w-[70%] pb-5 lg:-mr-[1.6%] 2xl:-mr-5'>
             <Card className='w-full border shadow-sm border-slate-400 mt-4 sm:mt-6'>
                 <CardHeader className="p-3 sm:p-4 space-y-2">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
@@ -458,7 +459,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                 </CardHeader>
                 <CardContent className="p-0 pt-2 overflow-x-hidden overflow-visible">
                     {/*고정 비율 */}
-                    <div className="w-full aspect-[21/7.2] px-1 sm:px-2 2xl:aspect-[21/7.9] 2xl:w-[98%] 3xl:aspect-[21/9.3]">
+                    <div className="w-full aspect-[21/7.37] px-1 sm:px-2 2xl:aspect-[21/7.9] 2xl:w-[98%] 3xl:aspect-[21/9.3]">
                         <ResponsiveContainer width="108%" height="100%">
 
                             <LineChart data={chartData} margin={getChartMargins()}>
