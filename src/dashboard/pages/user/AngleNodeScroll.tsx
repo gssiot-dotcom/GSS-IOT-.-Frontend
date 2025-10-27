@@ -5,13 +5,17 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import TotalcntCsv from '@/dashboard/components/shared-dash/TotalnctCSV'
+import Download from '@/dashboard/components/shared-dash/download'
 import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
 import { Eye } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { NodeDetailModal } from '@/dashboard/components/shared-dash/angleNodeDetail'
+import Draggable from 'react-draggable'
 
-// ✅ 편집 모달 (이미 만든 컴포넌트가 있다고 가정)
+
+
+// ✅ 편집 모달
 import { NodesEditModal, GatewaysEditModal } from '@/dashboard/components/shared-dash/productEdit'
 
 import axios from 'axios'
@@ -43,6 +47,9 @@ interface Props {
   alertLogs: AlertLog[] // ✅ 부모에서 내려온 빌딩별 로그 데이터
 }
 
+/** ================================
+ *   S3 유틸
+ *  ================================ */
 const S3_BASE_URL = 'http://gssiot-image-bucket.s3.us-east-1.amazonaws.com'
 // 빌딩명 폴더: 공백 -> '+'
 const toS3Folder = (name: string) => encodeURIComponent(name).replace(/%20/g, '+')
@@ -62,6 +69,16 @@ const buildS3Url = (node?: IAngleNode | null, buildingName?: string) => {
   return `${S3_BASE_URL}/${folder}/${pos}_${gw}_${door}.jpg`
 }
 
+// ✅ 빌딩별 전체도면 png 기본 URL (onError에서 jpg로 폴백 시도)
+const buildPlanS3Url = (buildingName?: string) => {
+  if (!buildingName) return undefined
+  const folder = toS3Folder(buildingName)
+  return `${S3_BASE_URL}/${folder}/전체도면.png`
+}
+
+/** ================================
+ *   컴포넌트
+ *  ================================ */
 const AngleNodeScroll = ({
   building_angle_nodes,
   onSelectNode,
@@ -81,6 +98,7 @@ const AngleNodeScroll = ({
 }: Props) => {
   const [selectedGateway, setSelectedGateway] = useState<string>('')
   const [selectedNode, setSelectedNode] = useState<number | ''>('')
+
   const [isModalOpen, setIsModalOpen] = useState(true)
   const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
   const [isPlanImgOpen, setIsPlanImgOpen] = useState(false)
@@ -94,8 +112,6 @@ const AngleNodeScroll = ({
   const [isInitModalOpen, setIsInitModalOpen] = useState(false)
   const [selectedNodesForInit, setSelectedNodesForInit] = useState<number[]>([])
 
-  const IMG_SERVER_BASE_URL = `${import.meta.env.VITE_SERVER_BASE_URL}/static/images/`
-
   // ✅ 오늘 날짜 로그만 필터링 (UTC → KST)
   const todayLogs = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
@@ -104,14 +120,6 @@ const AngleNodeScroll = ({
       return logStr === todayStr
     })
   }, [alertLogs])
-
-  // ============= 이미지 경로 유틸 ============= //
-  const buildImgUrl = (file?: string) => {
-    if (!file) return ''
-    const cleanBase = IMG_SERVER_BASE_URL.replace(/\/$/, '')
-    const cleanFile = file.replace(/^\/+/, '')
-    return `${cleanBase}/${encodeURIComponent(cleanFile)}`
-  }
 
   // 🔽 선택된 빌딩명 (NodeDetailModal, 중앙 이미지 S3 모두 동일 규칙)
   const selectedBuildingName = useMemo(() => {
@@ -123,10 +131,11 @@ const AngleNodeScroll = ({
     )
   }, [buildingData])
 
-  const planImgUrl = useMemo(
-    () => buildImgUrl(buildingData?.building_plan_img),
-    [buildingData?.building_plan_img]
-  )
+  // ✅ S3 전체도면 URL (png 기본)
+  const [planImgUrl, setPlanImgUrl] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    setPlanImgUrl(buildPlanS3Url(selectedBuildingName))
+  }, [selectedBuildingName])
 
   // ✅ 게이트웨이의 "마지막에서 2번째 노드"
   const secondLastNodeOfSelectedGw = useMemo(() => {
@@ -144,16 +153,11 @@ const AngleNodeScroll = ({
     return building_angle_nodes?.find((n) => n.doorNum === selectedNode) ?? null
   }, [selectedNode, building_angle_nodes])
 
+  // ✅ 중앙 이미지는 S3만 사용 (노드 → 게이트웨이 → 전체도면.png)
   const mainImageUrl = useMemo(() => {
     const s3Selected = buildS3Url(selectedNodeObj, selectedBuildingName)
-    const legacySelected = selectedNodeObj?.angle_node_img ? buildImgUrl(selectedNodeObj.angle_node_img) : ''
-
     const s3Gateway = buildS3Url(secondLastNodeOfSelectedGw, selectedBuildingName)
-    const legacyGateway = secondLastNodeOfSelectedGw?.angle_node_img
-      ? buildImgUrl(secondLastNodeOfSelectedGw.angle_node_img)
-      : ''
-
-    return s3Selected || legacySelected || s3Gateway || legacyGateway || planImgUrl
+    return s3Selected || s3Gateway || planImgUrl
   }, [selectedNodeObj, secondLastNodeOfSelectedGw, selectedBuildingName, planImgUrl])
 
   // 정렬(절대값 큰 순)
@@ -173,8 +177,6 @@ const AngleNodeScroll = ({
       (node) => node.gateway_id?.serial_number === selectedGateway
     )
   }, [sortedNodes, selectedGateway])
-
-
 
   // 필터
   const nodesToDisplay = useMemo(() => {
@@ -236,30 +238,6 @@ const AngleNodeScroll = ({
     setSelectedNode('')
   }
 
-  // ✅ 도면 업로드
-  const planInputRef = useRef<HTMLInputElement | null>(null)
-  const onClickPlanUpload = () => planInputRef.current?.click()
-
-  const uploadPlanImage = async (file: File) => {
-    if (!buildingData?._id) {
-      alert('빌딩 ID가 없습니다.')
-      return
-    }
-    try {
-      const fd = new FormData()
-      fd.append('image', file, file.name)
-      // 🔧 실제 API에 맞게 경로 수정하세요
-      await axios.put(
-        `${import.meta.env.VITE_SERVER_BASE_URL}/product/building/${buildingData._id}/plan`,
-        fd,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      )
-      alert('도면이 업로드되었습니다.')
-    } catch (e) {
-      console.error(e)
-      alert('도면 업로드 중 오류가 발생했습니다.')
-    }
-  }
 
   // ✅ 초기화 API
   const postCalibrationStart = async (payload: { doorNum?: number; doorNums?: number[] }) => {
@@ -330,6 +308,50 @@ const AngleNodeScroll = ({
         })),
     [gateways]
   )
+
+  const PlanImageModal = ({
+    imageUrl,
+    buildingName,
+    onClose,
+  }: {
+    imageUrl: string | undefined
+    buildingName?: string
+    onClose: () => void
+  }) => {
+    if (!imageUrl) return null
+    return (
+      <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center">
+        <Draggable handle=".drag-handle">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-[92vw] max-h-[88vh] overflow-hidden">
+            {/* 드래그 핸들 */}
+            <div className="drag-handle cursor-move bg-gray-100 px-4 py-2 border-b">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold">{buildingName || '도면'}</h3>
+                <button
+                  className="px-3 py-1 rounded bg-gray-800 text-white text-sm hover:bg-gray-700"
+                  onClick={onClose}
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+
+            {/* 도면 이미지 */}
+            <div className="p-3 bg-white">
+              <img
+                src={imageUrl}
+                alt="전체 도면"
+                className="max-h-[75vh] w-auto object-contain select-none"
+                draggable={false}
+              />
+            </div>
+          </div>
+        </Draggable>
+      </div>
+    )
+  }
+
+
 
   return (
     <div className='grid grid-cols-12 gap-4 w-full h-screen px-4 py-4 mt-2'>
@@ -597,16 +619,11 @@ const AngleNodeScroll = ({
 
         <div className='w-full flex justify-center'>
           <div className='w-full max-w-[100%]'>
-            <TotalcntCsv
-              building={buildingData}
-              gateways={gateways}
-              angle_nodes={building_angle_nodes}
-              image_url={mainImageUrl}
-              togglePlanImg={togglePlanImg}
-              isPlanImgOpen={isPlanImgOpen}
-            />
+            {/* buildingData가 없을 때는 빈 문자열 전달 */}
+            <Download buildingId={buildingData?._id ?? ''} />
           </div>
         </div>
+
       </div>
 
       {/* 우측: 로그 */}
@@ -688,7 +705,6 @@ const AngleNodeScroll = ({
             {/* 도면 업로드 */}
             <button
               className='px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700'
-              onClick={onClickPlanUpload}
             >
               도면 업로드
             </button>
@@ -715,18 +731,14 @@ const AngleNodeScroll = ({
               게이트웨이 수정
             </button>
           </div>
-
-          {/* 숨김 파일 입력 */}
-          <input
-            ref={planInputRef}
-            type='file'
-            accept='image/*'
-            className='hidden'
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) uploadPlanImage(f)
-              e.currentTarget.value = ''
-            }}
+          {/* ✅ 설정 모달 안에서 TotalcntCsv 표시 */}
+          <TotalcntCsv
+            building={buildingData}
+            gateways={gateways}
+            angle_nodes={building_angle_nodes}
+            image_url={mainImageUrl || ''}
+            togglePlanImg={togglePlanImg}
+            isPlanImgOpen={isPlanImgOpen}
           />
         </DialogContent>
       </Dialog>
@@ -749,6 +761,15 @@ const AngleNodeScroll = ({
           onSave={() => setIsGatewaysEditOpen(false)}
         />
       )}
+
+      {isPlanImgOpen && (
+        <PlanImageModal
+          imageUrl={mainImageUrl || planImgUrl || '/no-image.png'}
+          buildingName={selectedBuildingName}
+          onClose={() => setIsPlanImgOpen(false)}
+        />
+      )}
+
 
       {/* ✅ 초기화 모달 */}
       {isInitModalOpen && (
