@@ -24,7 +24,7 @@ const DownloadButtons = ({ buildingId }: Props) => {
       return
     }
 
-    const url = `${SERVER_BASE_URL}/api/reports/daily-hwpx?start=${encodeURIComponent(
+    const url = `${SERVER_BASE_URL}/api/reports/daily-hwpx?date=${encodeURIComponent(
       start
     )}&end=${encodeURIComponent(end)}&buildingId=${encodeURIComponent(buildingId)}`
 

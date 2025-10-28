@@ -3,7 +3,14 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import Download from '@/dashboard/components/shared-dash/download'
 import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
@@ -749,7 +756,7 @@ const AngleNodeScroll = ({
                     {/* 메인(최신) 카드 + 화살표 */}
                     <div
                       className={`${logBg(latest.level)} absolute px-2 py-1 rounded border border-black/10 shadow-sm flex items-center justify-between`}
-                      style={{ left: 0, top: 0, right: 2, height: 32, zIndex: 100 }}
+                      style={{ left: 0, top: 0, right: 2, height: 32, zIndex: 50 }}
                     >
                       <div className="truncate mr-1 lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium">
                         {`${formatKSTTime(latest.createdAt)} | 노드: ${doorNum} | ${formatMetricLabel(latest.metric)}: ${latest.value}`}
@@ -780,54 +787,33 @@ const AngleNodeScroll = ({
       />
 
       {/* ✅ 설정 모달 */}
+
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className='max-w-md'>
-          <DialogHeader>
-            <DialogTitle>설정</DialogTitle>
-          </DialogHeader>
+        <DialogPortal>
+          {/* 🔼 화면 전체를 덮는 오버레이: 모든 것보다 위 */}
+          <DialogOverlay className="fixed inset-0 bg-gray/55 z-[100]" />
+          {/* 🔼 모달 본문은 오버레이보다 한 단계 더 위 */}
+          <DialogContent className="z-[100] max-w-md">
+            <DialogHeader>
+              <DialogTitle>설정</DialogTitle>
+            </DialogHeader>
 
-          <div className='grid grid-cols-2 gap-3'>
-            {/* 노드 초기화 */}
-            <button
-              className='px-3 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600'
-              onClick={() => {
-                setIsSettingsOpen(false)
-                setIsInitModalOpen(true)
-              }}
-            >
-              노드 초기화
-            </button>
-
-            {/* 도면 업로드 */}
-            <button
-              className='px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700'
-            >
-              도면 업로드
-            </button>
-
-            {/* 노드 수정 */}
-            <button
-              className='px-3 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700'
-              onClick={() => {
-                setIsSettingsOpen(false)
-                setIsNodesEditOpen(true)
-              }}
-            >
-              노드 정보
-            </button>
-
-            {/* 게이트웨이 수정 */}
-            <button
-              className='px-3 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700'
-              onClick={() => {
-                setIsSettingsOpen(false)
-                setIsGatewaysEditOpen(true)
-              }}
-            >
-              게이트웨이 정보
-            </button>
-          </div>
-        </DialogContent>
+            <div className="grid grid-cols-2 gap-3">
+              <button className="px-3 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600">
+                노드 초기화
+              </button>
+              <button className="px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700">
+                도면 업로드
+              </button>
+              <button className="px-3 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">
+                노드 정보
+              </button>
+              <button className="px-3 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">
+                게이트웨이 정보
+              </button>
+            </div>
+          </DialogContent>
+        </DialogPortal>
       </Dialog>
 
       {/* ✅ Nodes/Gateways Edit Modals */}

@@ -59,14 +59,14 @@ const WhiteHeader = ({ buildingName }: WhiteHeaderProps) => {
   }, [folderVariants, nameVariants])
 
   return (
-    <header className="w-[102%] bg-[#F9FAFB] py-1 border-b border-gray-300 shadow-sm grid grid-cols-3 items-center px-6">
+    <header className="lg:w-[102%] 2xl:w-[102%] bg-[#F9FAFB] lg:py-1 2xl:py-2 border-b border-gray-300 shadow-sm grid grid-cols-3 items-center px-6 2xl:-ml-[0.1%]">
       {/* 왼쪽: 빌딩 로고 */}
       <div className="flex justify-start items-center">
         {buildingLogoUrl && (
           <img
             src={buildingLogoUrl}
             alt={`${buildingName ?? ""} 로고`}
-            className="ml-[20%] w-16 h-auto object-contain scale-[4.5]"
+            className="lg:ml-[20%] 2xl:ml-[17%] w-16 h-auto object-contain lg:scale-[4.5] 2xl:scale-[5.5]"
           />
         )}
       </div>
@@ -80,13 +80,13 @@ const WhiteHeader = ({ buildingName }: WhiteHeaderProps) => {
       </div>
 
       {/* 오른쪽: GSS 로고 + 텍스트 */}
-      <div className="flex justify-end items-center gap-5 -mr-[2%]">
+      <div className="flex justify-end items-center lg:gap-5 2xl:gap-10 lg:-mr-[2%] 2xl:-mr-[1%]">
         <img
           src={GSSLogo}
           alt="GSS Logo"
-          className="w-14 h-auto object-contain scale-[2.5]"
+          className="w-14 h-auto object-contain lg:scale-[2.5] 2xl:scale-[3.5]"
         />
-        <span className="text-gray-700 text-lg whitespace-nowrap font-[Giants]">
+        <span className="text-gray-700 lg:text-[90%] 2xl:text-[110%] whitespace-nowrap font-[Giants]">
           글로벌스마트솔루션
         </span>
       </div>
