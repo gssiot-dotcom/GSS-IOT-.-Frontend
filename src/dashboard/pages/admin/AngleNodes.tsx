@@ -83,12 +83,12 @@ async function fetchAliveNodes() {
     Array.isArray(payload)
       ? payload
       : Array.isArray(payload?.items)
-      ? payload.items
-      : Array.isArray(payload?.rows)
-      ? payload.rows
-      : Array.isArray(payload?.data)
-      ? payload.data
-      : []
+        ? payload.items
+        : Array.isArray(payload?.rows)
+          ? payload.rows
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : []
 
   return list
     .map((x: any) =>
@@ -495,8 +495,15 @@ const AngleNodes = () => {
   // ---------------- 렌더 ---------------- //
   return (
     <div className="w-full max-h-screen bg-gray-50 px-2 md:px-5 pt-0 overflow-hidden">
-      <WhiteHeader />
-      <div className="-ml-[1%]">
+      <WhiteHeader
+        buildingName={
+          buildingData?.building_name   // ✅ 스샷 기준 필드
+          ?? buildingData?.name         // 혹시 name으로 오는 경우 대비
+          ?? buildingData?.title        // 타이틀로 오는 경우 대비
+          ?? ""
+        }
+      />
+      <div className="lg:-ml-[1%] ">
         <AngleNodeScroll
           onSelectNode={setSelectedDoorNum}
           building_angle_nodes={nodesForScroll} // ✅ alive 반영 리스트
@@ -515,7 +522,7 @@ const AngleNodes = () => {
           alertLogs={alertLogs}
         />
       </div>
-      <div className="-mt-[42.2%]">
+      <div className="lg:-mt-[42.2%] 2xl:-mt-[35.5%]">
         <SensorGraph
           graphData={viewMode === 'delta' || viewMode === 'avgDelta' ? deltaData : data}
           buildingId={buildingId}

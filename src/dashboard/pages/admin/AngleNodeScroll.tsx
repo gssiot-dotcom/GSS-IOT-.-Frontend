@@ -4,7 +4,6 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import TotalcntCsv from '@/dashboard/components/shared-dash/TotalnctCSV'
 import Download from '@/dashboard/components/shared-dash/download'
 import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
@@ -309,6 +308,36 @@ const AngleNodeScroll = ({
     [gateways]
   )
 
+  // ▼▼▼ 연속(순차) 같은 노드 로그를 묶기 + 접기/펼치기 상태 ▼▼▼
+  const groupedTodayLogs = useMemo(() => {
+    const arr = [...(todayLogs ?? [])].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    const groups: Array<{ doorNum: number; items: AlertLog[] }> = []
+    let cur: { doorNum: number; items: AlertLog[] } | null = null
+
+    for (const log of arr) {
+      if (!cur || cur.doorNum !== log.doorNum) {
+        if (cur) groups.push(cur)
+        cur = { doorNum: log.doorNum, items: [log] }
+      } else {
+        cur.items.push(log) // 같은 노드가 연속이면 같은 묶음에 쌓기
+      }
+    }
+    if (cur) groups.push(cur)
+    return groups
+  }, [todayLogs])
+
+  const [openGroups, setOpenGroups] = useState<Record<number, boolean>>({})
+  const toggleGroup = (idx: number) =>
+    setOpenGroups((p) => ({ ...p, [idx]: !p[idx] }))
+
+  const logBg = (level: string) =>
+    level === 'yellow' ? 'bg-yellow-200'
+      : level === 'red' ? 'bg-red-400'
+        : 'bg-blue-200'
+
+
   const PlanImageModal = ({
     imageUrl,
     buildingName,
@@ -356,7 +385,7 @@ const AngleNodeScroll = ({
   return (
     <div className='grid grid-cols-12 gap-4 w-full h-screen px-4 py-4 mt-2'>
       {/* =============== Angle-Nodes grid ================ */}
-      <ScrollArea className='col-span-12 md:col-span-4 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 lg:h-[96%] 2xl:h-[100%] w-[90%]'>
+      <ScrollArea className='col-span-12 lg:col-span-4 2xl:col-span-3 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 lg:h-[96%] 2xl:h-[96.6%] w-[90%]'>
         {/* BGYR 설정 & 알람 저장 */}
         <div className='flex justify-between mb-4 gap-2 items-end'>
           {/* 정상(B) */}
@@ -420,40 +449,44 @@ const AngleNodeScroll = ({
         </div>
 
         {/* 뷰 모드 + 설정 */}
-        <div className='flex justify-center mb-4 gap-2'>
-          <button
-            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
-              }`}
-            onClick={() => setViewMode('general')}
-          >
-            기울기
-          </button>
-          <button
-            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
-              }`}
-            onClick={() => setViewMode('delta')}
-          >
-            변화량
-          </button>
-          <button
-            className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
-              }`}
-            onClick={() => setViewMode('avgDelta')}
-          >
-            평균변화
-          </button>
+        <div className="flex items-center justify-between mb-4">
+          {/* 왼쪽: 기울기/변화량/평균변화 */}
+          <div className="flex gap-3">
+            <button
+              className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
+                }`}
+              onClick={() => setViewMode('general')}
+            >
+              기울기
+            </button>
+            <button
+              className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
+                }`}
+              onClick={() => setViewMode('delta')}
+            >
+              변화량
+            </button>
+            <button
+              className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
+                }`}
+              onClick={() => setViewMode('avgDelta')}
+            >
+              평균변화
+            </button>
+          </div>
 
-          {/* ✅ 설정 버튼 */}
+          {/* 오른쪽: 설정 */}
           <button
-            className='px-3 py-1 rounded-lg font-bold text-xs text-white bg-gray-700 hover:bg-gray-800 transition-colors'
+            className="px-3 py-1 rounded-lg font-bold text-xs text-white bg-gray-700 hover:bg-gray-800 transition-colors ml-6"
             onClick={() => setIsSettingsOpen(true)}
           >
             설정
           </button>
         </div>
 
+
         {/* Gateway + Node 선택 */}
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
+        <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4'>
           <select
             className='border border-gray-400 rounded-md px-1 py-0.5 text-sm overflow-y-auto'
             value={selectedGateway}
@@ -487,7 +520,7 @@ const AngleNodeScroll = ({
         </div>
 
         {/* 노드 카드 */}
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+        <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
           {/* 활성 노드 */}
           {aliveNodes.map((item) => (
             <Card
@@ -525,9 +558,9 @@ const AngleNodeScroll = ({
 
           {/* 비활성 노드 */}
           {deadNodes.length > 0 && (
-            <div className='col-span-1 md:col-span-2 mt-6'>
+            <div className='col-span-1 lg:col-span-2 mt-6'>
               <h2 className='text-center font-bold text-gray-600 mb-3'>비활성 노드</h2>
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <div className='grid grid-cols-1 lg:grid-cols-2 gap-4'>
                 {deadNodes.map((item) => (
                   <Card
                     key={item.doorNum}
@@ -570,10 +603,10 @@ const AngleNodeScroll = ({
       </ScrollArea>
 
       {/* 중앙: Gateway + 이미지 / CSV */}
-      <div className='col-span-12 md:col-span-5 flex flex-col gap-y-2 h-[40%] md:-mt-5 2xl:-mt-5 md:-ml-[2.4vw] 2xl:-ml-[2.4vw] 3xl:-ml-[2.4vw]'>
+      <div className='col-span-12 lg:col-span-5 2xl:col-span-6 flex flex-col lg:gap-y-1 2xl:gap-y-2 lg:-mt-5 lg:-ml-[7%] 2xl:-ml-[5%] 3xl:-ml-[2.4vw]'>
         <div className='grid grid-cols-2 w-full gap-x-1 rounded-lg border border-slate-400'>
-          <div className='flex flex-col items-center md:col-span-1 col-span-2 h-[27vh] rounded-md bg-gray-50 text-gray-600 '>
-            <ScrollArea className='pr-3 pl-1 py-1 border-none'>
+          <div className='flex flex-col items-center lg:col-span-1 col-span-2 lg:h-[27.5vh] 2xl:h-[100%] rounded-md bg-gray-50 text-gray-600 '>
+            <ScrollArea className='pr-3 pl-4 lg:py-1 2xl:py-20 border-none 2xl:-mt-[16%]'>
               <button
                 className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
                   }`}
@@ -601,7 +634,7 @@ const AngleNodeScroll = ({
 
           <div
             onClick={() => togglePlanImg()}
-            className='relative flex items-center justify-center cursor-pointer h-[26vh] w-full bg-white rounded-lg'
+            className='relative flex items-center justify-center cursor-pointer lg:h-[100%]  w-full bg-white rounded-lg'
           >
             <img
               src={mainImageUrl}
@@ -628,7 +661,7 @@ const AngleNodeScroll = ({
 
       {/* 우측: 로그 */}
       <ScrollArea
-        className='col-span-12 md:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-3 -mt-5 h-[36%] 2xl:h-[39%] 3xl:h-[38.4%] w-[112%]'>
+        className='col-span-12 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-5 h-[36%] 2xl:h-[41.6%] 3xl:h-[38.4%] lg:w-[112%] 2xl:w-[109%]'>
         <div className='flex flex-col gap-2 text-sm'>
           {/* 게이트웨이 다운 */}
           {gatewayDownRows.length > 0 && (
@@ -646,32 +679,95 @@ const AngleNodeScroll = ({
           )}
 
           {/* 알림 로그 */}
-          {todayLogs && todayLogs.length ? (
-            [...todayLogs]
-              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-              .map((log, idx) => {
-                const bg =
-                  log.level === 'yellow'
-                    ? 'bg-yellow-200'
-                    : log.level === 'red'
-                      ? 'bg-red-400'
-                      : 'bg-blue-200'
+          {groupedTodayLogs.length ? (
+            groupedTodayLogs.map((group, idx) => {
+              // ✅ 여기서 한 번만 선언
+              const isOpen = !!openGroups[idx]
+              const { doorNum, items } = group
+
+              if (isOpen || items.length === 1) {
+                // 펼쳐진 상태(또는 1건뿐)
+                // 펼쳐진 상태(또는 1건뿐) -> 리스트 그대로
                 return (
-                  <div
-                    key={idx}
-                    className={`px-2 py-1 rounded ${bg} lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium`}
-                  >
-                    {`${formatKSTTime(log.createdAt)} | 노드: ${log.doorNum} | ${formatMetricLabel(
-                      log.metric
-                    )}: ${log.value}`}
+                  <div key={`gopen-${idx}`} className="flex flex-col gap-1">
+                    {items.map((log, i) => {
+                      // ▲ 아이콘/클릭은 '그룹에 2개 이상 있고' + '펼침 상태'일 때만
+                      const showCollapse = items.length > 1 && isOpen
+                      const clickable = i === 0 && showCollapse
+
+                      return (
+                        <div
+                          key={`log-${idx}-${i}`}
+                          onClick={clickable ? () => toggleGroup(idx) : undefined}
+                          className={` ${logBg(log.level)} px-2 py-1 rounded border border-black/10 shadow-sm ${clickable ? 'cursor-pointer' : ''} `}
+                          title={clickable ? '접기' : undefined}
+                          style={{ minHeight: 30, width: 'calc(100% - 2px)' }}
+                        >
+                          <div className="flex items-center justify-between lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium">
+                            <div className="truncate mr-2">
+                              {`${formatKSTTime(log.createdAt)} | 노드: ${log.doorNum} | ${formatMetricLabel(log.metric)}: ${log.value}`}
+                            </div>
+                            {clickable && (
+                              <span className="shrink-0 text-[13px] text-gray-700 font-bold ">▲</span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )
-              })
+              }
+
+              // 접힌 상태: 부채(스택)형 미리보기 (최신 1건 + 겹침)
+              const latest = items[0]
+              const previewCount = Math.min(items.length, 3)
+              const offsetStep = 5
+
+              return (
+                <button
+                  key={`g-${idx}`}
+                  onClick={() => toggleGroup(idx)}
+                  className="relative text-left w-full cursor-pointer focus:outline-none"
+                  aria-label={`노드 ${doorNum} 로그 ${items.length}건 ${isOpen ? '접기' : '펼치기'}`}
+                  title={`노드 ${doorNum} 로그 ${items.length}건`}
+                >
+                  <div className="relative" style={{ height: 32 + offsetStep * (previewCount - 1) }}>
+                    {/* 부채 배경 카드들 */}
+                    {!isOpen &&
+                      Array.from({ length: previewCount - 1 }).map((_, i) => {
+                        const bgLog = items[i + 1]
+                        const offset = (previewCount - 1 - i) * offsetStep
+                        return (
+                          <div
+                            key={`stack-bg-${idx}-${i}`}
+                            className={`${logBg(bgLog.level)} absolute rounded border border-black/10 shadow-sm pointer-events-none`}
+                            style={{ left: offset, top: offset, right: 2, height: 33, zIndex: 10 + i, opacity: 0.95 }}
+                          />
+                        )
+                      })}
+
+                    {/* 메인(최신) 카드 + 화살표 */}
+                    <div
+                      className={`${logBg(latest.level)} absolute px-2 py-1 rounded border border-black/10 shadow-sm flex items-center justify-between`}
+                      style={{ left: 0, top: 0, right: 2, height: 32, zIndex: 100 }}
+                    >
+                      <div className="truncate mr-1 lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium">
+                        {`${formatKSTTime(latest.createdAt)} | 노드: ${doorNum} | ${formatMetricLabel(latest.metric)}: ${latest.value}`}
+                      </div>
+                      <span className="shrink-0 text-[13px] text-gray-700 font-bold">
+                        {isOpen ? '▲' : '▼'}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              )
+            })
           ) : (
             <div className='p-2 bg-blue-500 border rounded-md'>
               <p className='text-center text-white text-[16px]'>오늘은 위험 로그가 없습니다.</p>
             </div>
           )}
+
         </div>
       </ScrollArea>
 
@@ -717,7 +813,7 @@ const AngleNodeScroll = ({
                 setIsNodesEditOpen(true)
               }}
             >
-              노드 수정
+              노드 정보
             </button>
 
             {/* 게이트웨이 수정 */}
@@ -728,18 +824,9 @@ const AngleNodeScroll = ({
                 setIsGatewaysEditOpen(true)
               }}
             >
-              게이트웨이 수정
+              게이트웨이 정보
             </button>
           </div>
-          {/* ✅ 설정 모달 안에서 TotalcntCsv 표시 */}
-          <TotalcntCsv
-            building={buildingData}
-            gateways={gateways}
-            angle_nodes={building_angle_nodes}
-            image_url={mainImageUrl || ''}
-            togglePlanImg={togglePlanImg}
-            isPlanImgOpen={isPlanImgOpen}
-          />
         </DialogContent>
       </Dialog>
 
