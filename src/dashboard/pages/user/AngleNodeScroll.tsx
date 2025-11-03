@@ -3,7 +3,14 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import Download from '@/dashboard/components/shared-dash/download'
 import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
@@ -96,7 +103,7 @@ const AngleNodeScroll = ({
   alertLogs,
 }: Props) => {
   const [selectedGateway, setSelectedGateway] = useState<string>('')
-  const [selectedNode, setSelectedNode] = useState<number | ''>('')
+  const [selectedNode, setSelectedNode] = useState<number | '' | 'dead'>('')
 
   const [isModalOpen, setIsModalOpen] = useState(true)
   const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
@@ -183,11 +190,18 @@ const AngleNodeScroll = ({
     if (selectedGateway) {
       nodes = nodes.filter((node) => node.gateway_id?.serial_number === selectedGateway)
     }
-    if (selectedNode !== '') {
+
+    if (selectedNode === 'dead') {
+      // ✅ 추가: 비활성 노드만
+      nodes = nodes.filter((node) => !node.node_alive)
+    } else if (selectedNode !== '' && typeof selectedNode === 'number') {
+      // 기존: 특정 노드만
       nodes = nodes.filter((node) => node.doorNum === selectedNode)
     }
+
     return nodes
   }, [sortedNodes, selectedGateway, selectedNode])
+
 
   const aliveNodes = nodesToDisplay.filter((node) => node.node_alive)
   const deadNodes = nodesToDisplay.filter((node) => !node.node_alive)
@@ -503,11 +517,15 @@ const AngleNodeScroll = ({
           <select
             className='border border-gray-400 rounded-md px-1 py-1 text-sm overflow-y-auto'
             value={selectedNode}
-            onChange={(e) =>
-              setSelectedNode(e.target.value === '' ? '' : Number.parseInt(e.target.value))
-            }
+            onChange={(e) => {
+              const v = e.target.value
+              setSelectedNode(v === '' ? '' : v === 'dead' ? 'dead' : Number.parseInt(v))
+            }}
           >
             <option value=''>전체노드</option>
+            {/* ✅ 추가: 비활성 노드만 보기 */}
+            <option value='dead'>비활성 노드</option>
+
             {[...nodesUnderSelectedGateway]
               .sort((a, b) => a.doorNum - b.doorNum)
               .map((node) => (
@@ -516,6 +534,7 @@ const AngleNodeScroll = ({
                 </option>
               ))}
           </select>
+
 
         </div>
 
@@ -604,9 +623,9 @@ const AngleNodeScroll = ({
 
       {/* 중앙: Gateway + 이미지 / CSV */}
       <div className='col-span-12 lg:col-span-5 2xl:col-span-6 flex flex-col lg:gap-y-1 2xl:gap-y-2 lg:-mt-5 lg:-ml-[7%] 2xl:-ml-[5%] 3xl:-ml-[2.4vw]'>
-        <div className='grid grid-cols-2 w-full gap-x-1 rounded-lg border border-slate-400'>
+        <div className='grid lg:grid-cols-[0.3fr_0.7fr] 2xl:grid-cols-[0.3fr_0.7fr] w-full gap-x-1 rounded-lg border border-slate-400'>
           <div className='flex flex-col items-center lg:col-span-1 col-span-2 lg:h-[27.5vh] 2xl:h-[100%] rounded-md bg-gray-50 text-gray-600 '>
-            <ScrollArea className='pr-3 pl-4 lg:py-1 2xl:py-20 border-none 2xl:-mt-[16%]'>
+            <ScrollArea className='pr-3 pl-4 lg:py-1 2xl:py-5 border-none 2xl:-mt-[6%]'>
               <button
                 className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
                   }`}
@@ -614,7 +633,7 @@ const AngleNodeScroll = ({
               >
                 전체구역
               </button>
-              <div className='grid grid-cols-3 gap-2 w-full'>
+              <div className='grid grid-cols-2 gap-2 w-full'>
                 {gateways?.map((gw, index) => (
                   <div
                     onClick={() => onToggleGatewaySelection(gw)}
@@ -653,7 +672,12 @@ const AngleNodeScroll = ({
         <div className='w-full flex justify-center'>
           <div className='w-full max-w-[100%]'>
             {/* buildingData가 없을 때는 빈 문자열 전달 */}
-            <Download buildingId={buildingData?._id ?? ''} />
+            <Download
+              buildingId={buildingData?._id ?? ''}
+              angleNodes={building_angle_nodes}
+              buildingName={selectedBuildingName}
+            />
+
           </div>
         </div>
 
@@ -749,7 +773,7 @@ const AngleNodeScroll = ({
                     {/* 메인(최신) 카드 + 화살표 */}
                     <div
                       className={`${logBg(latest.level)} absolute px-2 py-1 rounded border border-black/10 shadow-sm flex items-center justify-between`}
-                      style={{ left: 0, top: 0, right: 2, height: 32, zIndex: 100 }}
+                      style={{ left: 0, top: 0, right: 2, height: 32, zIndex: 50 }}
                     >
                       <div className="truncate mr-1 lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium">
                         {`${formatKSTTime(latest.createdAt)} | 노드: ${doorNum} | ${formatMetricLabel(latest.metric)}: ${latest.value}`}
@@ -780,55 +804,63 @@ const AngleNodeScroll = ({
       />
 
       {/* ✅ 설정 모달 */}
+
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className='max-w-md'>
-          <DialogHeader>
-            <DialogTitle>설정</DialogTitle>
-          </DialogHeader>
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 bg-gray/50 z-[100]" />
+          <DialogContent className="z-[100] max-w-md">
+            <DialogHeader>
+              <DialogTitle>설정</DialogTitle>
+            </DialogHeader>
 
-          <div className='grid grid-cols-2 gap-3'>
-            {/* 노드 초기화 */}
-            <button
-              className='px-3 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600'
-              onClick={() => {
-                setIsSettingsOpen(false)
-                setIsInitModalOpen(true)
-              }}
-            >
-              노드 초기화
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              {/* 노드 초기화 */}
+              <button
+                className="px-3 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600"
+                onClick={() => {
+                  setIsSettingsOpen(false)
+                  setIsInitModalOpen(true)
+                }}
+              >
+                노드 초기화
+              </button>
 
-            {/* 도면 업로드 */}
-            <button
-              className='px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700'
-            >
-              도면 업로드
-            </button>
+              {/* 도면 업로드 (예: 다른 모달 열기 or 업로드 로직) */}
+              <button
+                className="px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+                onClick={() => {
+                  /* TODO: 도면 업로드 모달/로직 */
+                }}
+              >
+                도면 업로드
+              </button>
 
-            {/* 노드 수정 */}
-            <button
-              className='px-3 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700'
-              onClick={() => {
-                setIsSettingsOpen(false)
-                setIsNodesEditOpen(true)
-              }}
-            >
-              노드 정보
-            </button>
+              {/* 노드 정보 */}
+              <button
+                className="px-3 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700"
+                onClick={() => {
+                  setIsSettingsOpen(false)
+                  setIsNodesEditOpen(true)
+                }}
+              >
+                노드 정보
+              </button>
 
-            {/* 게이트웨이 수정 */}
-            <button
-              className='px-3 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700'
-              onClick={() => {
-                setIsSettingsOpen(false)
-                setIsGatewaysEditOpen(true)
-              }}
-            >
-              게이트웨이 정보
-            </button>
-          </div>
-        </DialogContent>
+              {/* 게이트웨이 정보 */}
+              <button
+                className="px-3 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700"
+                onClick={() => {
+                  setIsSettingsOpen(false)
+                  setIsGatewaysEditOpen(true)
+                }}
+              >
+                게이트웨이 정보
+              </button>
+            </div>
+          </DialogContent>
+        </DialogPortal>
       </Dialog>
+
 
       {/* ✅ Nodes/Gateways Edit Modals */}
       {isNodesEditOpen && (

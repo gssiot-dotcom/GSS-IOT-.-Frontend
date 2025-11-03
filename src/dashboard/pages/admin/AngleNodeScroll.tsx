@@ -103,7 +103,7 @@ const AngleNodeScroll = ({
   alertLogs,
 }: Props) => {
   const [selectedGateway, setSelectedGateway] = useState<string>('')
-  const [selectedNode, setSelectedNode] = useState<number | ''>('')
+  const [selectedNode, setSelectedNode] = useState<number | '' | 'dead'>('')
 
   const [isModalOpen, setIsModalOpen] = useState(true)
   const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
@@ -190,11 +190,18 @@ const AngleNodeScroll = ({
     if (selectedGateway) {
       nodes = nodes.filter((node) => node.gateway_id?.serial_number === selectedGateway)
     }
-    if (selectedNode !== '') {
+
+    if (selectedNode === 'dead') {
+      // ✅ 추가: 비활성 노드만
+      nodes = nodes.filter((node) => !node.node_alive)
+    } else if (selectedNode !== '' && typeof selectedNode === 'number') {
+      // 기존: 특정 노드만
       nodes = nodes.filter((node) => node.doorNum === selectedNode)
     }
+
     return nodes
   }, [sortedNodes, selectedGateway, selectedNode])
+
 
   const aliveNodes = nodesToDisplay.filter((node) => node.node_alive)
   const deadNodes = nodesToDisplay.filter((node) => !node.node_alive)
@@ -510,11 +517,15 @@ const AngleNodeScroll = ({
           <select
             className='border border-gray-400 rounded-md px-1 py-1 text-sm overflow-y-auto'
             value={selectedNode}
-            onChange={(e) =>
-              setSelectedNode(e.target.value === '' ? '' : Number.parseInt(e.target.value))
-            }
+            onChange={(e) => {
+              const v = e.target.value
+              setSelectedNode(v === '' ? '' : v === 'dead' ? 'dead' : Number.parseInt(v))
+            }}
           >
             <option value=''>전체노드</option>
+            {/* ✅ 추가: 비활성 노드만 보기 */}
+            <option value='dead'>비활성 노드</option>
+
             {[...nodesUnderSelectedGateway]
               .sort((a, b) => a.doorNum - b.doorNum)
               .map((node) => (
@@ -523,6 +534,7 @@ const AngleNodeScroll = ({
                 </option>
               ))}
           </select>
+
 
         </div>
 
@@ -611,9 +623,9 @@ const AngleNodeScroll = ({
 
       {/* 중앙: Gateway + 이미지 / CSV */}
       <div className='col-span-12 lg:col-span-5 2xl:col-span-6 flex flex-col lg:gap-y-1 2xl:gap-y-2 lg:-mt-5 lg:-ml-[7%] 2xl:-ml-[5%] 3xl:-ml-[2.4vw]'>
-        <div className='grid grid-cols-2 w-full gap-x-1 rounded-lg border border-slate-400'>
+        <div className='grid lg:grid-cols-[0.3fr_0.7fr] 2xl:grid-cols-[0.3fr_0.7fr] w-full gap-x-1 rounded-lg border border-slate-400'>
           <div className='flex flex-col items-center lg:col-span-1 col-span-2 lg:h-[27.5vh] 2xl:h-[100%] rounded-md bg-gray-50 text-gray-600 '>
-            <ScrollArea className='pr-3 pl-4 lg:py-1 2xl:py-20 border-none 2xl:-mt-[16%]'>
+            <ScrollArea className='pr-3 pl-4 lg:py-1 2xl:py-5 border-none 2xl:-mt-[6%]'>
               <button
                 className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
                   }`}
@@ -621,7 +633,7 @@ const AngleNodeScroll = ({
               >
                 전체구역
               </button>
-              <div className='grid grid-cols-3 gap-2 w-full'>
+              <div className='grid grid-cols-2 gap-2 w-full'>
                 {gateways?.map((gw, index) => (
                   <div
                     onClick={() => onToggleGatewaySelection(gw)}
@@ -660,7 +672,12 @@ const AngleNodeScroll = ({
         <div className='w-full flex justify-center'>
           <div className='w-full max-w-[100%]'>
             {/* buildingData가 없을 때는 빈 문자열 전달 */}
-            <Download buildingId={buildingData?._id ?? ''} />
+            <Download
+              buildingId={buildingData?._id ?? ''}
+              angleNodes={building_angle_nodes}
+              buildingName={selectedBuildingName}
+            />
+
           </div>
         </div>
 

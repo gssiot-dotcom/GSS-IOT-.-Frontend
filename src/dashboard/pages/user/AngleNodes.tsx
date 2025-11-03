@@ -74,6 +74,11 @@ async function fetchLatestAngleForDoor(doorNum: number) {
  * GET /api/angle-nodes/alive
  *  - 숫자 배열/객체 배열/래퍼(items|rows|data) 모두 수용
  * ------------------------------------------------------------------ */
+/** ------------------------------------------------------------------
+ * 전체 노드 alive 조회 (오직 이 결과만 사용)
+ * GET /api/angle-nodes/alive
+ *  - 숫자 배열/객체 배열/래퍼(items|rows|data) 모두 수용
+ * ------------------------------------------------------------------ */
 async function fetchAliveNodes() {
   const baseURL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005'
   const res = await axios.get('/api/angle-nodes/alive', { baseURL })
@@ -90,14 +95,22 @@ async function fetchAliveNodes() {
             ? payload.data
             : []
 
+  console.log('[alive] ▶ extracted list:', list)
+
+  // ✅ node_alive 그대로 반영
   return list
-    .map((x: any) =>
-      typeof x === 'number'
-        ? { doorNum: x }
-        : { doorNum: Number(x?.doorNum ?? x?.node ?? x?.id) }
-    )
+    .map((x: any) => ({
+      doorNum: Number(x?.doorNum ?? x?.node ?? x?.id),
+      node_alive:
+        typeof x?.node_alive === 'boolean'
+          ? x.node_alive
+          : x?.alive === true || x?.status === 'alive', // 백엔드 확장성 고려
+      lastSeen: x?.lastSeen ?? null,
+      updatedAt: x?.updatedAt ?? null,
+    }))
     .filter((x) => !Number.isNaN(x.doorNum))
 }
+
 
 const AngleNodes = () => {
   const [selectedDoorNum, setSelectedDoorNum] = useState<number | null>(null)
@@ -282,10 +295,13 @@ const AngleNodes = () => {
   const aliveSet = useMemo(() => {
     const s = new Set<number>()
     for (const it of aliveList as any[]) {
-      if (typeof it?.doorNum === 'number') s.add(it.doorNum)
+      if (typeof it?.doorNum === 'number' && it?.node_alive === true) {
+        s.add(it.doorNum)
+      }
     }
     return s
   }, [aliveList])
+
 
   // ---------------- 스크롤 표시 리스트 ---------------- //
   const nodesForScroll: IAngleNode[] = useMemo(() => {

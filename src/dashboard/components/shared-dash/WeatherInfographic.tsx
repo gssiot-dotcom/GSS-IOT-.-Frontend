@@ -23,7 +23,7 @@ const WeatherInfographic = ({ buildingId }: { buildingId: string }) => {
             {/* 풍속 */}
             <div className='flex items-center gap-0.5 mx-1'>
               <span>💨풍속:</span>
-              <span>{weather.windSpeed} m/s</span>
+              <span>{weather.windSpeed}m/s</span>
             </div>
 
             {/* 풍향 */}
