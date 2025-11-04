@@ -149,3 +149,4 @@ export const useWeather = (buildingId: string) => {
 
   return { weather, loading, error }
 }
+
