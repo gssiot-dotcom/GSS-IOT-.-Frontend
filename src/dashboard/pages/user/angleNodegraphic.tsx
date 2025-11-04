@@ -431,16 +431,21 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         return () => clearInterval(id)
     }, [])
 
-    const nowText = useMemo(() => {
+    const nowDate = useMemo(() => {
         const pad = (n: number) => String(n).padStart(2, "0")
-        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ` +
-            `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    }, [now])
+
+    const nowTime = useMemo(() => {
+        const pad = (n: number) => String(n).padStart(2, "0")
+        return `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
     }, [now])
 
 
 
+
     return (
-        <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[70.9%] 2xl:w-[78.6%] pb-5 lg:-mr-[1.6%] 2xl:-mr-5'>
+        <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[70.9%] 2xl:w-[78.6%] 3xl:w-[78.9%] pb-5 lg:-mr-[1.6%] 2xl:-mr-5'>
             <Card className='w-full border shadow-sm border-slate-400 mt-4 sm:mt-6'>
                 <CardHeader className="p-3 sm:p-4 space-y-2">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
@@ -450,12 +455,21 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                             {viewMode === "delta" && doorNum !== null && <span className="text-purple-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum} (변화량)</span>}
                             {viewMode === "avgDelta" && doorNum !== null && <span className="text-orange-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum} (평균변화)</span>}
                         </CardTitle>
-                        {/* 가운데: 현재 시각 */}
                         <div className="hidden sm:flex flex-1 justify-center">
-                            <span className="text-gray-600 text-[12px] font-bold">
-                                {nowText}
+                            {/* lg 이하 (기존 스타일) */}
+                            <span className="hidden lg:inline 2xl:hidden text-gray-600 text-[12px] font-bold">
+                                {nowDate} {nowTime}
                             </span>
+
+                            {/* 2xl 이상 (날짜와 시간 분리) */}
+                            <div className="hidden 2xl:flex items-center gap-3 font-mono tabular-nums text-[110%] font-bold text-gray-600">
+                                <span>{nowDate}</span>
+                                <span className="opacity-50">|</span>
+                                <span>{nowTime}</span>
+                            </div>
                         </div>
+
+
                         <div className="flex flex-row items-center justify-between sm:justify-end gap-3">
                             <div className="flex items-center gap-x-2">
                                 <label className="text-xs font-medium text-gray-700 whitespace-nowrap">기간:</label>
@@ -480,7 +494,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                 </CardHeader>
                 <CardContent className="p-0 pt-2 overflow-x-hidden overflow-visible">
                     {/*고정 비율 */}
-                    <div className="w-full aspect-[21/7.37] px-1 sm:px-2 2xl:aspect-[21/6.3] 2xl:w-[97%] 3xl:aspect-[21/9.3]">
+                    <div className="w-full aspect-[21/7.37] px-1 sm:px-2 2xl:aspect-[21/6.3] 2xl:w-[97%] 3xl:aspect-[21/5.67] 3xl:w-[99%]">
                         <ResponsiveContainer width="108%" height="100%">
 
                             <LineChart data={chartData} margin={getChartMargins()}>

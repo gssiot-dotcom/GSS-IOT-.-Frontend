@@ -538,7 +538,7 @@ const AngleNodes = () => {
           alertLogs={alertLogs}
         />
       </div>
-      <div className="lg:-mt-[42.2%] 2xl:-mt-[35.5%]">
+      <div className="lg:-mt-[42.2%] 2xl:-mt-[35.5%] 3xl:-mt-[33.6%]">
         <SensorGraph
           graphData={viewMode === 'delta' || viewMode === 'avgDelta' ? deltaData : data}
           buildingId={buildingId}
