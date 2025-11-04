@@ -12,6 +12,7 @@ interface WeatherData {
   pm10?: number
   earthquake?: boolean
   typhoon?: boolean
+  typhoonLabel?: string // ✅ 추가
 }
 
 // 영어 → 한국어 매핑
@@ -32,6 +33,14 @@ const weatherMap: Record<string, string> = {
   Ash: "화산재",
   Squall: "돌풍",
   Tornado: "토네이도",
+}
+
+// ✅ 태풍 영향 수치 → 레이블 매핑
+const typhoonEffMap: Record<number, string> = {
+  1: "상륙",
+  2: "강함",
+  3: "약함",
+  4: "없음",
 }
 
 export const useWeather = (buildingId: string) => {
@@ -78,12 +87,17 @@ export const useWeather = (buildingId: string) => {
       }
       const windDeg = directionMap[windDirection] ?? 0
 
+      // ✅ 태풍 영향 값 처리
+      const typhoonEff = Number(latest.typhoon_eff) || 4
+      const typhoonLabel = typhoonEffMap[typhoonEff] ?? "없음"
+      const typhoon = typhoonEff !== 4 // 4 = 없음
+
       // ----------------------------
       // 2. OpenWeather → 미세먼지
       // ----------------------------
       let pm10: number | undefined = undefined
       try {
-        const lat = 37.5665 // 서울 기본 (실제로는 building 좌표 필요)
+        const lat = 37.5665
         const lon = 126.9780
         const apiKey = import.meta.env.VITE_OPENWEATHER_KEY || "f9d0ac2f06dd719db58be8c04d008e76"
 
@@ -97,10 +111,9 @@ export const useWeather = (buildingId: string) => {
       }
 
       // ----------------------------
-      // 3. 기상청 → 특보(지진/태풍)
+      // 3. 기상청 → 특보(지진)
       // ----------------------------
       let earthquake = false
-      let typhoon = false
       try {
         const serviceKey =
           import.meta.env.VITE_KMA_KEY ||
@@ -114,7 +127,6 @@ export const useWeather = (buildingId: string) => {
           wrnData.response.body.items.item.forEach((it: any) => {
             const t = it?.title || it?.event || ""
             if (t.includes("지진")) earthquake = true
-            if (t.includes("태풍")) typhoon = true
           })
         }
       } catch (e) {
@@ -132,6 +144,7 @@ export const useWeather = (buildingId: string) => {
         pm10,
         earthquake,
         typhoon,
+        typhoonLabel, // ✅ 추가
       })
     } catch (err) {
       setError("날씨 정보를 불러오는 데 실패했습니다.")
@@ -143,10 +156,9 @@ export const useWeather = (buildingId: string) => {
 
   useEffect(() => {
     fetchWeather()
-    const timer = setInterval(fetchWeather, 10 * 60 * 1000) // 10분마다 갱신
+    const timer = setInterval(fetchWeather, 10 * 60 * 1000)
     return () => clearInterval(timer)
   }, [buildingId])
 
   return { weather, loading, error }
 }
-
