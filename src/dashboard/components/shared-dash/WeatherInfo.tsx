@@ -96,3 +96,4 @@ const WeatherInfo = ({ buildingId }: { buildingId: string }) => {
 }
 
 export default WeatherInfo
+

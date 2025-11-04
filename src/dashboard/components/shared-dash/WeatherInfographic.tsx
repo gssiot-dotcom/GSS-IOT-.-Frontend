@@ -75,3 +75,4 @@ const WeatherInfographic = ({ buildingId }: { buildingId: string }) => {
 }
 
 export default WeatherInfographic
+
