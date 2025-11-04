@@ -625,7 +625,7 @@ const AngleNodeScroll = ({
       <div className='col-span-12 lg:col-span-5 2xl:col-span-6 flex flex-col lg:gap-y-1 2xl:gap-y-2 lg:-mt-5 lg:-ml-[7%] 2xl:-ml-[5%] 3xl:-ml-[2.4vw]'>
         <div className='grid lg:grid-cols-[0.3fr_0.7fr] 2xl:grid-cols-[0.3fr_0.7fr] w-full gap-x-1 rounded-lg border border-slate-400'>
           <div className='flex flex-col items-center lg:col-span-1 col-span-2 lg:h-[27.5vh] 2xl:h-[100%] rounded-md bg-gray-50 text-gray-600 '>
-            <ScrollArea className='pr-3 pl-4 lg:py-1 2xl:py-5 3xl:py-0 border-none 2xl:-mt-[6%] 3xl:mt-[4%]'>
+            <ScrollArea className='pr-3 pl-4 lg:py-1 2xl:py-5 3xl:py-7 border-none 2xl:-mt-[6%] 3xl:mt-[4%]'>
               <button
                 className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
                   }`}
@@ -685,7 +685,7 @@ const AngleNodeScroll = ({
 
       {/* 우측: 로그 */}
       <ScrollArea
-        className='col-span-12 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-5 h-[36%] 2xl:h-[41.6%] 3xl:h-[41.9%] lg:w-[112%] 2xl:w-[109%]'>
+        className='col-span-12 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-5 h-[36%] 2xl:h-[41.6%] 3xl:h-[40.5%] lg:w-[112%] 2xl:w-[109%]'>
         <div className='flex flex-col gap-2 text-sm'>
           {/* 게이트웨이 다운 */}
           {gatewayDownRows.length > 0 && (

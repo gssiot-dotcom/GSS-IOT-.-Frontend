@@ -494,7 +494,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                 </CardHeader>
                 <CardContent className="p-0 pt-2 overflow-x-hidden overflow-visible">
                     {/*고정 비율 */}
-                    <div className="w-full aspect-[21/7.37] px-1 sm:px-2 2xl:aspect-[21/6.3] 2xl:w-[97%] 3xl:aspect-[21/5.67] 3xl:w-[99%]">
+                    <div className="w-full aspect-[21/7.37] px-1 sm:px-2 2xl:aspect-[21/6.3] 2xl:w-[97%] 3xl:aspect-[21/7.6] 3xl:w-[97%]">
                         <ResponsiveContainer width="108%" height="100%">
 
                             <LineChart data={chartData} margin={getChartMargins()}>
