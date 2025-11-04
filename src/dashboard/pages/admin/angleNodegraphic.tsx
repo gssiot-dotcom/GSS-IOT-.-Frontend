@@ -275,13 +275,29 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             }));
         }
 
-        const sortedWindHistory = windHistory
+        // 도우미: 다양한 형태의 타임스탬프를 ms로 안전 변환
+        const toMs = (ts: unknown): number => {
+            if (ts == null) return NaN;
+            if (typeof ts === 'number') return Number.isFinite(ts) ? ts : NaN;
+            if (typeof ts === 'string') {
+                // 1차 시도
+                const d1 = Date.parse(ts);
+                if (!isNaN(d1)) return d1;
+                // 뒤에 'Z'가 있어도 Date.parse는 대개 OK지만, 혹시 모를 포맷 대비
+                const d2 = Date.parse(ts.replace(/Z$/, ''));
+                return isNaN(d2) ? NaN : d2;
+            }
+            return NaN;
+        };
+
+        const sortedWindHistory = (windHistory ?? [])
             .map(w => ({
-                wind_speed: w.wind_speed,
-                timestampNum: new Date(w.timestamp.slice(0, -1)).getTime()
+                wind_speed: Number(w.wind_speed),
+                timestampNum: toMs(w.timestamp),
             }))
-            .filter(w => !isNaN(w.timestampNum))
+            .filter(w => Number.isFinite(w.timestampNum))
             .sort((a, b) => a.timestampNum - b.timestampNum);
+
 
         return points.map(p => {
             const sensorTimestamp = new Date(p.time).getTime();
