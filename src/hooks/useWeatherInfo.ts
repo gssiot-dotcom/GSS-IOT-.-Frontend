@@ -12,6 +12,7 @@ interface WeatherData {
   pm10?: number
   earthquake?: boolean
   typhoon?: boolean
+  typhoonLabel?: string  // ✅ 추가됨
 }
 
 // 영어 → 한국어 매핑
@@ -32,6 +33,14 @@ const weatherMap: Record<string, string> = {
   Ash: "화산재",
   Squall: "돌풍",
   Tornado: "토네이도",
+}
+
+// ✅ typhoon_eff 숫자 → 한국어 라벨 매핑
+const typhoonMap: Record<number, string> = {
+  1: "상륙",
+  2: "강함",
+  3: "약함",
+  4: "없음",
 }
 
 export const useWeather = (buildingId: string) => {
@@ -62,7 +71,6 @@ export const useWeather = (buildingId: string) => {
         return
       }
 
-      // 기본 값 매핑
       const temp = latest.temperature ?? 0
       const humidity = latest.humidity ?? 0
       const windSpeed = latest.wind_speed ?? 0
@@ -78,8 +86,13 @@ export const useWeather = (buildingId: string) => {
       }
       const windDeg = directionMap[windDirection] ?? 0
 
+      // ✅ 2. typhoon_eff (1~4) 처리
+      const typhoonEff: number = latest.typhoon_eff ?? 4
+      const typhoonLabel = typhoonMap[typhoonEff] ?? "정보 없음"
+      const typhoon = typhoonEff !== 4 // 4이면 없음 → false, 나머지는 true
+
       // ----------------------------
-      // 2. OpenWeather → 미세먼지
+      // 3. OpenWeather → 미세먼지
       // ----------------------------
       let pm10: number | undefined = undefined
       try {
@@ -96,31 +109,6 @@ export const useWeather = (buildingId: string) => {
         console.warn("미세먼지 API 호출 실패", e)
       }
 
-      // ----------------------------
-      // 3. 기상청 → 특보(지진/태풍)
-      // ----------------------------
-      let earthquake = false
-      let typhoon = false
-      try {
-        const serviceKey =
-          import.meta.env.VITE_KMA_KEY ||
-          "ntz%2BGOSlBMCP%2FxMVTqY2d3Ik%2FlRw5RIeQM6FRNZD0Z3%2FWXUI3n%2F7v4lRHAy1yB5ovSRBepiK09V0yUi1od55eg%3D%3D"
-
-        const wrnRes = await fetch(
-          `https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnList?serviceKey=${serviceKey}&pageNo=1&numOfRows=50&dataType=JSON`
-        )
-        const wrnData = await wrnRes.json()
-        if (wrnData?.response?.body?.items?.item) {
-          wrnData.response.body.items.item.forEach((it: any) => {
-            const t = it?.title || it?.event || ""
-            if (t.includes("지진")) earthquake = true
-            if (t.includes("태풍")) typhoon = true
-          })
-        }
-      } catch (e) {
-        console.warn("특보 API 호출 실패", e)
-      }
-
       // ✅ 최종 상태 업데이트
       setWeather({
         temp,
@@ -130,8 +118,9 @@ export const useWeather = (buildingId: string) => {
         description,
         icon: "",
         pm10,
-        earthquake,
+        earthquake: false, // 지진 정보는 현재 미사용
         typhoon,
+        typhoonLabel,
       })
     } catch (err) {
       setError("날씨 정보를 불러오는 데 실패했습니다.")
