@@ -653,7 +653,7 @@ const AngleNodeScroll = ({
 
           <div
             onClick={() => togglePlanImg()}
-            className='relative flex items-center justify-center cursor-pointer lg:h-[100%]  w-full bg-white rounded-lg'
+            className="flex items-center justify-center relative w-full h-[400px] lg:h-[27vh] 2xl:h-[35vh] 3xl:h-[35vh] bg-white rounded-lg overflow-hidden"
           >
             <img
               src={mainImageUrl}
