@@ -275,13 +275,29 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             }));
         }
 
-        const sortedWindHistory = windHistory
+        // 도우미: 다양한 형태의 타임스탬프를 ms로 안전 변환
+        const toMs = (ts: unknown): number => {
+            if (ts == null) return NaN;
+            if (typeof ts === 'number') return Number.isFinite(ts) ? ts : NaN;
+            if (typeof ts === 'string') {
+                // 1차 시도
+                const d1 = Date.parse(ts);
+                if (!isNaN(d1)) return d1;
+                // 뒤에 'Z'가 있어도 Date.parse는 대개 OK지만, 혹시 모를 포맷 대비
+                const d2 = Date.parse(ts.replace(/Z$/, ''));
+                return isNaN(d2) ? NaN : d2;
+            }
+            return NaN;
+        };
+
+        const sortedWindHistory = (windHistory ?? [])
             .map(w => ({
-                wind_speed: w.wind_speed,
-                timestampNum: new Date(w.timestamp.slice(0, -1)).getTime()
+                wind_speed: Number(w.wind_speed),
+                timestampNum: toMs(w.timestamp),
             }))
-            .filter(w => !isNaN(w.timestampNum))
+            .filter(w => Number.isFinite(w.timestampNum))
             .sort((a, b) => a.timestampNum - b.timestampNum);
+
 
         return points.map(p => {
             const sensorTimestamp = new Date(p.time).getTime();
@@ -445,7 +461,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
 
     return (
-        <div className='ml-auto h-full w-full sm:w-[95%] md:w-[85%] lg:w-[70.9%] 2xl:w-[78.6%] 3xl:w-[78.9%] pb-5 lg:-mr-[1.6%] 2xl:-mr-5'>
+        <div className='pb-5 ml-auto h-full w-full  lg:max-w-[52.5rem] 2xl:max-w-[79rem] 3xl:max-w-[79.5rem] lg:-mr-[1.3vw] 2xl:-mr-[1vw] 3xl:-mr-[1vw]'>
             <Card className='w-full border shadow-sm border-slate-400 mt-4 sm:mt-6'>
                 <CardHeader className="p-3 sm:p-4 space-y-2">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
@@ -494,7 +510,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                 </CardHeader>
                 <CardContent className="p-0 pt-2 overflow-x-hidden overflow-visible">
                     {/*고정 비율 */}
-                    <div className="w-full aspect-[21/7.37] px-1 sm:px-2 2xl:aspect-[21/6.3] 2xl:w-[97%] 3xl:aspect-[21/7.6] 3xl:w-[97%]">
+                    <div className="px-1 px-2 w-full h-full lg:h-[40.5vh] lg:max-w-[70rem] 2xl:h-[39.3vh] 2xl:max-w-[76.5rem] 3xl:h-[42vh] 3xl:max-w-[77rem]">
                         <ResponsiveContainer width="108%" height="100%">
 
                             <LineChart data={chartData} margin={getChartMargins()}>

@@ -399,7 +399,7 @@ const AngleNodeScroll = ({
   return (
     <div className='grid grid-cols-12 gap-4 w-full h-screen px-4 py-4 mt-2'>
       {/* =============== Angle-Nodes grid ================ */}
-      <ScrollArea className='col-span-12 lg:col-span-4 2xl:col-span-3 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 lg:h-[96%] 2xl:h-[96.6%] w-[90%]'>
+      <ScrollArea className='col-span-12 lg:col-span-4 2xl:col-span-3 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 lg:h-[96%] 2xl:h-[96.6%] 3xl:h-[96.6%] lg:w-[22rem] 2xl:w-[25rem] 3xl:w-[25rem]'>
         {/* BGYR 설정 & 알람 저장 */}
         <div className='flex justify-between mb-4 gap-2 items-end'>
           {/* 정상(B) */}
@@ -622,10 +622,10 @@ const AngleNodeScroll = ({
       </ScrollArea>
 
       {/* 중앙: Gateway + 이미지 / CSV */}
-      <div className='col-span-12 lg:col-span-5 2xl:col-span-6 flex flex-col lg:gap-y-1 2xl:gap-y-2 lg:-mt-5 lg:-ml-[7%] 2xl:-ml-[5%] 3xl:-ml-[2.4vw]'>
+      <div className='col-span-12 lg:col-span-5 2xl:col-span-6 flex flex-col lg:gap-y-1 2xl:gap-y-2 lg:-mt-5 lg:-ml-[2vw] 2xl:ml-0 lg:max-w-[108%] 2xl:max-w-[100%]'>
         <div className='grid lg:grid-cols-[0.3fr_0.7fr] 2xl:grid-cols-[0.3fr_0.7fr] w-full gap-x-1 rounded-lg border border-slate-400'>
-          <div className='flex flex-col items-center lg:col-span-1 col-span-2 lg:h-[27.5vh] 2xl:h-[100%] rounded-md bg-gray-50 text-gray-600 '>
-            <ScrollArea className='pr-3 pl-4 lg:py-1 2xl:py-5 3xl:py-7 border-none 2xl:-mt-[6%] 3xl:mt-[4%]'>
+          <div className='flex flex-col items-center lg:col-span-1 col-span-2 lg:h-[27.5vh] 2xl:h-[35vh] 3xl:h-[35vh] rounded-md bg-gray-50 text-gray-600'>
+            <ScrollArea className='pr-3 pl-4 lg:py-1 2xl:py-2 3xl:py-2 border-none'>
               <button
                 className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
                   }`}
@@ -685,7 +685,7 @@ const AngleNodeScroll = ({
 
       {/* 우측: 로그 */}
       <ScrollArea
-        className='col-span-12 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-5 h-[36%] 2xl:h-[41.6%] 3xl:h-[40.5%] lg:w-[112%] 2xl:w-[109%]'>
+        className='col-span-12 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-5 lg:h-[34.3vh] 2xl:h-[40.7vh] 3xl:h-[40vh] lg:w-[112%] 2xl:w-[109%]'>
         <div className='flex flex-col gap-2 text-sm'>
           {/* 게이트웨이 다운 */}
           {gatewayDownRows.length > 0 && (
@@ -693,7 +693,7 @@ const AngleNodeScroll = ({
               {gatewayDownRows.map((g) => (
                 <div
                   key={g.serial}
-                  className='px-2 py-1 rounded-lg bg-gray-400 text-white font-semibold lg:text-[11px] 2xl:text-[19px]'
+                  className='px-2 py-1 rounded-lg bg-gray-400 text-white font-semibold lg:text-[0.8rem] 2xl:text-[1.1rem]'
                 >
                   {`${formatKSTTime(g.createdAt)} | gw-${g.serial} | ${g.zone}`}
                 </div>
@@ -727,7 +727,7 @@ const AngleNodeScroll = ({
                           title={clickable ? '접기' : undefined}
                           style={{ minHeight: 30, width: 'calc(100% - 2px)' }}
                         >
-                          <div className="flex items-center justify-between lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium">
+                          <div className="flex items-center justify-between lg:text-[0.8rem] 2xl:text-[1.1rem] 3xl:text-[1.1rem] font-medium">
                             <div className="truncate mr-2">
                               {`${formatKSTTime(log.createdAt)} | 노드: ${log.doorNum} | ${formatMetricLabel(log.metric)}: ${log.value}`}
                             </div>
