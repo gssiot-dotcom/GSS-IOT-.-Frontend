@@ -51,6 +51,7 @@ interface Props {
   allNodes: IAngleNode[]
   onSetAlarmLevels: (levels: { G: number; Y: number; R: number }) => void
   alertLogs: AlertLog[] // ✅ 부모에서 내려온 빌딩별 로그 데이터
+  onToggleSaveStatus?: (doorNum: number, next: boolean) => Promise<void> | void
 }
 
 /** ================================
@@ -101,6 +102,7 @@ const AngleNodeScroll = ({
   onSetAlarmLevels,
   allNodes,
   alertLogs,
+  onToggleSaveStatus,
 }: Props) => {
   const [selectedGateway, setSelectedGateway] = useState<string>('')
   const [selectedNode, setSelectedNode] = useState<number | '' | 'dead'>('')
@@ -801,6 +803,7 @@ const AngleNodeScroll = ({
         node={selectedNodeForModal}
         onClose={() => setIsModalOpen(false)}
         buildingName={selectedBuildingName}
+        onToggleSaveStatus={onToggleSaveStatus}
       />
 
       {/* ✅ 설정 모달 */}
