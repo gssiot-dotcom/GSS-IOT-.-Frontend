@@ -138,14 +138,6 @@ export const NodeDetailModal = ({ isOpen, onClose, node, buildingName, onToggleS
                           {node.node_alive ? 'online' : 'offline'}
                         </span>
                       </div>
-
-                      {/* ✅ 저장상태(원천) */}
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">저장 상태:</span>
-                        <span className={`text-xs font-bold ${currentSave ? 'text-green-700' : 'text-gray-500'}`}>
-                          {currentSave ? '저장 중' : '저장 안 함'}
-                        </span>
-                      </div>
                     </div>
                   </div>
                 </CardContent>

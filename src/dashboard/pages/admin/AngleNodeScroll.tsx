@@ -115,6 +115,7 @@ const AngleNodeScroll = ({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isNodesEditOpen, setIsNodesEditOpen] = useState(false)
   const [isGatewaysEditOpen, setIsGatewaysEditOpen] = useState(false)
+  
 
   // ✅ 초기화 모달 관련
   const [isInitModalOpen, setIsInitModalOpen] = useState(false)
@@ -352,6 +353,18 @@ const AngleNodeScroll = ({
     level === 'yellow' ? 'bg-yellow-200'
       : level === 'red' ? 'bg-red-400'
         : 'bg-blue-200'
+
+
+
+  // ✅ 리스트가 갱신될 때, 모달이 열려있고 선택 노드가 있으면 최신 객체로 갈아끼움
+  useEffect(() => {
+    if (!isModalOpen || !selectedNodeForModal) return
+    const fresh = building_angle_nodes.find(
+      n => n.doorNum === selectedNodeForModal.doorNum
+    )
+    if (fresh) setSelectedNodeForModal(fresh)
+  }, [building_angle_nodes, isModalOpen, selectedNodeForModal?.doorNum])
+
 
 
   const PlanImageModal = ({
