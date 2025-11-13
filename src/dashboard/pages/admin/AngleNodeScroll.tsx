@@ -115,7 +115,7 @@ const AngleNodeScroll = ({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isNodesEditOpen, setIsNodesEditOpen] = useState(false)
   const [isGatewaysEditOpen, setIsGatewaysEditOpen] = useState(false)
-  
+
 
   // ✅ 초기화 모달 관련
   const [isInitModalOpen, setIsInitModalOpen] = useState(false)
@@ -220,14 +220,27 @@ const AngleNodeScroll = ({
   }
 
   const getGatewayColorClass = (gw: IGateway) => {
-    const gwNodes = building_angle_nodes.filter(
-      (node) => node.gateway_id?.serial_number === gw.serial_number
-    )
-    if (!gwNodes.length) return 'bg-gray-300 text-gray-700'
-    const worstNode = [...gwNodes].sort((a, b) => Math.abs(b.angle_x) - Math.abs(a.angle_x))[0]
+    // 게이트웨이 자체가 다운이면 회색 고정
     if (!gw.gateway_alive) return 'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
-    return getNodeColorClass(worstNode.angle_x) + ' text-gray-800'
+
+    // 해당 게이트웨이의 "활성" 노드만 모아 평가
+    const activeNodes = building_angle_nodes.filter(
+      (node) =>
+        node.gateway_id?.serial_number === gw.serial_number &&
+        node.node_alive === true
+    )
+
+    // 활성 노드가 하나도 없으면 중립색
+    if (!activeNodes.length) return 'bg-gray-300 text-gray-700'
+
+    // 활성 노드 중 기울기 절댓값이 가장 큰 노드 기준으로 색 결정
+    const worstActive = [...activeNodes].sort(
+      (a, b) => Math.abs((b.angle_x ?? 0)) - Math.abs((a.angle_x ?? 0))
+    )[0]
+
+    return getNodeColorClass(worstActive.angle_x ?? 0) + ' text-gray-800'
   }
+
 
   const generateOptions = (min: number) => {
     return Array.from({ length: 21 }, (_, i) => Number.parseFloat((i * 0.5).toFixed(1))).filter(
