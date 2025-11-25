@@ -7,7 +7,7 @@ import {
   setBuildingAlarmLevelRequest,
 } from '@/services/apiRequests'
 import { useQueries, useQueryClient, useQuery } from '@tanstack/react-query'
-import axios from 'axios'
+import axios, { isAxiosError } from 'axios'
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import {
@@ -18,6 +18,11 @@ import {
   SensorData,
 } from '../../../types/interfaces'
 import WhiteHeader from '@/dashboard/components/shared-dash/dashbordHeader'
+
+
+
+
+
 
 interface ResQuery {
   state: string
@@ -69,6 +74,8 @@ async function fetchLatestAngleForDoor(doorNum: number) {
   }
 }
 
+
+
 /** ------------------------------------------------------------------
  * 전체 노드 alive 조회 (오직 이 결과만 사용)
  * GET /api/angle-nodes/alive
@@ -97,19 +104,31 @@ async function fetchAliveNodes() {
 
   console.log('[alive] ▶ extracted list:', list)
 
-  // ✅ node_alive 그대로 반영
+  // ✅ node_alive + save_status 동시 판별
   return list
-    .map((x: any) => ({
-      doorNum: Number(x?.doorNum ?? x?.node ?? x?.id),
-      node_alive:
+    .map((x: any) => {
+      const doorNum = Number(x?.doorNum ?? x?.node ?? x?.id)
+      const node_alive =
         typeof x?.node_alive === 'boolean'
           ? x.node_alive
-          : x?.alive === true || x?.status === 'alive', // 백엔드 확장성 고려
-      lastSeen: x?.lastSeen ?? null,
-      updatedAt: x?.updatedAt ?? null,
-    }))
+          : x?.alive === true || x?.status === 'alive'
+
+      const save_status =
+        typeof x?.save_status === 'boolean'
+          ? x.save_status
+          : x?.save === true || x?.data_saved === true
+
+      return {
+        doorNum,
+        node_alive,
+        save_status,
+        lastSeen: x?.lastSeen ?? null,
+        updatedAt: x?.updatedAt ?? null,
+      }
+    })
     .filter((x) => !Number.isNaN(x.doorNum))
 }
+
 
 
 const AngleNodes = () => {
@@ -283,42 +302,53 @@ const AngleNodes = () => {
     return map
   }, [latestQueries, doorNums])
 
-  // ---------------- alive 상태: /api/angle-nodes/alive 만 사용 ---------------- //
+
+  // ---------------- alive 상태 ---------------- //
   const { data: aliveList = [] } = useQuery({
     queryKey: ['angle-nodes-alive'],
     queryFn: fetchAliveNodes,
-    refetchInterval: 5000, // 5초마다
+    refetchInterval: 5000,
     refetchOnWindowFocus: false,
     staleTime: 4000,
   })
 
+  // ✅ 온라인 판정용(둘 다 true일 때만)
   const aliveSet = useMemo(() => {
     const s = new Set<number>()
     for (const it of aliveList as any[]) {
-      if (typeof it?.doorNum === 'number' && it?.node_alive === true) {
-        s.add(it.doorNum)
-      }
+      if (it?.node_alive === true && it?.save_status === true) s.add(it.doorNum)
     }
     return s
   }, [aliveList])
 
+  // ✅ 상세/토글 표시용: doorNum → { node_alive, save_status }
+  const aliveMap = useMemo(() => {
+    const m = new Map<number, { node_alive?: boolean; save_status?: boolean }>()
+    for (const it of aliveList as any[]) {
+      m.set(it.doorNum, {
+        node_alive: it?.node_alive === true,
+        save_status: it?.save_status === true,
+      })
+    }
+    return m
+  }, [aliveList])
 
   // ---------------- 스크롤 표시 리스트 ---------------- //
   const nodesForScroll: IAngleNode[] = useMemo(() => {
     return (stableNodes || []).map((n) => {
       const latest = latestMap.get(n.doorNum)
+      const aliveInfo = aliveMap.get(n.doorNum)
       const merged: IAngleNode & { createdAt?: string } = {
         ...n,
         angle_x: latest?.angle_x ?? n.angle_x,
         angle_y: latest?.angle_y ?? n.angle_y,
-        node_alive: aliveSet.has(n.doorNum), // ✅ 오직 aliveSet으로만 판단
-        // 선택적 createdAt(사용할 곳이 있으면 참고)
+        node_alive: aliveSet.has(n.doorNum),         // ✅ online/offline
+        save_status: aliveInfo?.save_status,         // ✅ 모달 토글용
         ...(latest?.createdAt ? { createdAt: latest.createdAt } : {}),
       }
       return merged
     })
-  }, [stableNodes, latestMap, aliveSet])
-
+  }, [stableNodes, latestMap, aliveSet, aliveMap])   // ✅ aliveMap deps 추가
   // ---------------- 그래프 데이터 (과거 구간 조회) ---------------- //
   // 동시 중복 요청 방지
   const graphInFlightRef = useRef(false)
@@ -491,6 +521,35 @@ const AngleNodes = () => {
     }
   }, [buildingId, queryClient, selectedDoorNum, scheduleGraphRefetch, scheduleLatestRefetch])
 
+
+  const baseURL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005'
+
+
+const handleToggleSaveStatus = async (doorNum: number, next: boolean) => {
+  try {
+    await axios.patch(
+      `/api/nodes/${doorNum}/save-status`,     // ← 1) 여기 먼저 바꿔보기
+      { save_status: next },                          //    키 맞는지 확인
+      { baseURL, headers: { 'Content-Type': 'application/json' } }
+    )
+    queryClient.invalidateQueries({ queryKey: ['angle-nodes-alive'] })
+  } catch (e) {
+    if (isAxiosError(e)) {
+      console.error('PATCH failed:', {
+        url: `/api/angle-nodes/${doorNum}/save-status`,
+        status: e.response?.status,
+        data: e.response?.data,
+        message: e.message,
+      })
+    } else {
+      console.error(e)
+    }
+    alert('저장 상태 변경에 실패했습니다.')
+  }
+}
+
+
+
   // ---------------- 알람 레벨 저장 ---------------- //
   const handleSetAlarmLevels = async (levels: { G: number; Y: number; R: number }) => {
     if (!buildingId) return
@@ -536,6 +595,7 @@ const AngleNodes = () => {
           allNodes={allNodes}
           onSetAlarmLevels={handleSetAlarmLevels}
           alertLogs={alertLogs}
+          onToggleSaveStatus={handleToggleSaveStatus}
         />
       </div>
       <div className="lg:-mt-[42.2%] 2xl:-mt-[61.5vh] 3xl:-mt-[62vh]">

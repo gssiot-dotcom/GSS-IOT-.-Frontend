@@ -51,6 +51,7 @@ interface Props {
   allNodes: IAngleNode[]
   onSetAlarmLevels: (levels: { G: number; Y: number; R: number }) => void
   alertLogs: AlertLog[] // ✅ 부모에서 내려온 빌딩별 로그 데이터
+  onToggleSaveStatus?: (doorNum: number, next: boolean) => Promise<void> | void
 }
 
 /** ================================
@@ -101,6 +102,7 @@ const AngleNodeScroll = ({
   onSetAlarmLevels,
   allNodes,
   alertLogs,
+  onToggleSaveStatus,
 }: Props) => {
   const [selectedGateway, setSelectedGateway] = useState<string>('')
   const [selectedNode, setSelectedNode] = useState<number | '' | 'dead'>('')
@@ -113,6 +115,7 @@ const AngleNodeScroll = ({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isNodesEditOpen, setIsNodesEditOpen] = useState(false)
   const [isGatewaysEditOpen, setIsGatewaysEditOpen] = useState(false)
+
 
   // ✅ 초기화 모달 관련
   const [isInitModalOpen, setIsInitModalOpen] = useState(false)
@@ -217,14 +220,27 @@ const AngleNodeScroll = ({
   }
 
   const getGatewayColorClass = (gw: IGateway) => {
-    const gwNodes = building_angle_nodes.filter(
-      (node) => node.gateway_id?.serial_number === gw.serial_number
-    )
-    if (!gwNodes.length) return 'bg-gray-300 text-gray-700'
-    const worstNode = [...gwNodes].sort((a, b) => Math.abs(b.angle_x) - Math.abs(a.angle_x))[0]
+    // 게이트웨이 자체가 다운이면 회색 고정
     if (!gw.gateway_alive) return 'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
-    return getNodeColorClass(worstNode.angle_x) + ' text-gray-800'
+
+    // 해당 게이트웨이의 "활성" 노드만 모아 평가
+    const activeNodes = building_angle_nodes.filter(
+      (node) =>
+        node.gateway_id?.serial_number === gw.serial_number &&
+        node.node_alive === true
+    )
+
+    // 활성 노드가 하나도 없으면 중립색
+    if (!activeNodes.length) return 'bg-gray-300 text-gray-700'
+
+    // 활성 노드 중 기울기 절댓값이 가장 큰 노드 기준으로 색 결정
+    const worstActive = [...activeNodes].sort(
+      (a, b) => Math.abs((b.angle_x ?? 0)) - Math.abs((a.angle_x ?? 0))
+    )[0]
+
+    return getNodeColorClass(worstActive.angle_x ?? 0) + ' text-gray-800'
   }
+
 
   const generateOptions = (min: number) => {
     return Array.from({ length: 21 }, (_, i) => Number.parseFloat((i * 0.5).toFixed(1))).filter(
@@ -350,6 +366,18 @@ const AngleNodeScroll = ({
     level === 'yellow' ? 'bg-yellow-200'
       : level === 'red' ? 'bg-red-400'
         : 'bg-blue-200'
+
+
+
+  // ✅ 리스트가 갱신될 때, 모달이 열려있고 선택 노드가 있으면 최신 객체로 갈아끼움
+  useEffect(() => {
+    if (!isModalOpen || !selectedNodeForModal) return
+    const fresh = building_angle_nodes.find(
+      n => n.doorNum === selectedNodeForModal.doorNum
+    )
+    if (fresh) setSelectedNodeForModal(fresh)
+  }, [building_angle_nodes, isModalOpen, selectedNodeForModal?.doorNum])
+
 
 
   const PlanImageModal = ({
@@ -509,10 +537,14 @@ const AngleNodeScroll = ({
             <option value=''>전체구역</option>
             {gateways?.map((gw) => (
               <option key={gw._id} value={gw.serial_number}>
-                {gw.zone_name}
+                {/* 🔽 여기만 수정 */}
+                {gw.zone_name && gw.zone_name.trim() !== ''
+                  ? gw.zone_name
+                  : `gw-${gw.serial_number}`}
               </option>
             ))}
           </select>
+
 
           <select
             className='border border-gray-400 rounded-md px-1 py-1 text-sm overflow-y-auto'
@@ -643,7 +675,12 @@ const AngleNodeScroll = ({
                       getGatewayColorClass(gw)
                     )}
                   >
-                    <span className='border-b pb-1'>{gw.zone_name}</span>
+                    {/* 🔽 여기만 수정 */}
+                    <span className='border-b pb-1'>
+                      {gw.zone_name && gw.zone_name.trim() !== ''
+                        ? gw.zone_name
+                        : `gw-${gw.serial_number}`}
+                    </span>
                     <span className='truncate mt-2'>gw-{gw.serial_number}</span>
                   </div>
                 ))}
@@ -653,7 +690,7 @@ const AngleNodeScroll = ({
 
           <div
             onClick={() => togglePlanImg()}
-            className='relative flex items-center justify-center cursor-pointer lg:h-[100%]  w-full bg-white rounded-lg'
+            className="flex items-center justify-center relative w-full h-[400px] lg:h-[27vh] 2xl:h-[35vh] 3xl:h-[35vh] bg-white rounded-lg overflow-hidden"
           >
             <img
               src={mainImageUrl}
@@ -801,6 +838,7 @@ const AngleNodeScroll = ({
         node={selectedNodeForModal}
         onClose={() => setIsModalOpen(false)}
         buildingName={selectedBuildingName}
+        onToggleSaveStatus={onToggleSaveStatus}
       />
 
       {/* ✅ 설정 모달 */}
@@ -868,7 +906,6 @@ const AngleNodeScroll = ({
           isOpen={isNodesEditOpen}
           onClose={() => setIsNodesEditOpen(false)}
           angleNodes={building_angle_nodes}
-          onSave={() => setIsNodesEditOpen(false)}
           buildingName={selectedBuildingName}
         />
       )}
