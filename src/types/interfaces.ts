@@ -121,11 +121,13 @@ export interface IGateway {
 	zone_name: string
 	lastSeen: Date
 	gateway_alive: boolean
+	gateway_type?: 'NODE_GATEWAY' | 'OFFICE_GATEWAY' | string
 }
 
 export interface ICreateGateway {
 	serial_number: string
 	nodes: string[]
+	zone_name?: string
 }
 
 export interface IBuilding {

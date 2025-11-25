@@ -537,10 +537,14 @@ const AngleNodeScroll = ({
             <option value=''>전체구역</option>
             {gateways?.map((gw) => (
               <option key={gw._id} value={gw.serial_number}>
-                {gw.zone_name}
+                {/* 🔽 여기만 수정 */}
+                {gw.zone_name && gw.zone_name.trim() !== ''
+                  ? gw.zone_name
+                  : `gw-${gw.serial_number}`}
               </option>
             ))}
           </select>
+
 
           <select
             className='border border-gray-400 rounded-md px-1 py-1 text-sm overflow-y-auto'
@@ -671,7 +675,12 @@ const AngleNodeScroll = ({
                       getGatewayColorClass(gw)
                     )}
                   >
-                    <span className='border-b pb-1'>{gw.zone_name}</span>
+                    {/* 🔽 여기만 수정 */}
+                    <span className='border-b pb-1'>
+                      {gw.zone_name && gw.zone_name.trim() !== ''
+                        ? gw.zone_name
+                        : `gw-${gw.serial_number}`}
+                    </span>
                     <span className='truncate mt-2'>gw-{gw.serial_number}</span>
                   </div>
                 ))}
@@ -897,7 +906,6 @@ const AngleNodeScroll = ({
           isOpen={isNodesEditOpen}
           onClose={() => setIsNodesEditOpen(false)}
           angleNodes={building_angle_nodes}
-          onSave={() => setIsNodesEditOpen(false)}
           buildingName={selectedBuildingName}
         />
       )}

@@ -135,7 +135,7 @@ const AngleBuildingForm = ({
 	return (
 		<div className='md:w-[40%] flex justify-center items-center flex-col md:text-lg text-sm text-gray-700'>
 			<h1 className='leading-none text-xl font-bold  pb-2 mb-5 underline underline-offset-4'>
-				비계전도 노드를 건물에 연결하기
+				Gateway ↔ 비계전도노드 연결
 			</h1>
 			<Form {...form}>
 				<form

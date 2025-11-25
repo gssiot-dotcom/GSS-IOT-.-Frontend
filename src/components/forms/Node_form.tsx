@@ -77,7 +77,7 @@ const NodeForm = ({ refetch }: NodeFormProps) => {
 	return (
 		<div className='w-full flex flex-col justify-center items-center md:text-lg text-sm text-gray-800'>
 			<h1 className='leading-none text-xl font-bold text-gray-700 pb-2 mb-5 underline underline-offset-4'>
-				노드 생성
+				해치발판 노드 생성
 			</h1>
 			{error && (
 				<Alert className='text-red-600 py-2 mt-2' variant='destructive'>

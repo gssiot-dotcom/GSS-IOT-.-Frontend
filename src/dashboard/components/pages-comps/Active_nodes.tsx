@@ -11,7 +11,7 @@ const ActiveNodes = ({ nodes }: INodeProps) => {
 	return (
 		<div className='flex justify-center items-center flex-col'>
 			<h1 className='leading-none text-xl font-bold text-gray-700 underline underline-offset-4'>
-				작동 노드 현황
+				사용 가능 노드
 			</h1>
 			<div className='w-[200px] h-[540px] overflow-y-auto border m-5 sm:rounded-lg'>
 				<div className='max-h-[620px]'>

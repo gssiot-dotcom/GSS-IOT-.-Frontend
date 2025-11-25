@@ -550,6 +550,42 @@ export const createClientRequest = async (clientData: ICreateClient) => {
 	}
 }
 
+// apiRequests.ts 제일 아래쪽 아무 데나 추가
+
+export const changeGatewayBuildingRequest = async (params: {
+  gateway_id: string
+  building_id: string
+}) => {
+  try {
+    const res = await axios.post(
+      '/api/company/building/change-gateway-building',
+      {
+        gateway_id: params.gateway_id,
+        building_id: params.building_id,
+      },
+      {
+        baseURL: import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
+        withCredentials: true,
+      }
+    )
+
+    const data = res.data
+
+    if (data.state === 'fail') {
+      throw new Error(data.message || 'Error on changing gateway building')
+    }
+
+    return data
+  } catch (error: any) {
+    throw new Error(
+      error.response?.data?.message ||
+        error.message ||
+        'Error on changing gateway building: Undefined error.'
+    )
+  }
+}
+
+
 export const getActiveBuildings = async () => {
 	try {
 		const res = await axios.get(

@@ -22,6 +22,7 @@ const sanitizePosForFilename = (s?: string) =>
 	(s ?? '').trim().replace(/[\/\\]/g, '')
 
 const PLACEHOLDER = '/no-image.png'
+
 function ImageOnce({
 	src,
 	alt,
@@ -62,9 +63,8 @@ function ImageOnce({
 				src={finalSrc}
 				alt={alt}
 				loading="lazy"
-				className={`w-16 h-auto object-cover rounded border bg-white transition-opacity duration-200 ${
-					state === 'loading' ? 'opacity-0' : 'opacity-100'
-				}`}
+				className={`w-16 h-auto object-cover rounded border bg-white transition-opacity duration-200 ${state === 'loading' ? 'opacity-0' : 'opacity-100'
+					}`}
 				onLoad={() => setState('ok')}
 				onError={() => {
 					setFinalSrc(PLACEHOLDER)
@@ -77,183 +77,348 @@ function ImageOnce({
 
 /* ============================ Nodes Edit Modal ============================= */
 interface NodesEditModalProps {
-	isOpen: boolean
-	onClose: () => void
-	angleNodes: IAngleNode[]
-	onSave: (updatedNodes: IAngleNode[]) => void
-	buildingName?: string
+  isOpen: boolean
+  onClose: () => void
+  angleNodes: IAngleNode[]
+  buildingName?: string
 }
+
 
 export const NodesEditModal = ({
-	isOpen,
-	onClose,
-	angleNodes,
-	buildingName,
+  isOpen,
+  onClose,
+  angleNodes,
+  buildingName,
 }: NodesEditModalProps) => {
-	const [editedNodes, setEditedNodes] = useState<IAngleNode[]>(angleNodes)
-	const [viewerSrc, setViewerSrc] = useState<string | null>(null)
+  const [editedNodes, setEditedNodes] = useState<IAngleNode[]>(angleNodes)
+  const [viewerSrc, setViewerSrc] = useState<string | null>(null)
 
-	useEffect(() => {
-		setEditedNodes(angleNodes)
-	}, [angleNodes])
+  // 🔹 현재 수정 중인 row, 입력 값
+  const [editRow, setEditRow] = useState<string | null>(null)
+  const [positionInput, setPositionInput] = useState<string>('')
 
-	if (!isOpen) return null
+  useEffect(() => {
+    setEditedNodes(angleNodes)
+  }, [angleNodes])
 
-	const getS3UrlByTriple = (node: IAngleNode, building?: string) => {
-		if (!building) return undefined
-		const folder = toS3Folder(building)
-		const pos = encodeURIComponent(sanitizePosForFilename(node.position))
-		const gw = toKeyPart(node.gateway_id?.serial_number)
-		const door = toKeyPart(node.doorNum)
-		if (!pos || !gw || !door) return undefined
-		return `${S3_BASE_URL}/${folder}/${pos}_${gw}_${door}.jpg`
-	}
+  if (!isOpen) return null
 
-	const getNodeImageSrc = (node: IAngleNode) => {
-		if (!node.angle_node_img) return undefined
-		return `${imageBasUrl}/${node.angle_node_img}`
-	}
+  const getS3UrlByTriple = (node: IAngleNode, building?: string) => {
+    if (!building) return undefined
+    const folder = toS3Folder(building)
+    const pos = encodeURIComponent(sanitizePosForFilename(node.position))
+    const gw = toKeyPart(node.gateway_id?.serial_number)
+    const door = toKeyPart(node.doorNum)
+    if (!pos || !gw || !door) return undefined
+    return `${S3_BASE_URL}/${folder}/${pos}_${gw}_${door}.jpg`
+  }
 
-	return (
-		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 z-[9999]">
-			<Card className="w-full max-w-7xl max-h-[90vh] overflow-hidden">
-				<CardHeader className="flex flex-row items-center justify-between">
-					<CardTitle>노드 정보</CardTitle>
-				</CardHeader>
+  const getNodeImageSrc = (node: IAngleNode) => {
+    if (!node.angle_node_img) return undefined
+    return `${imageBasUrl}/${node.angle_node_img}`
+  }
 
-				<CardContent className="overflow-auto max-h-[70vh]">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>노드 넘버</TableHead>
-								<TableHead>속한 게이트웨이</TableHead>
-								<TableHead>설치 구간</TableHead>
-								<TableHead>설치된 이미지</TableHead>
-							</TableRow>
-						</TableHeader>
+  // 🔹 노드 설치 구간 저장 요청 (PUT /api/angle-nodes/position)
+  const savePosition = async (node: IAngleNode) => {
+  try {
+    const url = `${import.meta.env.VITE_SERVER_BASE_URL}/api/angle-nodes/position`
 
-						<TableBody>
-							{editedNodes.map((node) => {
-								const s3Url = getS3UrlByTriple(node, buildingName)
-								const legacyUrl = getNodeImageSrc(node)
-								const displaySrc = s3Url || legacyUrl
-								return (
-									<TableRow key={node._id}>
-										<TableCell className="font-medium">{node.doorNum}</TableCell>
-										<TableCell>{node.gateway_id?.serial_number}</TableCell>
-										<TableCell>{node.position || 'N/A'}</TableCell>
-										<TableCell>
-											{displaySrc ? (
-												<ImageOnce
-													src={displaySrc}
-													alt="Node image"
-													onClick={() => setViewerSrc(displaySrc)}
-												/>
-											) : (
-												<div className="text-gray-400 text-xs">No Image</div>
-											)}
-										</TableCell>
-									</TableRow>
-								)
-							})}
-						</TableBody>
-					</Table>
-				</CardContent>
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        doorNum: node.doorNum,
+        position: positionInput.trim(),
+      }),
+    })
 
-				<div className="p-4 border-t flex justify-end gap-2">
-					<Button variant="outline" onClick={onClose}>
-						닫기
-					</Button>
-				</div>
-			</Card>
+    if (!res.ok) throw new Error('저장 실패')
 
-			{/* ✅ 이미지 확대 보기 (라이트박스) */}
-			{viewerSrc && (
-				<div
-					className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center p-4"
-					onClick={() => setViewerSrc(null)}
-				>
-					<div
-						className="relative max-w-5xl w-full"
-						onClick={(e) => e.stopPropagation()}
-					>
-						<button
-							type="button"
-							className="absolute -top-3 -right-3 bg-white/90 hover:bg-white text-black rounded-full w-8 h-8 flex items-center justify-center shadow"
-							onClick={() => setViewerSrc(null)}
-						>
-							✕
-						</button>
-						<img
-							src={viewerSrc}
-							alt="확대 이미지"
-							className="w-full h-auto rounded-lg shadow-lg bg-white"
-						/>
-					</div>
-				</div>
-			)}
-		</div>
-	)
+    // 게이트웨이 방식처럼 내부 state만 업데이트
+    setEditedNodes(prev =>
+      prev.map(n =>
+        n._id === node._id ? { ...n, position: positionInput.trim() } : n
+      )
+    )
+
+    setEditRow(null)
+    alert('노드 설치 구간이 수정되었습니다!')
+
+  } catch (err) {
+    console.error(err)
+    alert('저장 실패')
+  }
 }
 
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 z-[9999]">
+      <Card className="w-full max-w-7xl max-h-[90vh] overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>노드 정보</CardTitle>
+        </CardHeader>
+
+        <CardContent className="overflow-auto max-h-[70vh]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>노드 넘버</TableHead>
+                <TableHead>속한 게이트웨이</TableHead>
+                <TableHead>설치 구간</TableHead>
+                <TableHead>설치된 이미지</TableHead>
+                <TableHead>수정</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {editedNodes.map(node => {
+                const s3Url = getS3UrlByTriple(node, buildingName)
+                const legacyUrl = getNodeImageSrc(node)
+                const displaySrc = s3Url || legacyUrl
+
+                return (
+                  <React.Fragment key={node._id}>
+                    <TableRow>
+                      <TableCell className="font-medium">{node.doorNum}</TableCell>
+                      <TableCell>{node.gateway_id?.serial_number}</TableCell>
+                      <TableCell>{node.position || 'N/A'}</TableCell>
+                      <TableCell>
+                        {displaySrc ? (
+                          <ImageOnce
+                            src={displaySrc}
+                            alt="Node image"
+                            onClick={() => setViewerSrc(displaySrc)}
+                          />
+                        ) : (
+                          <div className="text-gray-400 text-xs">No Image</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditRow(node._id)
+                            setPositionInput(node.position ?? '')
+                          }}
+                        >
+                          수정
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+
+                    {editRow === node._id && (
+                      <TableRow className="bg-gray-50">
+                        <TableCell colSpan={5}>
+                          <div className="flex items-center gap-4 p-3">
+                            <input
+                              type="text"
+                              value={positionInput}
+                              onChange={e => setPositionInput(e.target.value)}
+                              className="border p-2 rounded w-1/3"
+                              placeholder="설치 구간 입력"
+                            />
+
+                            <Button size="sm" onClick={() => savePosition(node)}>
+                              저장
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditRow(null)}
+                            >
+                              취소
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+
+        <div className="p-4 border-t flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>
+            닫기
+          </Button>
+        </div>
+      </Card>
+
+      {/* ✅ 이미지 확대 보기 (라이트박스) */}
+      {viewerSrc && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setViewerSrc(null)}
+        >
+          <div
+            className="relative max-w-5xl w-full"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="absolute -top-3 -right-3 bg-white/90 hover:bg-white text-black rounded-full w-8 h-8 flex items-center justify-center shadow"
+              onClick={() => setViewerSrc(null)}
+            >
+              ✕
+            </button>
+            <img
+              src={viewerSrc}
+              alt="확대 이미지"
+              className="w-full h-auto rounded-lg shadow-lg bg-white"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 /* ============================ Gateways Edit Modal ============================= */
+
 interface GatewaysEditModalProps {
-	isOpen: boolean
-	onClose: () => void
-	gatewyas: IGateway[]
-	onSave: (updatedGateways: IGateway[]) => void
+  isOpen: boolean
+  onClose: () => void
+  gatewyas: IGateway[]
+  onSave?: (updatedGateways: IGateway[]) => void
 }
 
 export const GatewaysEditModal = ({
-	isOpen,
-	onClose,
-	gatewyas,
+  isOpen,
+  onClose,
+  gatewyas,
 }: GatewaysEditModalProps) => {
-	const [editedGateways, setEditedGateways] = useState<IGateway[]>(gatewyas)
+  const [editedGateways, setEditedGateways] = useState<IGateway[]>(gatewyas)
+  const [editRow, setEditRow] = useState<string | null>(null)
+  const [zoneInput, setZoneInput] = useState<string>('')
 
-	useEffect(() => {
-		setEditedGateways(gatewyas)
-	}, [gatewyas])
+  useEffect(() => {
+    setEditedGateways(gatewyas)
+  }, [gatewyas])
 
-	if (!isOpen) return null
+  if (!isOpen) return null
 
-	return (
-		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-			<Card className="w-full max-w-full h-[90vh] overflow-hidden">
-				<CardHeader className="flex flex-row items-center justify-between">
-					<CardTitle>게이트웨이 정보</CardTitle>
-				</CardHeader>
+  // 🔹 저장 요청 (게이트웨이 id 사용)
+  const saveZone = async (gw: IGateway) => {
+    try {
+      const gatewayId = gw._id // ✅ URL 파라미터로 들어갈 ID
 
-				<CardContent className="overflow-auto max-h-[70vh]">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>게이트웨이 넘버</TableHead>
-								<TableHead>등록된 노드</TableHead>
-								<TableHead>등록된 비계전도 노드</TableHead>
-								<TableHead>게이트웨이 구역</TableHead>
-							</TableRow>
-						</TableHeader>
+      if (!gatewayId) {
+        alert('gateway _id 가 없습니다.')
+        return
+      }
 
-						<TableBody>
-							{editedGateways.map((gw) => (
-								<TableRow key={gw._id}>
-									<TableCell className="font-medium">{gw.serial_number}</TableCell>
-									<TableCell>{gw.nodes.map((n) => n.doorNum).join(', ')}</TableCell>
-									<TableCell>{gw.angle_nodes.map((n) => n.doorNum).join(' · ')}</TableCell>
-									<TableCell>{gw.zone_name || 'N/A'}</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</CardContent>
+      const url = `${import.meta.env.VITE_SERVER_BASE_URL}/api/gateways/${gatewayId}/position`
 
-				<div className="p-4 border-t flex justify-end gap-2">
-					<Button variant="outline" onClick={onClose}>
-						닫기
-					</Button>
-				</div>
-			</Card>
-		</div>
-	)
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zone_name: zoneInput }), // { "zone_name": "사무실" }
+      })
+
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '')
+        throw new Error(msg || '구역 수정 실패')
+      }
+
+      // 클라이언트 상태 업데이트
+      setEditedGateways(prev =>
+        prev.map(g => (g._id === gw._id ? { ...g, zone_name: zoneInput } : g)),
+      )
+
+      setEditRow(null)
+      alert('구역이 수정되었습니다!')
+    } catch (err) {
+      console.error(err)
+      alert('저장 실패')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-full h-[90vh] overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>게이트웨이 정보</CardTitle>
+        </CardHeader>
+
+        <CardContent className="overflow-auto max-h-[70vh]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>게이트웨이 넘버</TableHead>
+                <TableHead>등록된 노드</TableHead>
+                <TableHead>등록된 비계전도 노드</TableHead>
+                <TableHead>게이트웨이 구역</TableHead>
+                <TableHead>수정</TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {editedGateways.map(gw => (
+                <React.Fragment key={gw._id}>
+                  <TableRow>
+                    <TableCell className="font-medium">{gw.serial_number}</TableCell>
+                    <TableCell>{gw.nodes.map(n => n.doorNum).join(', ')}</TableCell>
+                    <TableCell>{gw.angle_nodes.map(n => n.doorNum).join(' · ')}</TableCell>
+                    <TableCell>{gw.zone_name || 'N/A'}</TableCell>
+
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditRow(gw._id)
+                          setZoneInput(gw.zone_name ?? '')
+                        }}
+                      >
+                        수정
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+
+                  {editRow === gw._id && (
+                    <TableRow className="bg-gray-50">
+                      <TableCell colSpan={5}>
+                        <div className="flex items-center gap-4 p-3">
+                          <input
+                            type="text"
+                            value={zoneInput}
+                            onChange={e => setZoneInput(e.target.value)}
+                            className="border p-2 rounded w-1/3"
+                            placeholder="게이트웨이 구역 입력"
+                          />
+
+                          <Button size="sm" onClick={() => saveZone(gw)}>
+                            저장
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditRow(null)}
+                          >
+                            취소
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+
+        <div className="p-4 border-t flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>
+            닫기
+          </Button>
+        </div>
+      </Card>
+    </div>
+  )
 }
