@@ -97,10 +97,6 @@ const NodesMultipleButtonsField = ({
     }
   }
 
-  const handleSaveNodes = (updatedNodes: IAngleNode[]) => {
-    console.log('Saving updated nodes:', updatedNodes)
-    // TODO: 백엔드 저장 로직이 들어갈 수 있는 자리
-  }
 
   return (
     <Card className="border-slate-400 mx-auto w-full h-[6vh]">
@@ -160,7 +156,6 @@ const NodesMultipleButtonsField = ({
           isOpen={isNodesModalOpen}
           onClose={() => setIsNodesModalOpen(false)}
           angleNodes={angle_nodes}
-          onSave={handleSaveNodes}
           buildingName={building?.building_name} // 🔥 추가
         />
 

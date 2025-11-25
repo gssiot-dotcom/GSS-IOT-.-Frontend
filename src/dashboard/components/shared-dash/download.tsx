@@ -146,7 +146,6 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
             isOpen={isNodesEditOpen}
             onClose={() => setIsNodesEditOpen(false)}
             angleNodes={angleNodes}
-            onSave={() => setIsNodesEditOpen(false)}
             buildingName={buildingName}
           />
         )}
