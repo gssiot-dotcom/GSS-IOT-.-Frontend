@@ -46,12 +46,13 @@ interface Props {
   setG: (val: number) => void
   setY: (val: number) => void
   setR: (val: number) => void
-  viewMode: 'general' | 'delta' | 'avgDelta'
-  setViewMode: (mode: 'general' | 'delta' | 'avgDelta') => void
+  viewMode: 'general' | 'delta' | 'avgDelta' | 'top6'
+  setViewMode: (mode: 'general' | 'delta' | 'avgDelta' | 'top6') => void
   allNodes: IAngleNode[]
   onSetAlarmLevels: (levels: { G: number; Y: number; R: number }) => void
   alertLogs: AlertLog[] // ✅ 부모에서 내려온 빌딩별 로그 데이터
   onToggleSaveStatus?: (doorNum: number, next: boolean) => Promise<void> | void
+  onTop6Change?: (doorNums: number[]) => void
 }
 
 /** ================================
@@ -103,6 +104,7 @@ const AngleNodeScroll = ({
   allNodes,
   alertLogs,
   onToggleSaveStatus,
+  onTop6Change,
 }: Props) => {
   const [selectedGateway, setSelectedGateway] = useState<string>('')
   const [selectedNode, setSelectedNode] = useState<number | '' | 'dead'>('')
@@ -178,6 +180,16 @@ const AngleNodeScroll = ({
       return bx - ax
     })
   }, [building_angle_nodes])
+
+  // ✅ 상위 6개는 "활성 노드만" 기준으로
+  const top6AliveDoorNums = useMemo(() => {
+    return sortedNodes
+      .filter(n => n.node_alive === true)   // ✅ 비활성 제외
+      .slice(0, 6)
+      .map(n => n.doorNum)
+      .filter(Boolean)
+  }, [sortedNodes])
+
 
   // ✅ 선택된 게이트웨이에 속한 노드만 (구역 미선택 시 전체)
   const nodesUnderSelectedGateway = useMemo(() => {
@@ -422,6 +434,10 @@ const AngleNodeScroll = ({
     )
   }
 
+  useEffect(() => {
+    if (viewMode !== 'top6') return
+    onTop6Change?.(top6AliveDoorNums)   // ✅ 활성 top6만 계속 반영
+  }, [viewMode, top6AliveDoorNums, onTop6Change])
 
 
   return (
@@ -493,27 +509,40 @@ const AngleNodeScroll = ({
         {/* 뷰 모드 + 설정 */}
         <div className="flex items-center justify-between mb-4">
           {/* 왼쪽: 기울기/변화량/평균변화 */}
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button
-              className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
+              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
                 }`}
               onClick={() => setViewMode('general')}
             >
               기울기
             </button>
             <button
-              className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
+              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
                 }`}
               onClick={() => setViewMode('delta')}
             >
               변화량
             </button>
             <button
-              className={`px-3 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
+              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
                 }`}
               onClick={() => setViewMode('avgDelta')}
             >
               평균변화
+            </button>
+            <button
+              className={`px-1 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200
+              ${viewMode === 'top6'
+                  ? 'bg-emerald-600'
+                  : 'bg-gray-400 hover:bg-gray-500'}`}
+              onClick={() => {
+                setViewMode('top6')
+                onTop6Change?.(top6AliveDoorNums)   // ✅ 활성 top6만 전달
+              }}
+
+            >
+              Top6
             </button>
           </div>
 

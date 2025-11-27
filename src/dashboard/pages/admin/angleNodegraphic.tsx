@@ -112,7 +112,8 @@ type SensorGraphProps = {
     Y?: number
     G?: number
     B?: number
-    viewMode: 'general' | 'delta' | 'avgDelta'
+    viewMode: 'general' | 'delta' | 'avgDelta' | 'top6'
+    topDoorNums?: number[]
     timeMode: "hour" | "day" | "week" | "month"
     setTimeMode: (mode: "hour" | "day" | "week" | "month") => void
     selectedDate: Date | null
@@ -136,6 +137,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     selectedDate,
     setSelectedDate,
     windHistory,
+    topDoorNums,
 }) => {
 
     const [data, setData] = useState<GraphDataPoint[] | DeltaGraphPoint[] | AvgDeltaDataPoint[]>(graphData)
@@ -457,6 +459,15 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         return `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
     }, [now])
 
+    // SensorGraph 내부 상단쯤에 추가
+    const TOP6_COLORS = [
+        "#ef4444", // red
+        "#ff00c3ff", // blue
+        "#001effff", // green
+        "#f59e0b", // amber
+        "#8b5cf6", // purple
+        "#06b6d4", // cyan
+    ];
 
 
 
@@ -467,9 +478,26 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                         <CardTitle className="text-sm sm:text-base md:text-lg text-gray-900">
                             비계전도 실시간 데이터{" "}
-                            {viewMode === "general" && doorNum !== null && <span className="text-blue-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum}</span>}
-                            {viewMode === "delta" && doorNum !== null && <span className="text-purple-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum} (변화량)</span>}
-                            {viewMode === "avgDelta" && doorNum !== null && <span className="text-orange-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum} (평균변화)</span>}
+                            {viewMode === "general" && doorNum !== null && (
+                                <span className="text-blue-400 font-bold text-sm sm:text-base md:text-lg">
+                                    Node-{doorNum}
+                                </span>
+                            )}
+                            {viewMode === "delta" && doorNum !== null && (
+                                <span className="text-purple-400 font-bold text-sm sm:text-base md:text-lg">
+                                    Node-{doorNum} 
+                                </span>
+                            )}
+                            {viewMode === "avgDelta" && doorNum !== null && (
+                                <span className="text-orange-400 font-bold text-sm sm:text-base md:text-lg">
+                                    Node-{doorNum}
+                                </span>
+                            )}
+                            {viewMode === "top6" && (
+                                <span className="text-emerald-500 font-bold text-sm sm:text-base md:text-lg">
+                                    Top6
+                                </span>
+                            )}
                         </CardTitle>
                         <div className="hidden sm:flex flex-1 justify-center">
                             {/* lg 이하 (기존 스타일) */}
@@ -552,7 +580,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                 </YAxis>
                                 <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc', borderRadius: '8px', fontSize: isMobile ? '12px' : '14px', padding: isMobile ? '4px' : '8px' }} itemStyle={{ padding: isMobile ? '1px 0' : '2px 0' }} labelStyle={{ marginBottom: isMobile ? '2px' : '5px' }} formatter={formatTooltipValue} labelFormatter={formatTooltipLabel} />
                                 {!isMobile && <Legend verticalAlign="top" align="right" layout="horizontal" wrapperStyle={{ position: "absolute", top: -20, right: 100, fontSize: "12px", borderRadius: "6px", padding: "2px 6px", zIndex: 1 }} />}
-                                {viewMode === 'general' && <>
+                                {(viewMode === 'general' || viewMode === 'top6') && <>
                                     <ReferenceArea yAxisId="angle" y1={yDomain[0]} y2={clamp(-R, yDomain[0], yDomain[1])} fill="#ef4444" fillOpacity={0.1} />
                                     <ReferenceArea yAxisId="angle" y1={clamp(R, yDomain[0], yDomain[1])} y2={yDomain[1]} fill="#ef4444" fillOpacity={0.1} />
                                     <ReferenceArea yAxisId="angle" y1={clamp(-R, yDomain[0], yDomain[1])} y2={clamp(-Y, yDomain[0], yDomain[1])} fill="#eab308" fillOpacity={0.1} />
@@ -565,12 +593,32 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                 </>}
                                 {/* 풍속 그래프는 항상 표시 */}
                                 <Line yAxisId='wind' type='monotone' dataKey='wind_speed' stroke='#22c55e' strokeOpacity={0.8} strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Wind Speed (m/s)' connectNulls />
-                                {viewMode === 'general' ? (
+                                {viewMode === 'general' && (
                                     <>
-                                        <Line yAxisId='angle' type='monotone' dataKey='angle_x' stroke='#ef4444' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle X' connectNulls />
-                                        <Line yAxisId='angle' type='monotone' dataKey='angle_y' stroke='#3b82f6' strokeWidth={isMobile ? 1.5 : 2} dot={false} name='Angle Y' connectNulls />
+                                        <Line
+                                            yAxisId='angle'
+                                            type='monotone'
+                                            dataKey='angle_x'
+                                            stroke='#ef4444'
+                                            strokeWidth={isMobile ? 1.5 : 2}
+                                            dot={false}
+                                            name='Angle X'
+                                            connectNulls
+                                        />
+                                        <Line
+                                            yAxisId='angle'
+                                            type='monotone'
+                                            dataKey='angle_y'
+                                            stroke='#3b82f6'
+                                            strokeWidth={isMobile ? 1.5 : 2}
+                                            dot={false}
+                                            name='Angle Y'
+                                            connectNulls
+                                        />
                                     </>
-                                ) : (
+                                )}
+
+                                {(viewMode === 'delta' || viewMode === 'avgDelta') && doorNum != null && (
                                     <Line
                                         yAxisId='angle'
                                         type='monotone'
@@ -579,7 +627,26 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                         strokeWidth={isMobile ? 1.5 : 2}
                                         dot={false}
                                         name={`Node-${doorNum} (${viewMode === 'delta' ? '변화량' : '평균변화'})`}
+                                        connectNulls
                                     />
+                                )}
+
+                                {viewMode === 'top6' && (
+                                    <>
+                                        {(topDoorNums ?? []).map((dn: number, i: number) => (
+                                            <Line
+                                                key={dn}
+                                                yAxisId='angle'
+                                                type='monotone'
+                                                dataKey={`node_${dn}`}
+                                                stroke={TOP6_COLORS[i % TOP6_COLORS.length]}  // ✅ 색 다르게
+                                                strokeWidth={isMobile ? 1.5 : 2}
+                                                dot={false}
+                                                name={`Node-${dn} X`}
+                                                connectNulls
+                                            />
+                                        ))}
+                                    </>
                                 )}
                             </LineChart>
                         </ResponsiveContainer>
