@@ -292,13 +292,21 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             return NaN;
         };
 
+        const NINE_HOURS_MS = 9 * 60 * 60 * 1000;
+
         const sortedWindHistory = (windHistory ?? [])
-            .map(w => ({
-                wind_speed: Number(w.wind_speed),
-                timestampNum: toMs(w.timestamp),
-            }))
+            .map(w => {
+                const ts = toMs(w.timestamp)
+                return {
+                    wind_speed: Number(w.wind_speed),
+                    // ✅ windHistory timestamp는 백에서 +9h 저장된 값이라
+                    // 매칭용으로만 -9h 해서 UTC instant로 되돌림
+                    timestampNum: Number.isFinite(ts) ? ts - NINE_HOURS_MS : NaN,
+                }
+            })
             .filter(w => Number.isFinite(w.timestampNum))
             .sort((a, b) => a.timestampNum - b.timestampNum);
+
 
 
         return points.map(p => {
@@ -485,7 +493,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                             )}
                             {viewMode === "delta" && doorNum !== null && (
                                 <span className="text-purple-400 font-bold text-sm sm:text-base md:text-lg">
-                                    Node-{doorNum} 
+                                    Node-{doorNum}
                                 </span>
                             )}
                             {viewMode === "avgDelta" && doorNum !== null && (

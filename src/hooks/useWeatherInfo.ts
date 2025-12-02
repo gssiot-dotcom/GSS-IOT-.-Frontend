@@ -156,7 +156,7 @@ export const useWeather = (buildingId: string) => {
 
   useEffect(() => {
     fetchWeather()
-    const timer = setInterval(fetchWeather, 10 * 60 * 1000)
+    const timer = setInterval(fetchWeather, 60 * 1000) // 1분
     return () => clearInterval(timer)
   }, [buildingId])
 

@@ -142,6 +142,8 @@ const AngleNodes = () => {
     useState<'general' | 'delta' | 'avgDelta' | 'top6'>('general')
 
   const [topDoorNums, setTopDoorNums] = useState<number[] | null>(null)
+  const [nowTick, setNowTick] = useState(0);
+
 
 
   const { buildingId } = useParams()
@@ -327,52 +329,75 @@ const AngleNodes = () => {
     })
   }, [stableNodes, latestMap, aliveSet, aliveMap])
 
+  // ✅ hour 모드일 때만 "현재 시간"을 주기적으로 갱신해서 graphRange가 재계산되게 함
+  useEffect(() => {
+    if (timeMode !== 'hour') return;
+
+    const id = window.setInterval(() => {
+      setNowTick(Date.now());
+    }, 60 * 1000); // ✅ 1분마다 range 최신화
+
+    return () => clearInterval(id);
+  }, [timeMode]);
+
+
+
   // ---------------- 그래프 시간 범위 계산 (memo) ---------------- //
   const graphRange = useMemo(() => {
-    if (!selectedDoorNum) return null
+    // ✅ top6에서는 selectedDoorNum 없어도 range 계산하도록 허용
+    if (!selectedDoorNum && viewMode !== 'top6') return null;
 
-    let from: string
-    let to: string
+    let from: string;
+    let to: string;
 
     if (timeMode === 'day' && selectedDate) {
       const startOfDay = new Date(
         selectedDate.getFullYear(),
         selectedDate.getMonth(),
         selectedDate.getDate(), 0, 0, 0, 0
-      )
+      );
       const endOfDay = new Date(
         selectedDate.getFullYear(),
         selectedDate.getMonth(),
         selectedDate.getDate(), 23, 59, 59, 999
-      )
-      from = startOfDay.toISOString()
-      to = endOfDay.toISOString()
+      );
+      from = startOfDay.toISOString();
+      to = endOfDay.toISOString();
     } else if (timeMode === 'week') {
-      const base = selectedDate ?? new Date()
-      const day = base.getDay()
-      const diffToMonday = (day + 6) % 7
-      const monday = new Date(base)
-      monday.setDate(base.getDate() - diffToMonday)
-      monday.setHours(0, 0, 0, 0)
-      const sunday = new Date(monday)
-      sunday.setDate(monday.getDate() + 6)
-      sunday.setHours(23, 59, 59, 999)
-      from = monday.toISOString()
-      to = sunday.toISOString()
+      const base = selectedDate ?? new Date();
+      const day = base.getDay();
+      const diffToMonday = (day + 6) % 7;
+      const monday = new Date(base);
+      monday.setDate(base.getDate() - diffToMonday);
+      monday.setHours(0, 0, 0, 0);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+      from = monday.toISOString();
+      to = sunday.toISOString();
     } else if (timeMode === 'month') {
-      const base = selectedDate ?? new Date()
-      const first = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0)
-      const last = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999)
-      from = first.toISOString()
-      to = last.toISOString()
+      const base = selectedDate ?? new Date();
+      const first = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0);
+      const last = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999);
+      from = first.toISOString();
+      to = last.toISOString();
     } else {
-      const now = new Date()
-      from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
-      to = now.toISOString()
+      // ✅ hour 모드: nowTick 때문에 여기 계속 재계산됨 → to가 최신 유지
+      const now = new Date();
+      from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString();
+      to = now.toISOString();
     }
 
-    return { doorNum: selectedDoorNum, from, to }
-  }, [selectedDoorNum, selectedHours, selectedDate, timeMode])
+    return { doorNum: selectedDoorNum ?? -1, from, to };
+  }, [
+    selectedDoorNum,
+    selectedHours,
+    selectedDate,
+    timeMode,
+    viewMode,   // ✅ top6 예외 때문에 deps에 포함
+    nowTick,    // ✅ hour 모드에서 주기적 재계산 트리거
+  ]);
+
 
   const topQueries = useQueries({
     queries: (topDoorNums ?? []).map((dn) => ({
