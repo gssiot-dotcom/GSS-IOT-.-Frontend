@@ -34,6 +34,9 @@ const ScaffoldingNodes = lazy(() => import('./dashboard/pages/admin/scaffoldingn
 const AngleNodes = lazy(() => import('./dashboard/pages/admin/AngleNodes'))
 const CreateAngleNode = lazy(() => import('./dashboard/pages/admin/createAngleNode'))
 
+// ✅ 추가: Vertical Nodes (ADMIN)
+const VerticalNodes = lazy(() => import('./dashboard/pages/admin/VerticalNodes'))
+
 // ===== USER pages (ADMIN 동일 구조) =====
 const ClientActiveClientsPage = lazy(() => import('./dashboard/pages/user/activeClientPage'))
 const ClientBuildingNodes = lazy(() => import('./dashboard/pages/user/buildingNodes'))
@@ -43,91 +46,93 @@ const ClientMainPage = lazy(() => import('./dashboard/pages/user/hero'))
 const ClientScaffoldingNodes = lazy(() => import('./dashboard/pages/user/scaffoldingnode'))
 const ClientAngleNodes = lazy(() => import('./dashboard/pages/user/AngleNodes'))
 
-
 // 공용(유저 통계)
 import { ChartByDateFilters } from './dashboard/pages/user/lineChart'
 
 // Fallback Loader
 const FallbackLoader = () => (
-    <>
-        <FillLoading />
-    </>
+  <>
+    <FillLoading />
+  </>
 )
 
 const App = () => {
-    return (
-        <div className='max-w-[100vw]'>
-            <Suspense fallback={<FallbackLoader />}>
-                <Routes>
-                    {/* ===== 기본 페이지 ===== */}
-                    <Route path='/' element={<Home />} />
-                    <Route path='/auth' element={<Authentication />} />
-                    <Route path='/resources' element={<Resource />} />
-                    <Route path='/services' element={<Services />} />
-                    <Route path='/services/:serviceId' element={<ServiceDetail />} />
-                    <Route path='/community' element={<Community />} />
-                    <Route path='/community/:memberId' element={<MembersDetail />} />
-                    <Route path='/my-page' element={<MyPage />} />
-                    <Route path='/unauthorized' element={<UnauthorizedPage />} />
+  return (
+    <div className="max-w-[100vw]">
+      <Suspense fallback={<FallbackLoader />}>
+        <Routes>
+          {/* ===== 기본 페이지 ===== */}
+          <Route path="/" element={<Home />} />
+          <Route path="/auth" element={<Authentication />} />
+          <Route path="/resources" element={<Resource />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/services/:serviceId" element={<ServiceDetail />} />
+          <Route path="/community" element={<Community />} />
+          <Route path="/community/:memberId" element={<MembersDetail />} />
+          <Route path="/my-page" element={<MyPage />} />
+          <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-                    {/* ===== ADMIN ROUTES ===== */}
-                    <Route
-                        path='/admin/dashboard'
-                        element={
-                            <ProtectedRoute allowedRoles={['ADMIN']}>
-                                <AdminDashboard />
-                            </ProtectedRoute>
-                        }
-                    >
-                        <Route path='' element={<AdminMainPage />} />
-                        <Route path='active-clients' element={<ActiveClientsPage />} />
-                        <Route path='add-product' element={<AddProduct />} />
-                        <Route path='add-client' element={<AddClient />} />
-                        <Route path='create-angle-node' element={<CreateAngleNode />} />
-                        <Route path='statistics' element={<ChartByDateFilters />} />
-                        <Route path='users' element={<UserTable />} />
-                        <Route path='products' element={<Products />} />
-                        <Route path='product/gateways' element={<GatewaysPage />} />
-                        <Route path='product/nodes' element={<NodesPage />} />
-                        <Route path='clients' element={<AdminClients />} />
-                        <Route path='clients/:clientId/buildings' element={<AdminBuildings />} />
-                        <Route path='clients/:clientId/buildings/:buildingId' element={<AdminBuildingNodes />} />
-                        <Route path='clients/:clientId/buildings/:buildingId/angle-nodes' element={<AngleNodes />} />
-                        <Route path='clients/:clientId/buildings/:buildingId/scaffolding-nodes' element={<ScaffoldingNodes />} />
-                    </Route>
+          {/* ===== ADMIN ROUTES ===== */}
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="" element={<AdminMainPage />} />
+            <Route path="active-clients" element={<ActiveClientsPage />} />
+            <Route path="add-product" element={<AddProduct />} />
+            <Route path="add-client" element={<AddClient />} />
+            <Route path="create-angle-node" element={<CreateAngleNode />} />
+            <Route path="statistics" element={<ChartByDateFilters />} />
+            <Route path="users" element={<UserTable />} />
+            <Route path="products" element={<Products />} />
+            <Route path="product/gateways" element={<GatewaysPage />} />
+            <Route path="product/nodes" element={<NodesPage />} />
+            <Route path="clients" element={<AdminClients />} />
+            <Route path="clients/:clientId/buildings" element={<AdminBuildings />} />
+            <Route path="clients/:clientId/buildings/:buildingId" element={<AdminBuildingNodes />} />
+            <Route path="clients/:clientId/buildings/:buildingId/angle-nodes" element={<AngleNodes />} />
+            <Route
+              path="clients/:clientId/buildings/:buildingId/scaffolding-nodes"
+              element={<ScaffoldingNodes />}
+            />
 
-                    {/* ===== CLIENT (USER) ROUTES — ADMIN 동일 구조 ===== */}
-                    <Route
-                        path='/client/dashboard'
-                        element={
-                            <ProtectedRoute allowedRoles={['CLIENT']}>
-                                <ClientDashboard />
-                            </ProtectedRoute>
-                        }
-                    >
-                        <Route path='' element={<ClientMainPage />} />
-                        <Route path='active-clients' element={<ClientActiveClientsPage />} />
-                        <Route path='statistics' element={<ChartByDateFilters />} />
-                        <Route path='clients' element={<ClientClients />} />
-                        <Route path='clients/:clientId/buildings' element={<ClientBuildings />} />
-                        <Route
-                            path='clients/:clientId/buildings/:buildingId'
-                            element={<ClientBuildingNodes />}
-                        />
-                        <Route
-                            path='clients/:clientId/buildings/:buildingId/angle-nodes'
-                            element={<ClientAngleNodes />}
-                        />
-                        <Route
-                            path='clients/:clientId/buildings/:buildingId/scaffolding-nodes'
-                            element={<ClientScaffoldingNodes />}
-                        />
-                    </Route>
-                </Routes>
-            </Suspense>
-            <Toaster position='top-center' />
-        </div>
-    )
+            {/* ✅ 추가: 수직 노드 페이지 */}
+            <Route
+              path="clients/:clientId/buildings/:buildingId/vertical-nodes"
+              element={<VerticalNodes />}
+            />
+          </Route>
+
+          {/* ===== CLIENT (USER) ROUTES — ADMIN 동일 구조 ===== */}
+          <Route
+            path="/client/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['CLIENT']}>
+                <ClientDashboard />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="" element={<ClientMainPage />} />
+            <Route path="active-clients" element={<ClientActiveClientsPage />} />
+            <Route path="statistics" element={<ChartByDateFilters />} />
+            <Route path="clients" element={<ClientClients />} />
+            <Route path="clients/:clientId/buildings" element={<ClientBuildings />} />
+            <Route path="clients/:clientId/buildings/:buildingId" element={<ClientBuildingNodes />} />
+            <Route path="clients/:clientId/buildings/:buildingId/angle-nodes" element={<ClientAngleNodes />} />
+            <Route
+              path="clients/:clientId/buildings/:buildingId/scaffolding-nodes"
+              element={<ClientScaffoldingNodes />}
+            />
+          </Route>
+        </Routes>
+      </Suspense>
+      <Toaster position="top-center" />
+    </div>
+  )
 }
 
 export default App

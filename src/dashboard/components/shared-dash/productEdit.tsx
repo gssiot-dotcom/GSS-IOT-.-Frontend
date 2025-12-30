@@ -2,12 +2,12 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table'
 import { IAngleNode, IGateway } from '@/types/interfaces'
 import React, { useEffect, useState } from 'react'
@@ -17,62 +17,62 @@ const S3_BASE_URL = 'http://gssiot-image-bucket.s3.us-east-1.amazonaws.com'
 
 const toS3Folder = (name: string) => encodeURIComponent(name).replace(/%20/g, '+')
 const toKeyPart = (s?: string | number) =>
-	s == null ? '' : encodeURIComponent(String(s).trim())
+  s == null ? '' : encodeURIComponent(String(s).trim())
 const sanitizePosForFilename = (s?: string) =>
-	(s ?? '').trim().replace(/[\/\\]/g, '')
+  (s ?? '').trim().replace(/[\/\\]/g, '')
 
 const PLACEHOLDER = '/no-image.png'
 
 function ImageOnce({
-	src,
-	alt,
-	onClick,
+  src,
+  alt,
+  onClick,
 }: {
-	src?: string
-	alt?: string
-	onClick?: () => void
+  src?: string
+  alt?: string
+  onClick?: () => void
 }) {
-	const [state, setState] = React.useState<'loading' | 'ok' | 'error'>(
-		src ? 'loading' : 'error'
-	)
-	const [finalSrc, setFinalSrc] = React.useState<string | undefined>(src)
+  const [state, setState] = React.useState<'loading' | 'ok' | 'error'>(
+    src ? 'loading' : 'error'
+  )
+  const [finalSrc, setFinalSrc] = React.useState<string | undefined>(src)
 
-	React.useEffect(() => {
-		setFinalSrc(src)
-		setState(src ? 'loading' : 'error')
-	}, [src])
+  React.useEffect(() => {
+    setFinalSrc(src)
+    setState(src ? 'loading' : 'error')
+  }, [src])
 
-	if (!finalSrc || state === 'error') {
-		return (
-			<div className="w-16 h-16 flex items-center justify-center text-[10px] text-gray-400 border rounded bg-white">
-				No image
-			</div>
-		)
-	}
+  if (!finalSrc || state === 'error') {
+    return (
+      <div className="w-16 h-16 flex items-center justify-center text-[10px] text-gray-400 border rounded bg-white">
+        No image
+      </div>
+    )
+  }
 
-	return (
-		<div
-			className="relative cursor-zoom-in"
-			onClick={onClick}
-			title="이미지 크게 보기"
-		>
-			{state === 'loading' && (
-				<div className="w-16 h-16 rounded border bg-gray-100 animate-pulse" />
-			)}
-			<img
-				src={finalSrc}
-				alt={alt}
-				loading="lazy"
-				className={`w-16 h-auto object-cover rounded border bg-white transition-opacity duration-200 ${state === 'loading' ? 'opacity-0' : 'opacity-100'
-					}`}
-				onLoad={() => setState('ok')}
-				onError={() => {
-					setFinalSrc(PLACEHOLDER)
-					setState('error')
-				}}
-			/>
-		</div>
-	)
+  return (
+    <div
+      className="relative cursor-zoom-in"
+      onClick={onClick}
+      title="이미지 크게 보기"
+    >
+      {state === 'loading' && (
+        <div className="w-16 h-16 rounded border bg-gray-100 animate-pulse" />
+      )}
+      <img
+        src={finalSrc}
+        alt={alt}
+        loading="lazy"
+        className={`w-16 h-auto object-cover rounded border bg-white transition-opacity duration-200 ${state === 'loading' ? 'opacity-0' : 'opacity-100'
+          }`}
+        onLoad={() => setState('ok')}
+        onError={() => {
+          setFinalSrc(PLACEHOLDER)
+          setState('error')
+        }}
+      />
+    </div>
+  )
 }
 
 /* ============================ Nodes Edit Modal ============================= */
@@ -81,25 +81,52 @@ interface NodesEditModalProps {
   onClose: () => void
   angleNodes: IAngleNode[]
   buildingName?: string
+  onNodesChange?: (nodes: IAngleNode[]) => void
 }
-
 
 export const NodesEditModal = ({
   isOpen,
   onClose,
   angleNodes,
   buildingName,
+  onNodesChange,
 }: NodesEditModalProps) => {
   const [editedNodes, setEditedNodes] = useState<IAngleNode[]>(angleNodes)
   const [viewerSrc, setViewerSrc] = useState<string | null>(null)
 
-  // 🔹 현재 수정 중인 row, 입력 값
+  // 🔹 현재 수정 중인 row, 입력 값들
   const [editRow, setEditRow] = useState<string | null>(null)
   const [positionInput, setPositionInput] = useState<string>('')
+  const [gatewayInput, setGatewayInput] = useState<string>('') // ✅ 게이트웨이 선택 값(_id)
+
+  // ✅ 게이트웨이 전체 목록
+  const [gatewayList, setGatewayList] = useState<IGateway[]>([])
 
   useEffect(() => {
     setEditedNodes(angleNodes)
   }, [angleNodes])
+
+  // ✅ 모달 열릴 때 게이트웨이 목록 불러오기
+  useEffect(() => {
+    const fetchGateways = async () => {
+      try {
+        const url = `${import.meta.env.VITE_SERVER_BASE_URL}/product/get-gateways`
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('게이트웨이 목록 조회 실패')
+
+        const data = await res.json()
+
+        // ✅ 여기 핵심: gateways 배열만 state로
+        const list = Array.isArray(data?.gateways) ? data.gateways : []
+        setGatewayList(list)
+      } catch (e) {
+        console.error(e)
+        setGatewayList([])
+      }
+    }
+
+    if (isOpen) fetchGateways()
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -117,38 +144,73 @@ export const NodesEditModal = ({
     if (!node.angle_node_img) return undefined
     return `${imageBasUrl}/${node.angle_node_img}`
   }
-
   // 🔹 노드 설치 구간 저장 요청 (PUT /api/angle-nodes/position)
   const savePosition = async (node: IAngleNode) => {
-  try {
-    const url = `${import.meta.env.VITE_SERVER_BASE_URL}/api/angle-nodes/position`
+    try {
+      const url = `${import.meta.env.VITE_SERVER_BASE_URL}/api/angle-nodes/position`
 
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        doorNum: node.doorNum,
-        position: positionInput.trim(),
-      }),
-    })
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doorNum: node.doorNum,
+          position: positionInput.trim(),
+        }),
+      })
 
-    if (!res.ok) throw new Error('저장 실패')
+      if (!res.ok) throw new Error('저장 실패')
 
-    // 게이트웨이 방식처럼 내부 state만 업데이트
-    setEditedNodes(prev =>
-      prev.map(n =>
-        n._id === node._id ? { ...n, position: positionInput.trim() } : n
-      )
-    )
+      setEditedNodes(prev => {
+        const next = prev.map(n =>
+          n._id === node._id ? { ...n, position: positionInput.trim() } : n
+        )
+        // ✅ 부모에게도 변경된 배열 전달
+        onNodesChange?.(next)
+        return next
+      })
 
-    setEditRow(null)
-    alert('노드 설치 구간이 수정되었습니다!')
-
-  } catch (err) {
-    console.error(err)
-    alert('저장 실패')
+      alert('노드 설치 구간이 수정되었습니다!')
+    } catch (err) {
+      console.error(err)
+      alert('구간 저장 실패')
+    }
   }
-}
+
+
+  const saveGateway = async (node: IAngleNode) => {
+    try {
+      const url = `${import.meta.env.VITE_SERVER_BASE_URL}/api/angle-nodes/${node.doorNum}/gateway`
+
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gateway_id: gatewayInput || null,
+        }),
+      })
+
+      if (!res.ok) throw new Error('게이트웨이 저장 실패')
+
+      const selectedGw =
+        gatewayList.find(g => g._id === gatewayInput) || null
+
+      setEditedNodes(prev => {
+        const next = prev.map(n =>
+          n._id === node._id
+            ? { ...n, gateway_id: selectedGw as any }
+            : n
+        )
+        // ✅ 부모에게도 반영
+        onNodesChange?.(next)
+        return next
+      })
+
+      alert('게이트웨이가 수정되었습니다!')
+    } catch (err) {
+      console.error(err)
+      alert('게이트웨이 저장 실패')
+    }
+  }
 
 
   return (
@@ -179,8 +241,12 @@ export const NodesEditModal = ({
                 return (
                   <React.Fragment key={node._id}>
                     <TableRow>
-                      <TableCell className="font-medium">{node.doorNum}</TableCell>
-                      <TableCell>{node.gateway_id?.serial_number}</TableCell>
+                      <TableCell className="font-medium">
+                        {node.doorNum}
+                      </TableCell>
+                      <TableCell>
+                        {node.gateway_id?.serial_number || 'N/A'}
+                      </TableCell>
                       <TableCell>{node.position || 'N/A'}</TableCell>
                       <TableCell>
                         {displaySrc ? (
@@ -190,7 +256,9 @@ export const NodesEditModal = ({
                             onClick={() => setViewerSrc(displaySrc)}
                           />
                         ) : (
-                          <div className="text-gray-400 text-xs">No Image</div>
+                          <div className="text-gray-400 text-xs">
+                            No Image
+                          </div>
                         )}
                       </TableCell>
                       <TableCell>
@@ -200,6 +268,7 @@ export const NodesEditModal = ({
                           onClick={() => {
                             setEditRow(node._id)
                             setPositionInput(node.position ?? '')
+                            setGatewayInput(node.gateway_id?._id ?? '')
                           }}
                         >
                           수정
@@ -211,16 +280,47 @@ export const NodesEditModal = ({
                       <TableRow className="bg-gray-50">
                         <TableCell colSpan={5}>
                           <div className="flex items-center gap-4 p-3">
+                            {/* ✅ 게이트웨이 선택 */}
+                            <select
+                              value={gatewayInput}
+                              onChange={e =>
+                                setGatewayInput(e.target.value)
+                              }
+                              className="border p-2 rounded"
+                            >
+                              <option value="">
+                                게이트웨이 해제
+                              </option>
+                              {gatewayList.map(gw => (
+                                <option key={gw._id} value={gw._id}>
+                                  {gw.serial_number}
+                                </option>
+                              ))}
+                            </select>
+
+                            {/* ✅ 설치 구간 입력 */}
                             <input
                               type="text"
                               value={positionInput}
-                              onChange={e => setPositionInput(e.target.value)}
+                              onChange={e =>
+                                setPositionInput(e.target.value)
+                              }
                               className="border p-2 rounded w-1/3"
                               placeholder="설치 구간 입력"
                             />
 
-                            <Button size="sm" onClick={() => savePosition(node)}>
-                              저장
+                            <Button
+                              size="sm"
+                              onClick={() => saveGateway(node)}
+                            >
+                              게이트웨이 저장
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              onClick={() => savePosition(node)}
+                            >
+                              구간 저장
                             </Button>
 
                             <Button
@@ -276,7 +376,6 @@ export const NodesEditModal = ({
     </div>
   )
 }
-
 
 /* ============================ Gateways Edit Modal ============================= */
 

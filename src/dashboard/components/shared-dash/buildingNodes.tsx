@@ -80,10 +80,14 @@ const BuildingNodes = () => {
         </div>
 
         {/* 수직 노드 */}
-        <div className="p-5 w-full md:w-1/3 aspect-[5/6] flex flex-col justify-center items-center gap-y-10 bg-white rounded-xl shadow-lg shadow-gray-200 cursor-pointer hover:shadow-gray-400 border border-slate-400 duration-200 text-blue-600">
+        <div
+          className="p-5 w-full md:w-1/3 aspect-[5/6] flex flex-col justify-center items-center gap-y-10 bg-white rounded-xl shadow-lg shadow-gray-200 cursor-pointer hover:shadow-gray-400 border border-slate-400 duration-200 text-blue-600"
+          onClick={() => navigate('vertical-nodes')}
+        >
           <img src={erpendicularnode} alt="수직 노드" className="w-[17vw] h-[35vh]" />
           <h1 className="text-xl font-bold">수직 노드 보러가기</h1>
         </div>
+
       </div>
     </div>
   )

@@ -106,6 +106,14 @@ const AngleNodeScroll = ({
   onToggleSaveStatus,
   onTop6Change,
 }: Props) => {
+
+  // 🔹 여기 추가
+  const [localNodes, setLocalNodes] = useState<IAngleNode[]>(building_angle_nodes)
+
+  // 부모에서 props가 새로 들어오면 동기화
+  useEffect(() => {
+    setLocalNodes(building_angle_nodes)
+  }, [building_angle_nodes])
   const [selectedGateway, setSelectedGateway] = useState<string>('')
   const [selectedNode, setSelectedNode] = useState<number | '' | 'dead'>('')
 
@@ -151,7 +159,7 @@ const AngleNodeScroll = ({
   // ✅ 게이트웨이의 "마지막에서 2번째 노드"
   const secondLastNodeOfSelectedGw = useMemo(() => {
     if (!selectedGateway) return null
-    const gwNodes = building_angle_nodes.filter(
+    const gwNodes = localNodes.filter(
       (n) => n.gateway_id?.serial_number === selectedGateway
     )
     if (gwNodes.length < 2) return gwNodes[0] || null
@@ -161,8 +169,8 @@ const AngleNodeScroll = ({
   // ✅ 선택된 노드 객체
   const selectedNodeObj = useMemo(() => {
     if (selectedNode === '' || typeof selectedNode !== 'number') return null
-    return building_angle_nodes?.find((n) => n.doorNum === selectedNode) ?? null
-  }, [selectedNode, building_angle_nodes])
+    return localNodes.find((n) => n.doorNum === selectedNode) ?? null
+  }, [selectedNode, localNodes])
 
   // ✅ 중앙 이미지는 S3만 사용 (노드 → 게이트웨이 → 전체도면.png)
   const mainImageUrl = useMemo(() => {
@@ -173,13 +181,13 @@ const AngleNodeScroll = ({
 
   // 정렬(절대값 큰 순)
   const sortedNodes = useMemo(() => {
-    if (!building_angle_nodes?.length) return []
-    return [...building_angle_nodes].sort((a, b) => {
+    if (!localNodes?.length) return []
+    return [...localNodes].sort((a, b) => {
       const ax = Math.abs(a.angle_x ?? 0)
       const bx = Math.abs(b.angle_x ?? 0)
       return bx - ax
     })
-  }, [building_angle_nodes])
+  }, [localNodes])
 
   // ✅ 상위 6개는 "활성 노드만" 기준으로
   const top6AliveDoorNums = useMemo(() => {
@@ -236,7 +244,7 @@ const AngleNodeScroll = ({
     if (!gw.gateway_alive) return 'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
 
     // 해당 게이트웨이의 "활성" 노드만 모아 평가
-    const activeNodes = building_angle_nodes.filter(
+    const activeNodes = localNodes.filter(
       (node) =>
         node.gateway_id?.serial_number === gw.serial_number &&
         node.node_alive === true
@@ -384,12 +392,11 @@ const AngleNodeScroll = ({
   // ✅ 리스트가 갱신될 때, 모달이 열려있고 선택 노드가 있으면 최신 객체로 갈아끼움
   useEffect(() => {
     if (!isModalOpen || !selectedNodeForModal) return
-    const fresh = building_angle_nodes.find(
+    const fresh = localNodes.find(
       n => n.doorNum === selectedNodeForModal.doorNum
     )
     if (fresh) setSelectedNodeForModal(fresh)
-  }, [building_angle_nodes, isModalOpen, selectedNodeForModal?.doorNum])
-
+  }, [localNodes, isModalOpen, selectedNodeForModal?.doorNum])
 
 
   const PlanImageModal = ({
@@ -740,7 +747,7 @@ const AngleNodeScroll = ({
             {/* buildingData가 없을 때는 빈 문자열 전달 */}
             <Download
               buildingId={buildingData?._id ?? ''}
-              angleNodes={building_angle_nodes}
+              angleNodes={localNodes}
               buildingName={selectedBuildingName}
             />
 
@@ -934,8 +941,9 @@ const AngleNodeScroll = ({
         <NodesEditModal
           isOpen={isNodesEditOpen}
           onClose={() => setIsNodesEditOpen(false)}
-          angleNodes={building_angle_nodes}
+          angleNodes={localNodes}                 // ✅ 로컬 state 넘겨주고
           buildingName={selectedBuildingName}
+          onNodesChange={setLocalNodes}
         />
       )}
       {isGatewaysEditOpen && (
