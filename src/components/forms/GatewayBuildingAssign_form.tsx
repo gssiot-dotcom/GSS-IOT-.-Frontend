@@ -84,39 +84,44 @@ const GatewayBuildingAssignForm = ({
 
       <form
         onSubmit={handleSubmit}
-        className="max-w-[26vw] h-auto p-4 pb-8 border border-gray-400 bg-white text-gray-700 rounded-lg shadow-lg shadow-gray-300 space-y-3"
+        className="max-w-[26vw] h-auto p-4 pb-8 border border-gray-400 bg-white text-gray-700 rounded-lg shadow-lg shadow-gray-300 space-y-3 min-h-[300px]"
       >
         {/* 빌딩 선택 */}
-        <label className="font-medium mb-1">빌딩 선택</label>
-        <select
-          value={selectedBuildingId}
-          onChange={e => setSelectedBuildingId(e.target.value)}
-          className="w-full border p-0 rounded mb-4 border-gray-700 focus:border-transparent text-base"
-          disabled={isLoading}
-        >
-          <option value="">선택하세요</option>
-          {buildings.map(b => (
-            <option key={b._id} value={b._id}>
-              {b.building_name}
-            </option>
-          ))}
-        </select>
+        <div className="space-y-1">
+          <label className="font-medium mb-1">빌딩 선택</label>
+          <select
+            value={selectedBuildingId}
+            onChange={e => setSelectedBuildingId(e.target.value)}
+            className="w-full border p-0 rounded border-gray-700 focus:border-transparent text-base"
+            disabled={isLoading}
+          >
+            <option value="">선택하세요</option>
+            {buildings.map(b => (
+              <option key={b._id} value={b._id}>
+                {b.building_name}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {/* 게이트웨이 선택 */}
-        <label className="font-medium mb-1">게이트웨이 선택</label>
-        <select
-          value={selectedGatewayId}
-          onChange={e => setSelectedGatewayId(e.target.value)}
-          className="w-full border p-0 rounded mb-4 border-gray-700 focus:border-transparent text-base"
-          disabled={isLoading}
-        >
-          <option value="">선택하세요</option>
-          {gateways.map(gw => (
-            <option key={gw._id} value={gw._id}>
-              {gw.serial_number} {gw.gateway_type ? `(${gw.gateway_type})` : ''}
-            </option>
-          ))}
-        </select>
+        <div className="space-y-1 mt-8">
+          <label className="font-medium mb-1">게이트웨이 선택</label>
+          <select
+            value={selectedGatewayId}
+            onChange={e => setSelectedGatewayId(e.target.value)}
+            className="w-full border p-0 rounded border-gray-700 focus:border-transparent text-base"
+            disabled={isLoading}
+          >
+            <option value="">선택하세요</option>
+            {gateways.map(gw => (
+              <option key={gw._id} value={gw._id}>
+                {gw.serial_number} {gw.gateway_type ? `(${gw.gateway_type})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
 
         <Button
           type="submit"

@@ -1,6 +1,5 @@
-import AngleBuildingForm from '@/components/forms/Angle_building_form'
-import AngleNodeForm from '@/components/forms/Angle_node_form'
-import ActiveNodes from '@/dashboard/components/pages-comps/Active_nodes'
+import AngleGatewayForm from '@/components/forms/Angle_gateway_form'
+import VerticalGatewayForm from '@/components/forms/Vertical_gateway_form'
 import Header from '@/dashboard/components/shared-dash/Header'
 import {
   getActiveAngleNodes,
@@ -10,7 +9,7 @@ import {
 import { useQueries } from '@tanstack/react-query'
 import GatewayBuildingAssignForm from '@/components/forms/GatewayBuildingAssign_form'
 import { IGateway } from '@/types/interfaces'
-
+import NodeStatusForm from '@/components/forms/node_status_form' // ✅ 추가
 
 const CreateAngleNode = () => {
   const queryData = useQueries({
@@ -35,19 +34,14 @@ const CreateAngleNode = () => {
 
   const activeAngleNodes = queryData[0].data
 
-  // 🔥 전체 게이트웨이 → gateway_status=true 인 것만 필터링
   const gatewaysAll = queryData[1].data
-
-  // gw: IGateway 타입 지정
   const gateways = gatewaysAll?.filter((gw: IGateway) => gw.gateway_status === true) ?? []
 
-
-
-  const isLoading = queryData.some(q => q.isLoading)
+  const isLoading = queryData.some((q) => q.isLoading)
 
   const refetchAngleNodes = queryData[0].refetch
   const refetchAll = () => {
-    queryData.forEach(q => q.refetch())
+    queryData.forEach((q) => q.refetch())
   }
 
   if (isLoading) {
@@ -61,22 +55,25 @@ const CreateAngleNode = () => {
   return (
     <div className="w-full h-screen flex flex-col">
       <Header />
-      <div className="w-full h-full md:flex justify-center md:items-start mt-10 gap-3 p-3 pb-6 md:space-y-0 space-y-5">
 
-        <AngleNodeForm />
+      {/* ✅ 전체 컨테이너 */}
+      <div className="w-full h-full flex flex-col items-center mt-3 gap-4 p-3 pb-6">
+        {/* ✅ 1줄(기존 3개 폼) */}
+        <div className="w-full md:flex justify-center md:items-start gap-3 md:space-y-0 space-y-5">
+          <AngleGatewayForm refetchNodes={refetchAngleNodes} angle_nodes={activeAngleNodes} />
 
-        <AngleBuildingForm
-          refetchNodes={refetchAngleNodes}
-          angle_nodes={activeAngleNodes}
-        />
+          <VerticalGatewayForm refetchNodes={refetchAngleNodes} angle_nodes={activeAngleNodes} />
 
-        {/* 🔥 gateway_status=true 인 게이트웨이만 전달 */}
-        <GatewayBuildingAssignForm
-          gateways={gateways}
-          refetchAll={refetchAll}
-        />
+          <GatewayBuildingAssignForm gateways={gateways} refetchAll={refetchAll} />
+        </div>
 
-        <ActiveNodes nodes={activeAngleNodes} />
+        {/* ✅ 2줄(아래 빈공간에 노드확인 넣기) */}
+        <div className="w-full md:flex -mt-[5vh]">
+          {/* 폭은 상황에 맞게 조절: md:w-[40%] / md:w-[50%] 등 */}
+          <div className="w-full md:w-[40%]">
+            <NodeStatusForm />
+          </div>
+        </div>
       </div>
     </div>
   )

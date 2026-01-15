@@ -89,3 +89,19 @@ export const combineAngleNodeToGatewaySchema = z.object({
 	gateway_id: z.string(),
 	selected_nodes: z.array(string()),
 })
+
+// ============= Vertical-Node Validation Field ============= //
+export const verticalNodeSchema = z.object({
+  vertical_node_counts: z.string(),
+})
+
+export const nodeRangeSchema = z.object({
+  node_counts: z.string(),
+})
+
+export const combineVerticalNodeToGatewaySchema = z.object({
+	gateway_number: z.string(),
+	vertical_nodes: z.string(),
+	gateway_id: z.string(),
+	selected_nodes: z.array(string()),
+})

@@ -13,7 +13,7 @@ const ActiveNodes = ({ nodes }: INodeProps) => {
 			<h1 className='leading-none text-xl font-bold text-gray-700 underline underline-offset-4'>
 				사용 가능 노드
 			</h1>
-			<div className='w-[200px] h-[540px] overflow-y-auto border m-5 sm:rounded-lg'>
+			<div className='w-full h-[540px] overflow-y-auto border m-5 sm:rounded-lg'>
 				<div className='max-h-[620px]'>
 					{/* Set max height as needed */}
 					<table className='w-full text-sm text-center text-gray-500'>

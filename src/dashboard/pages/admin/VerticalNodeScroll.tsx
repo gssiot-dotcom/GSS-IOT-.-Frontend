@@ -403,7 +403,7 @@ const VerticalNodeScroll = ({
         </div>
 
         {/* ✅ 살아있는 노드 grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-6 gap-4">
           {aliveNodes.map((item) => (
             <Card
               key={item.doorNum}
@@ -454,7 +454,7 @@ const VerticalNodeScroll = ({
           <div className="mt-8">
             <h2 className="text-center font-bold text-gray-600 mb-3">비활성 노드</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
               {deadNodes.map((item) => (
                 <Card
                   key={item.doorNum}
@@ -516,7 +516,7 @@ const VerticalNodeScroll = ({
                 {gatewayDownRows.map((g) => (
                   <div
                     key={g.serial}
-                    className="px-2 py-1 rounded-lg bg-gray-400 text-white font-semibold lg:text-[0.8rem] 2xl:text-[1.1rem]"
+                    className="px-2 py-1 rounded-lg bg-gray-400 text-white font-semibold lg:text-[0.6rem] 2xl:text-[0.8rem]"
                   >
                     {`${formatKSTTime(g.createdAt)} | gw-${g.serial} | ${g.zone}`}
                   </div>

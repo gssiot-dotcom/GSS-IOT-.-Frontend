@@ -101,34 +101,39 @@ export interface ICreateNode {
 	doorNum: number
 }
 
+export type GatewayType =
+	| 'GATEWAY'
+	| 'VERTICAL_NODE_GATEWAY'
+	| 'OFFICE_GATEWAY'
+
+
 export interface IGateway {
 	_id: string
 	serial_number: string
-	nodes: [
-		{
-			_id: string
-			doorNum: number
-		}
-	]
-	angle_nodes: [
-		{
-			_id: string
-			doorNum: number
-		}
-	]
+	nodes: {
+		_id: string
+		doorNum: number
+	}[]
+	angle_nodes: {
+		_id: string
+		doorNum: number
+	}[]
 	building_id: string
 	gateway_status: boolean
 	zone_name: string
 	lastSeen: Date
 	gateway_alive: boolean
-	gateway_type?: 'NODE_GATEWAY' | 'OFFICE_GATEWAY' | string
+	gateway_type: GatewayType   // ✅ 필수 + 정확한 타입
 }
+
 
 export interface ICreateGateway {
 	serial_number: string
 	nodes: string[]
 	zone_name?: string
+	gateway_type: GatewayType   // ✅ 추가 (필수)
 }
+
 
 export interface IBuilding {
 	_id: string
@@ -230,6 +235,10 @@ export type AngleNodeCreate = {
 	doorNum: number
 }
 
+export type VerticalNodeCreate = {
+	 node_number: number
+}
+
 // 모든 타입 인터페이스를 이곳에서 정의하고 export 합니다.
 export interface SensorData {
 	doorNum: number
@@ -250,4 +259,15 @@ export interface GraphDataPoint {
 export interface DeltaGraphPoint {
 	time: string
 	[key: string]: number | string
+}
+
+export interface IVerticalNode {
+  _id: string
+  node_number: number
+  angle_x: number
+  angle_y: number
+  gateway_id: string | null | { _id: string; serial_number: string } // null 가능
+  node_status: boolean
+  createdAt?: string
+  updatedAt?: string
 }
