@@ -95,6 +95,8 @@ export interface IAngleNode {
 	angle_node_img?: string
 	node_alive: boolean
 	createdAt?: string
+	calibrated_x: number
+	calibrated_y: number
 }
 
 export interface ICreateNode {

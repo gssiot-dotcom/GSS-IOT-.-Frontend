@@ -39,12 +39,12 @@ interface WindPoint {
 
 /** ------------------------------------------------------------------
  * 최신값 조회: 백의 latest API만 사용
- * GET /api/angles/history/latest?doorNum=NN
+ * GET /angles/history/latest?doorNum=NN
  * ------------------------------------------------------------------ */
 async function fetchLatestAngleForDoor(doorNum: number) {
-  const baseURL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005'
+  const baseURL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005/api'
   try {
-    const res = await axios.get('/api/angles/history/latest', {
+    const res = await axios.get('/angles/history/latest', {
       params: { doorNum },
       baseURL,
     })
@@ -78,17 +78,17 @@ async function fetchLatestAngleForDoor(doorNum: number) {
 
 /** ------------------------------------------------------------------
  * 전체 노드 alive 조회 (오직 이 결과만 사용)
- * GET /api/angle-nodes/alive
+ * GET /angle-nodes/alive
  *  - 숫자 배열/객체 배열/래퍼(items|rows|data) 모두 수용
  * ------------------------------------------------------------------ */
 /** ------------------------------------------------------------------
  * 전체 노드 alive 조회 (오직 이 결과만 사용)
- * GET /api/angle-nodes/alive
+ * GET /angle-nodes/alive
  *  - 숫자 배열/객체 배열/래퍼(items|rows|data) 모두 수용
  * ------------------------------------------------------------------ */
 async function fetchAliveNodes() {
   const baseURL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005'
-  const res = await axios.get('/api/angle-nodes/alive', { baseURL })
+  const res = await axios.get('/angle-nodes/alive', { baseURL })
   const payload: any = res.data
 
   const list: any[] =
@@ -176,7 +176,7 @@ const AngleNodes = () => {
     const loadWind = async () => {
       try {
         const res = await fetch(
-          `${import.meta.env.VITE_SERVER_BASE_URL}/api/weather/${buildingId}/wind-series`
+          `${import.meta.env.VITE_SERVER_BASE_URL}/weather/${buildingId}/wind-series`
         )
         if (!res.ok) throw new Error('Wind-series API 호출 실패')
         const json = await res.json()
@@ -234,7 +234,7 @@ const AngleNodes = () => {
     const fetchAlertLogs = async () => {
       try {
         const res = await axios.get(
-          `${import.meta.env.VITE_SERVER_BASE_URL}/api/alert-logs`,
+          `${import.meta.env.VITE_SERVER_BASE_URL}/alert-logs`,
           { params: { building: buildingData._id, limit: 0 } }
         )
         const sorted = res.data.items.sort(
@@ -528,7 +528,7 @@ const AngleNodes = () => {
 const handleToggleSaveStatus = async (doorNum: number, next: boolean) => {
   try {
     await axios.patch(
-      `/api/nodes/${doorNum}/save-status`,     // ← 1) 여기 먼저 바꿔보기
+      `/nodes/${doorNum}/save-status`,     // ← 1) 여기 먼저 바꿔보기
       { save_status: next },                          //    키 맞는지 확인
       { baseURL, headers: { 'Content-Type': 'application/json' } }
     )
@@ -536,7 +536,7 @@ const handleToggleSaveStatus = async (doorNum: number, next: boolean) => {
   } catch (e) {
     if (isAxiosError(e)) {
       console.error('PATCH failed:', {
-        url: `/api/angle-nodes/${doorNum}/save-status`,
+        url: `/angle-nodes/${doorNum}/save-status`,
         status: e.response?.status,
         data: e.response?.data,
         message: e.message,

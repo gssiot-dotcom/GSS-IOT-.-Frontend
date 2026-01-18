@@ -58,7 +58,7 @@ export const useWeather = (buildingId: string) => {
 
       // ✅ 1. 백엔드에서 최신 날씨 가져오기
       const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_BASE_URL}/api/weather/latest`,
+        `${import.meta.env.VITE_SERVER_BASE_URL}/weather/latest`,
         { params: { buildingId } }
       )
 

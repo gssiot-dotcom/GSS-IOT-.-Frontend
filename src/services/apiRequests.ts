@@ -43,7 +43,7 @@ export const registerRequest = async (signupData: IRegisterUser) => {
 export const loginRequest = async (user: ILogin) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/api/auth/login`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/auth/login`,
 			user,
 			{
 				withCredentials: true,
@@ -216,7 +216,7 @@ export const deleteUser = async (user_id: string) => {
 export const getGateways = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/product/get-gateways`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/get-gateways`,
 			{ withCredentials: true }
 		)
 
@@ -274,7 +274,7 @@ export const getSingleGateway = async (gatewayNumber: string) => {
 export const getNodes = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/product/get-nodes`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/node/get-nodes`,
 			{ withCredentials: true }
 		)
 
@@ -290,7 +290,7 @@ export const getNodes = async () => {
 export const getActiveNodes = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/product/get-active-nodes`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/node/get-alltype-active-nodes`,
 			{ withCredentials: true }
 		)
 
@@ -306,7 +306,7 @@ export const getActiveNodes = async () => {
 export const createNodeRequest = async (nodes: ICreateNode[]) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/product/create-nodes`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/node/create-nodes`,
 			nodes,
 			{
 				withCredentials: true,
@@ -331,7 +331,7 @@ export const createNodeRequest = async (nodes: ICreateNode[]) => {
 export const createGatewayRequest = async (gateway: ICreateGateway) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/product/create-gateway`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/create-gateway`,
 			gateway,
 			{
 				withCredentials: true,
@@ -381,7 +381,7 @@ export const createOfficeGatewayRequest = async (data: any) => {
 export const createAngleNodeRequest = async (nodes: AngleNodeCreate[]) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/product/create-angle-nodes`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/angle-node/create-angle-nodes`,
 			nodes,
 			{
 				withCredentials: true,
@@ -409,7 +409,7 @@ export const createVerticalNodeRequest = async (
 ) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/api/vertical-nodes/`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/vertical-node/`,
 			nodes,
 			{
 				withCredentials: true,
@@ -439,7 +439,7 @@ export const createVerticalNodeRequest = async (
 export const connectAngleNodesRequest = async (sendingData: any) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/api/angle-node/combine/to-gateway`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/angle-node/combine-angle-nodes`,
 			sendingData,
 			{
 				withCredentials: true,
@@ -461,33 +461,6 @@ export const connectAngleNodesRequest = async (sendingData: any) => {
 		throw new Error(error.message || 'Error on creating node: Undefined error.')
 	}
 }
-
-export const connectNodesRequest = async (sendingData: any) => {
-	try {
-		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/api/node/combine/to-gateway`,
-			sendingData,
-			{
-				withCredentials: true,
-			}
-		)
-		const data = res.data
-
-		if (data.state === 'fail') {
-			throw new Error(data.message || 'Error on creating node')
-		}
-
-		return data
-	} catch (error: any) {
-		// Axios error handling
-		if (error.response && error.response.data) {
-			throw new Error(error.response.data.message || 'Error on creating node')
-		}
-		// Other errors
-		throw new Error(error.message || 'Error on creating node: Undefined error.')
-	}
-}
-
 export const updateProductStatus = async (updateData: IUpdateProductStatus) => {
 	try {
 		const res = await axios.post(
@@ -616,7 +589,7 @@ export const changeGatewayBuildingRequest = async (params: {
 }) => {
 	try {
 		const res = await axios.post(
-			'/api/company/building/change-gateway-building',
+			'/company/building/change-gateway-building',
 			{
 				gateway_id: params.gateway_id,
 				building_id: params.building_id,
@@ -857,7 +830,7 @@ export const fetchBuildingAngleNodes = async (buildingId: string) => {
 	try {
 		const response = await axios.get(
 			`${import.meta.env.VITE_SERVER_BASE_URL
-			}/company/buildings/${buildingId}/angle-nodes`,
+			}/building/buildings/${buildingId}/angle-nodes`,
 			{ withCredentials: true }
 		)
 		const data = response.data
@@ -878,7 +851,7 @@ export const getAngleNodeSummary = async (buildingId: string) => {
 	try {
 		const response = await axios.get(
 			`${import.meta.env.VITE_SERVER_BASE_URL
-			}/company/buildings/${buildingId}/angle-nodes/summary`,
+			}/angle-node/buildings/${buildingId}/angle-nodes/summary`,
 			{ withCredentials: true }
 		)
 		const data = response.data
@@ -936,7 +909,7 @@ export const setBuildingAlarmLevelRequest = async (
 export const getAngleAliveNodes = async () => {
   try {
     const res = await axios.get(
-      `${import.meta.env.VITE_SERVER_BASE_URL}/api/angle-nodes/alive`,
+      `${import.meta.env.VITE_SERVER_BASE_URL}/angle-node/alive`,
       { withCredentials: true }
     )
 
@@ -955,7 +928,7 @@ export const getAngleAliveNodes = async () => {
 export const getVerticalNodesRequest = async () => {
   try {
     const res = await axios.get(
-      `${import.meta.env.VITE_SERVER_BASE_URL}/api/vertical-nodes/`,
+      `${import.meta.env.VITE_SERVER_BASE_URL}/vertical-node/`,
       { withCredentials: true }
     )
 
@@ -982,7 +955,7 @@ export const getVerticalNodesRequest = async () => {
 export const getGatewaysByTypeRequest = async () => {
   try {
     const res = await axios.get(
-      `${import.meta.env.VITE_SERVER_BASE_URL}/api/gateway/get-gateways-bytype`,
+      `${import.meta.env.VITE_SERVER_BASE_URL}/gateway/get-gateways-bytype`,
       { withCredentials: true }
     )
 
@@ -1006,7 +979,7 @@ export const getGatewaysByTypeRequest = async () => {
 export const getVerticalNodeGatewaysByTypeRequest = async () => {
   try {
     const res = await axios.get(
-      `${import.meta.env.VITE_SERVER_BASE_URL}/api/gateway/get-gateways-bytype`,
+      `${import.meta.env.VITE_SERVER_BASE_URL}/gateway/get-gateways-bytype`,
       { withCredentials: true }
     )
 
@@ -1030,7 +1003,7 @@ export const getVerticalNodeGatewaysByTypeRequest = async () => {
 export const getAllTypeActiveNodesRequest = async () => {
   try {
     const res = await axios.get(
-      `${import.meta.env.VITE_SERVER_BASE_URL}/api/node/get-alltype-active-nodes`,
+      `${import.meta.env.VITE_SERVER_BASE_URL}/node/get-alltype-active-nodes`,
       { withCredentials: true }
     )
 

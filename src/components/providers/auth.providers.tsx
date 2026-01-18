@@ -13,7 +13,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 		const checkUser = async () => {
 			try {
 				const res = await axios.get(
-					`${import.meta.env.VITE_SERVER_BASE_URL}/api/auth/check-user`,
+					`${import.meta.env.VITE_SERVER_BASE_URL}/auth/check-user`,
 					{
 						withCredentials: true,
 					}

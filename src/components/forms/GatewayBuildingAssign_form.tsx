@@ -29,7 +29,7 @@ const GatewayBuildingAssignForm = ({
   useEffect(() => {
     const loadBuildings = async () => {
       try {
-        const res = await api.get('/company/get-buildings')
+        const res = await api.get('/building/get-buildings')
         setBuildings(res.data.buildings ?? [])
       } catch (err: any) {
         console.error('빌딩 불러오기 실패:', err)
@@ -51,7 +51,7 @@ const GatewayBuildingAssignForm = ({
     setIsLoading(true)
     setError('')
     try {
-      await api.put('/company/building/change-gateway-building', {
+      await api.put('/building/building/change-gateway-building', {
         gateway_id: selectedGatewayId,
         building_id: selectedBuildingId,
       })
@@ -70,12 +70,11 @@ const GatewayBuildingAssignForm = ({
 
   return (
     <div className="max-w-[30vw] flex flex-col justify-center items-center md:text-lg text-sm text-gray-800">
-      <h1 className="leading-none text-xl font-bold text-gray-700 pb-2 mb-5 underline underline-offset-4">
-        게이트웨이 → 빌딩 연결
-      </h1>
-
       {error && (
-        <Alert className="text-red-600 py-2 mt-2 mb-2" variant="destructive">
+        <Alert
+          className="text-red-600 py-2 mt-2 mb-2 w-full max-w-[26vw]"
+          variant="destructive"
+        >
           <AlertCircle className="h-4 w-4" color="red" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
@@ -84,8 +83,15 @@ const GatewayBuildingAssignForm = ({
 
       <form
         onSubmit={handleSubmit}
-        className="max-w-[26vw] h-auto p-4 pb-8 border border-gray-400 bg-white text-gray-700 rounded-lg shadow-lg shadow-gray-300 space-y-3 min-h-[300px]"
+        className="max-w-[26vw] w-full h-auto p-4 pb-8 border border-gray-400 bg-white text-gray-700 rounded-lg shadow-lg shadow-gray-300 space-y-3 min-h-[300px]"
       >
+        {/* ✅ 제목을 박스(폼) 안으로 */}
+        <div className="mb-4 pb-2 border-b border-gray-300 text-center">
+          <h1 className="text-xl font-bold text-gray-700 underline underline-offset-4 whitespace-nowrap">
+            게이트웨이 → 빌딩 연결
+          </h1>
+        </div>
+
         {/* 빌딩 선택 */}
         <div className="space-y-1">
           <label className="font-medium mb-1">빌딩 선택</label>
@@ -122,12 +128,7 @@ const GatewayBuildingAssignForm = ({
           </select>
         </div>
 
-
-        <Button
-          type="submit"
-          disabled={isLoading}
-          className="h-12 w-full mt-2"
-        >
+        <Button type="submit" disabled={isLoading} className="h-12 w-full mt-2">
           {isLoading ? '연결 중...' : '연결하기'}
         </Button>
       </form>

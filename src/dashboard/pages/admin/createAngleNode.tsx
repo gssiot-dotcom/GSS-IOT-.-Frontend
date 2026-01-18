@@ -57,9 +57,9 @@ const CreateAngleNode = () => {
       <Header />
 
       {/* ✅ 전체 컨테이너 */}
-      <div className="w-full h-full flex flex-col items-center mt-3 gap-4 p-3 pb-6">
+      <div className="w-full h-full flex flex-col items-center gap-4 p-3 pb-6">
         {/* ✅ 1줄(기존 3개 폼) */}
-        <div className="w-full md:flex justify-center md:items-start gap-3 md:space-y-0 space-y-5">
+        <div className="w-full md:flex justify-center md:items-start gap-3 md:space-y-0 space-y-5 ml-6">
           <AngleGatewayForm refetchNodes={refetchAngleNodes} angle_nodes={activeAngleNodes} />
 
           <VerticalGatewayForm refetchNodes={refetchAngleNodes} angle_nodes={activeAngleNodes} />
@@ -68,15 +68,16 @@ const CreateAngleNode = () => {
         </div>
 
         {/* ✅ 2줄(아래 빈공간에 노드확인 넣기) */}
-        <div className="w-full md:flex -mt-[5vh]">
-          {/* 폭은 상황에 맞게 조절: md:w-[40%] / md:w-[50%] 등 */}
-          <div className="w-full md:w-[40%]">
+        <div className="w-full flex justify-center">
+          <div className="w-full translate-x-3">
             <NodeStatusForm />
           </div>
         </div>
+
       </div>
     </div>
   )
 }
 
 export default CreateAngleNode
+
