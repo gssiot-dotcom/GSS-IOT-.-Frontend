@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// Vertical_gateway_form.tsx
 import { combineAngleNodeToGatewaySchema } from '@/lib/vatidation'
 import {
-  connectAngleNodesRequest,
-  getGatewaysByTypeRequest,
   getAllTypeActiveNodesRequest,
-  getAngleAliveNodes,
+  getVerticalNodesRequest,
+  combineVerticalNodesToGatewayRequest,
 } from '@/services/apiRequests'
+
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -23,10 +23,9 @@ import {
   SelectValue,
 } from '../ui/select'
 
-interface AngleNodeFormProps {
-  // ⛔ 이제 props angle_nodes 안 써도 됨(서버에서 가져와서 검증/매핑)
-  angle_nodes?: any[]
+interface VerticalGatewayFormProps {
   refetchNodes: () => void
+  gateways: GatewayItem[] // ✅ 부모에서 받음
 }
 
 type GatewayItem = {
@@ -36,10 +35,13 @@ type GatewayItem = {
   name?: string
 }
 
-type NodeType = 'HATCH' | 'ANGLE' // 해치발판 / 비계전도
-
 const pickDoorNum = (x: any) => {
-  const v = x?.doorNum ?? x?.node_number ?? x?.nodeNum ?? x?.node
+  const v =
+    x?.doorNum ??
+    x?.door_num ??
+    x?.node_number ??
+    x?.nodeNum ??
+    x?.node
   const n = Number(v)
   return Number.isFinite(n) ? n : null
 }
@@ -47,82 +49,34 @@ const pickDoorNum = (x: any) => {
 const pickId = (x: any) => x?._id ?? x?.id ?? null
 
 const isUsable = (x: any) => {
-  // 화면에 status=true 라고 뜨는 경우가 있어서 다 커버
   const v = x?.status ?? x?.node_status ?? x?.nodeStatus ?? x?.active ?? x?.isActive
-  return v === true
+  return v === true || v === 'true' || v === 1
 }
 
-/**
- * ✅ getAllTypeActiveNodesRequest() 응답에서 타입별 리스트 뽑기
- * 프로젝트마다 키가 다를 수 있어서 넉넉하게 처리
- */
-const extractTypeList = (all: any, type: NodeType): any[] => {
+const extractVerticalList = (all: any): any[] => {
   if (!all) return []
-
-  // 1) 가장 흔한 케이스: all.angle / all.hatch 처럼 타입별 배열
-  if (type === 'ANGLE') {
-    if (Array.isArray(all?.angle)) return all.angle
-    if (Array.isArray(all?.angle_nodes)) return all.angle_nodes
-    if (Array.isArray(all?.angleNodes)) return all.angleNodes
-  }
-
-  if (type === 'HATCH') {
-    if (Array.isArray(all?.hatch)) return all.hatch
-    if (Array.isArray(all?.hatch_nodes)) return all.hatch_nodes
-    if (Array.isArray(all?.hatchNodes)) return all.hatchNodes
-  }
-
-  // 2) all.nodes 안에 type 필드가 있는 케이스
-  const base =
-    Array.isArray(all?.nodes) ? all.nodes
-      : Array.isArray(all?.items) ? all.items
-        : Array.isArray(all?.data) ? all.data
-          : []
-
-  if (!Array.isArray(base)) return []
-
-  const typeKey =
-    type === 'ANGLE' ? ['ANGLE', 'angle', '비계전도']
-      : ['HATCH', 'hatch', '해치발판']
-
-  return base.filter((x: any) => typeKey.includes(x?.type) || typeKey.includes(x?.nodeType))
+  if (Array.isArray(all?.vertical_nodes)) return all.vertical_nodes
+  return []
 }
 
-const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
-  const [checkinAngleNodesNumber, setCheckinAngleNodesNumber] = useState<number[] | null>(null)
+const VerticalGatewayForm = ({ refetchNodes, gateways }: VerticalGatewayFormProps) => {
+  const [checkedNodeNumbers, setCheckedNodeNumbers] = useState<number[] | null>(null)
   const [selectedGateway, setSelectedGateway] = useState<GatewayItem | null>(null)
-
-  // ✅ 타입 선택(체크박스 2개)
-  const [nodeType, setNodeType] = useState<NodeType>('ANGLE') // 기본: 비계전도
-
-  // ✅ 없다는 메시지 표시
   const [missingMsg, setMissingMsg] = useState<string>('')
 
   const form = useForm<z.infer<typeof combineAngleNodeToGatewaySchema>>({
     resolver: zodResolver(combineAngleNodeToGatewaySchema),
     defaultValues: {
       gateway_number: '',
-      angle_nodes: '',
+      angle_nodes: '', // 입력 필드 재사용
       gateway_id: '',
       selected_nodes: [],
     },
   })
   const { setValue } = form
 
-  const {
-    data: gateways = [],
-    isLoading: isGatewaysLoading,
-    isError: isGatewaysError,
-    refetch: refetchGateways,
-  } = useQuery({
-    queryKey: ['gateways-by-type', 'GATEWAY'],
-    queryFn: getGatewaysByTypeRequest,
-    refetchOnWindowFocus: false,
-    retry: 1,
-  })
-
   const gatewayOptions = useMemo(() => {
-    const list = (gateways as GatewayItem[]) ?? []
+    const list = (gateways ?? []) as GatewayItem[]
 
     const toNum = (v?: string) => {
       if (!v) return Number.POSITIVE_INFINITY
@@ -151,14 +105,9 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
     }
   }
 
-  /**
-   * ✅ 선택한 노드 확인:
-   * 1) getAllTypeActiveNodesRequest에서 선택 타입의 "사용가능 doorNum"인지 검사
-   * 2) 통과하면 getAngleAliveNodes로 doorNum→_id 매핑해서 selected_nodes 저장
-   */
   const handleSelectedNodes = async () => {
     setMissingMsg('')
-    setCheckinAngleNodesNumber(null)
+    setCheckedNodeNumbers(null)
     setValue('selected_nodes', [], { shouldDirty: true })
 
     const inputNodes = form.getValues().angle_nodes || ''
@@ -173,9 +122,9 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
     }
 
     try {
-      // 1) 타입별 사용가능 노드 doorNum 체크
+      // 1) usable 교차검증
       const all = await getAllTypeActiveNodesRequest()
-      const typeList = extractTypeList(all, nodeType)
+      const typeList = extractVerticalList(all)
 
       const usableSet = new Set(
         (Array.isArray(typeList) ? typeList : [])
@@ -191,12 +140,12 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
         return
       }
 
-      // 2) alive API로 _id 매핑(doorNum -> _id)
-      const aliveRows = await getAngleAliveNodes() // [{_id, doorNum, ...}, ...]
-      const aliveList = Array.isArray(aliveRows) ? aliveRows : []
+      // 2) doorNum -> _id 매핑
+      const allVerticalNodes = await getVerticalNodesRequest()
+      const rows = Array.isArray(allVerticalNodes) ? allVerticalNodes : []
 
       const idMap = new Map<number, string>()
-      aliveList.forEach((x: any) => {
+      rows.forEach((x: any) => {
         const dn = pickDoorNum(x)
         const id = pickId(x)
         if (dn !== null && id) idMap.set(dn, String(id))
@@ -208,13 +157,12 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
 
       const missingIds = nodeNumbers.filter((dn) => !idMap.get(dn))
       if (missingIds.length > 0) {
-        // 사용가능엔 있는데 alive에 없으면 매핑 불가(서버 응답에 _id가 없거나, DB에 없거나)
-        setMissingMsg(`alive 목록에서 _id 매핑 실패: ${missingIds.join(', ')}`)
-        toast.error('alive 목록에서 일부 노드의 _id를 찾지 못했습니다.')
+        setMissingMsg(`_id 매핑 실패: ${missingIds.join(', ')}`)
+        toast.error('일부 노드의 _id를 찾지 못했습니다.')
         return
       }
 
-      setCheckinAngleNodesNumber(nodeNumbers)
+      setCheckedNodeNumbers(nodeNumbers)
       setValue('selected_nodes', selectedIds, { shouldDirty: true })
       toast.success(`${nodeNumbers.length}개 노드 확인 완료`)
     } catch (e: any) {
@@ -235,29 +183,29 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
         return
       }
 
-      const sendingData = {
-        angle_nodes: values.selected_nodes, // ✅ _id 배열
-        gateway_id: values.gateway_id,
-        serial_number: selectedGateway.serial_number,
-      }
+      const gateway_id = values.gateway_id
 
-      const resPromise = connectAngleNodesRequest(sendingData)
+      const resPromise = combineVerticalNodesToGatewayRequest({
+        gateway_id,
+        vertical_nodes: values.selected_nodes, // 백엔드 키에 맞춤
+      })
+
       toast.promise(resPromise, {
         loading: 'Loading...',
         success: (res) => {
           setTimeout(() => {
             form.reset()
             setSelectedGateway(null)
-            setCheckinAngleNodesNumber(null)
+            setCheckedNodeNumbers(null)
             setMissingMsg('')
             refetchNodes()
           }, 600)
-          return res.message
+          return res?.message ?? 'Success'
         },
-        error: (err) => err.message || 'Something went wrong :(',
+        error: (err) => err?.message || 'Something went wrong :(',
       })
     } catch (error: any) {
-      toast.error(error.message || 'Something went wrong :(')
+      toast.error(error?.message || 'Something went wrong :(')
     }
   }
 
@@ -268,10 +216,9 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
           onSubmit={form.handleSubmit(onSubmit)}
           className="w-full h-auto p-3 pb-4 border border-gray-400 bg-white text-gray-700 rounded-lg shadow-lg shadow-gray-300 space-y-4"
         >
-          {/* 헤더 */}
           <div className="relative mb-4">
             <h1 className="absolute left-1/2 -translate-x-1/2 text-xl font-bold underline underline-offset-4 whitespace-nowrap">
-              해치발판&비계전도
+              수직노드
             </h1>
             <div className="h-8" />
           </div>
@@ -284,11 +231,15 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
                 <Select
                   value={selectedGateway?._id ?? ''}
                   onValueChange={handleGatewaySelect}
-                  disabled={isGatewaysLoading}
+                  disabled={gatewayOptions.length === 0}
                 >
                   <SelectTrigger className="w-full border-gray-700">
                     <SelectValue
-                      placeholder={isGatewaysLoading ? '불러오는 중...' : '게이트웨이를 선택하세요'}
+                      placeholder={
+                        gatewayOptions.length === 0
+                          ? '게이트웨이가 없습니다'
+                          : '게이트웨이를 선택하세요'
+                      }
                     />
                   </SelectTrigger>
 
@@ -302,15 +253,6 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
                   </SelectContent>
                 </Select>
               </FormControl>
-
-              {isGatewaysError && (
-                <div className="mt-2 flex items-center gap-2">
-                  <p className="text-red-500 text-sm">게이트웨이 목록을 불러오지 못했습니다.</p>
-                  <Button type="button" className="h-8" onClick={() => refetchGateways()}>
-                    다시 시도
-                  </Button>
-                </div>
-              )}
             </FormItem>
           </div>
 
@@ -321,31 +263,7 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
               name="angle_nodes"
               render={({ field }) => (
                 <FormItem>
-                  {/* 라벨 + 체크박스 한 줄 */}
-                  <div className="flex items-center justify-between">
-                    <FormLabel>노드 번호 입력:</FormLabel>
-
-                    <div className="flex items-center gap-4 text-sm">
-                      <label className="flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={nodeType === 'HATCH'}
-                          onChange={() => setNodeType('HATCH')}
-                        />
-                        해치발판
-                      </label>
-
-                      <label className="flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={nodeType === 'ANGLE'}
-                          onChange={() => setNodeType('ANGLE')}
-                        />
-                        비계전도
-                      </label>
-                    </div>
-                  </div>
-
+                  <FormLabel>노드 번호 입력:</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -358,7 +276,6 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
                 </FormItem>
               )}
             />
-
 
             <div className="mt-2 flex items-center gap-3">
               <Button
@@ -378,12 +295,12 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
           <div className="mb-2 text-sm">
             <label className="flex items-center gap-x-2 text-gray-700">
               노드 선택:
-              {checkinAngleNodesNumber && <span>{checkinAngleNodesNumber.length} 개 노드 선택함</span>}
+              {checkedNodeNumbers && <span>{checkedNodeNumbers.length} 개 노드 선택함</span>}
             </label>
 
-            {checkinAngleNodesNumber && checkinAngleNodesNumber.length > 0 && (
+            {checkedNodeNumbers && checkedNodeNumbers.length > 0 && (
               <div className="flex flex-wrap mt-2 gap-2">
-                {checkinAngleNodesNumber.map((nodeNumber) => (
+                {checkedNodeNumbers.map((nodeNumber) => (
                   <span key={nodeNumber} className="py-1 px-2 bg-blue-500 text-white rounded">
                     {nodeNumber}
                   </span>
@@ -401,4 +318,4 @@ const AngleBuildingForm = ({ refetchNodes }: AngleNodeFormProps) => {
   )
 }
 
-export default AngleBuildingForm
+export default VerticalGatewayForm

@@ -104,9 +104,10 @@ export interface ICreateNode {
 }
 
 export type GatewayType =
-	| 'GATEWAY'
-	| 'VERTICAL_NODE_GATEWAY'
-	| 'OFFICE_GATEWAY'
+  | 'GATEWAY'
+  | 'NODE_GATEWAY'
+  | 'VERTICAL_NODE_GATEWAY'
+  | 'OFFICE_GATEWAY'
 
 
 export interface IGateway {

@@ -4,17 +4,15 @@ import { IBuilding, IGateway } from '@/types/interfaces'
 import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert'
 import { Button } from '../ui/button'
+import { getActiveGateways } from '@/services/apiRequests'
 
 interface GatewayBuildingAssignProps {
-  gateways: IGateway[]
   refetchAll: () => void
 }
 
-const GatewayBuildingAssignForm = ({
-  gateways,
-  refetchAll,
-}: GatewayBuildingAssignProps) => {
+const GatewayBuildingAssignForm = ({ refetchAll }: GatewayBuildingAssignProps) => {
   const [buildings, setBuildings] = useState<IBuilding[]>([])
+  const [gateways, setGateways] = useState<IGateway[]>([]) // ✅ active gateways only
   const [selectedBuildingId, setSelectedBuildingId] = useState('')
   const [selectedGatewayId, setSelectedGatewayId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -25,24 +23,32 @@ const GatewayBuildingAssignForm = ({
     withCredentials: true,
   })
 
-  // 🔹 전체 빌딩 불러오기
+  // 🔹 빌딩 + (활성)게이트웨이 불러오기
   useEffect(() => {
-    const loadBuildings = async () => {
+    const load = async () => {
       try {
-        const res = await api.get('/building/get-buildings')
-        setBuildings(res.data.buildings ?? [])
+        setError('')
+        // 1) buildings
+        const bRes = await api.get('/building/get-buildings')
+        setBuildings(bRes.data.buildings ?? [])
+
+        // 2) ✅ active gateways only
+        const active = await getActiveGateways()
+        setGateways(Array.isArray(active) ? active : [])
       } catch (err: any) {
-        console.error('빌딩 불러오기 실패:', err)
-        setError(err?.response?.data?.message || '빌딩을 불러오지 못했습니다.')
+        console.error(err)
+        setError(err?.response?.data?.message || err?.message || '데이터를 불러오지 못했습니다.')
       }
     }
-    loadBuildings()
+
+    load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 🔹 빌딩에 게이트웨이 연결
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
     if (!selectedGatewayId || !selectedBuildingId) {
       setError('게이트웨이와 빌딩을 모두 선택해주세요.')
       return
@@ -50,6 +56,7 @@ const GatewayBuildingAssignForm = ({
 
     setIsLoading(true)
     setError('')
+
     try {
       await api.put('/building/building/change-gateway-building', {
         gateway_id: selectedGatewayId,
@@ -59,7 +66,13 @@ const GatewayBuildingAssignForm = ({
       alert('연결 완료!')
       setSelectedBuildingId('')
       setSelectedGatewayId('')
+
+      // ✅ 부모 리프레시
       refetchAll()
+
+      // ✅ 연결 이후에도 active gateways 목록 갱신(선택사항)
+      const active = await getActiveGateways()
+      setGateways(Array.isArray(active) ? active : [])
     } catch (err: any) {
       console.error(err)
       setError(err?.response?.data?.message || '연결 중 에러가 발생했습니다.')
@@ -85,7 +98,6 @@ const GatewayBuildingAssignForm = ({
         onSubmit={handleSubmit}
         className="max-w-[26vw] w-full h-auto p-4 pb-8 border border-gray-400 bg-white text-gray-700 rounded-lg shadow-lg shadow-gray-300 space-y-3 min-h-[300px]"
       >
-        {/* ✅ 제목을 박스(폼) 안으로 */}
         <div className="mb-4 pb-2 border-b border-gray-300 text-center">
           <h1 className="text-xl font-bold text-gray-700 underline underline-offset-4 whitespace-nowrap">
             게이트웨이 → 빌딩 연결
@@ -97,12 +109,12 @@ const GatewayBuildingAssignForm = ({
           <label className="font-medium mb-1">빌딩 선택</label>
           <select
             value={selectedBuildingId}
-            onChange={e => setSelectedBuildingId(e.target.value)}
+            onChange={(e) => setSelectedBuildingId(e.target.value)}
             className="w-full border p-0 rounded border-gray-700 focus:border-transparent text-base"
             disabled={isLoading}
           >
             <option value="">선택하세요</option>
-            {buildings.map(b => (
+            {buildings.map((b) => (
               <option key={b._id} value={b._id}>
                 {b.building_name}
               </option>
@@ -110,17 +122,17 @@ const GatewayBuildingAssignForm = ({
           </select>
         </div>
 
-        {/* 게이트웨이 선택 */}
+        {/* ✅ 활성 게이트웨이만 */}
         <div className="space-y-1 mt-8">
           <label className="font-medium mb-1">게이트웨이 선택</label>
           <select
             value={selectedGatewayId}
-            onChange={e => setSelectedGatewayId(e.target.value)}
+            onChange={(e) => setSelectedGatewayId(e.target.value)}
             className="w-full border p-0 rounded border-gray-700 focus:border-transparent text-base"
             disabled={isLoading}
           >
             <option value="">선택하세요</option>
-            {gateways.map(gw => (
+            {gateways.map((gw) => (
               <option key={gw._id} value={gw._id}>
                 {gw.serial_number} {gw.gateway_type ? `(${gw.gateway_type})` : ''}
               </option>
