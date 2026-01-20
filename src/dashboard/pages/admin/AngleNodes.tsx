@@ -225,12 +225,12 @@ const AngleNodes = () => {
 	}, [buildingId, buildingData?._id])
 
 	// ---------------- alive 상태 ---------------- //
-	const { data: aliveList = [] } = useQuery({
+	const { data: aliveList = [], refetch: refetchAlive } = useQuery({
 		queryKey: ['angle-nodes-alive'],
 		queryFn: fetchAliveNodes,
-		refetchInterval: 5000,
+		refetchInterval: false,
 		refetchOnWindowFocus: false,
-		staleTime: 4000,
+		staleTime: Infinity,
 	})
 
 	const aliveSet = useMemo(() => {
@@ -355,7 +355,7 @@ const AngleNodes = () => {
 				}),
 			enabled: !!graphRange && !!dn && viewMode === 'top6',
 			retry: 1,
-			refetchInterval: 5000,
+			refetchInterval: false,
 			refetchOnWindowFocus: false,
 			staleTime: 4000,
 		})),
@@ -388,7 +388,7 @@ const AngleNodes = () => {
 		queryFn: () => fetchAngleGraph(graphRange!),
 		enabled: !!graphRange,
 		retry: 1,
-		refetchInterval: 5000,
+		refetchInterval: false,
 		refetchOnWindowFocus: false,
 		staleTime: 4000,
 	})
@@ -546,6 +546,7 @@ const AngleNodes = () => {
 			await api.patch(`/angle-nodes/${doorNum}/save-status`, {
 				save_status: next,
 			})
+			await refetchAlive() // ✅ 여기서만 다시 1번
 			queryClient.invalidateQueries({ queryKey: ['angle-nodes-alive'] })
 		} catch (e) {
 			if (isAxiosError(e)) {
