@@ -47,11 +47,9 @@ const api = axios.create({
 	withCredentials: true,
 })
 
-/** ✅ / (루트) 용 axios : /weather, /alert-logs 같은 경우 */
-
 /** ------------------------------------------------------------------
  * 전체 노드 alive 조회
- * GET /api/angle-nodes/alive
+ * GET /api/angle-node/alive
  * ------------------------------------------------------------------ */
 async function fetchAliveNodes() {
 	const res = await api.get('/angle-node/alive')
@@ -94,7 +92,7 @@ async function fetchAliveNodes() {
 
 /** ------------------------------------------------------------------
  * 그래프 데이터 조회
- * ✅ 백엔드 router 기준: GET /api/angle-nodes/angle-node/data?doorNum=...&from=...&to=...
+ * GET /api/angle-node/angle-node/data?doorNum=...&from=...&to=...
  * ------------------------------------------------------------------ */
 async function fetchAngleGraph({
 	doorNum,
@@ -123,7 +121,6 @@ const AngleNodes = () => {
 	>('general')
 
 	const [topDoorNums, setTopDoorNums] = useState<number[] | null>(null)
-	const [nowTick, setNowTick] = useState(0)
 
 	const { buildingId } = useParams()
 	const queryClient = useQueryClient()
@@ -135,23 +132,22 @@ const AngleNodes = () => {
 	const [alertLogs, setAlertLogs] = useState<any[]>([])
 	const [isFirstLoad, setIsFirstLoad] = useState(true)
 
-	// ---------------- 풍속 데이터 로딩 (루트 API로 유지) ---------------- //
+	/** ✅ wind 재조회 함수 (그래프 업데이트될 때마다 무조건 호출) */
+	const refetchWind = useCallback(async () => {
+		if (!buildingId) return
+		try {
+			const res = await api.get(`/weather/${buildingId}/wind-series`)
+			setWindHistory(res.data?.data ?? [])
+		} catch (e) {
+			console.error('풍속 데이터 불러오기 실패:', e)
+		}
+	}, [buildingId])
+
+	/** ✅ (변경) wind 폴링 제거: 최초 1회만 */
 	useEffect(() => {
 		if (!buildingId) return
-
-		const loadWind = async () => {
-			try {
-				const res = await api.get(`/weather/${buildingId}/wind-series`)
-				setWindHistory(res.data?.data ?? [])
-			} catch (e) {
-				console.error('풍속 데이터 불러오기 실패:', e)
-			}
-		}
-
-		loadWind()
-		const timer = setInterval(loadWind, 60 * 1000)
-		return () => clearInterval(timer)
-	}, [buildingId])
+		refetchWind()
+	}, [buildingId, refetchWind])
 
 	// ---------------- 빌딩/노드 메타 ---------------- //
 	const { data: metaData } = useQuery({
@@ -191,13 +187,13 @@ const AngleNodes = () => {
 		}
 	}, [buildingData])
 
-	// ---------------- 위험 로그 로딩 (루트 API로 유지) ---------------- //
+	// ---------------- 위험 로그 로딩 (HTTP 1회) ---------------- //
 	useEffect(() => {
 		if (!buildingId || !buildingData?._id) return
 
 		const fetchAlertLogs = async () => {
 			try {
-				const res = await api.get('/alert', {
+				const res = await api.get('/alert/', {
 					params: { building: buildingData._id, limit: 0 },
 				})
 
@@ -224,7 +220,7 @@ const AngleNodes = () => {
 		fetchAlertLogs()
 	}, [buildingId, buildingData?._id])
 
-	// ---------------- alive 상태 ---------------- //
+	// ---------------- alive 상태 (HTTP 1회) ---------------- //
 	const { data: aliveList = [], refetch: refetchAlive } = useQuery({
 		queryKey: ['angle-nodes-alive'],
 		queryFn: fetchAliveNodes,
@@ -252,7 +248,7 @@ const AngleNodes = () => {
 		return m
 	}, [aliveList])
 
-	// ---------------- 카드에 표시할 리스트(= 소켓으로 갱신된 stableNodes + alive) ---------------- //
+	// ---------------- 카드에 표시할 리스트 ---------------- //
 	const nodesForScroll: IAngleNode[] = useMemo(() => {
 		return stableNodes.map(n => {
 			const aliveInfo = aliveMap.get(n.doorNum)
@@ -264,14 +260,9 @@ const AngleNodes = () => {
 		})
 	}, [stableNodes, aliveSet, aliveMap])
 
-	// ✅ hour 모드일 때만 "현재 시간" 갱신해서 range 재계산
-	useEffect(() => {
-		if (timeMode !== 'hour') return
-		const id = window.setInterval(() => setNowTick(Date.now()), 60 * 1000)
-		return () => clearInterval(id)
-	}, [timeMode])
-
-	// ---------------- 그래프 시간 범위 ---------------- //
+	/** =========================
+	 * ✅ graphRange는 fetch 파라미터용 (key 안정화 때문에 key에는 from/to 안 넣음)
+	 * ========================= */
 	const graphRange = useMemo(() => {
 		if (!selectedDoorNum && viewMode !== 'top6') return null
 
@@ -326,27 +317,31 @@ const AngleNodes = () => {
 			from = first.toISOString()
 			to = last.toISOString()
 		} else {
+			// hour
 			const now = new Date()
-			from = new Date(
-				now.getTime() - selectedHours * 60 * 60 * 1000,
-			).toISOString()
+			from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
 			to = now.toISOString()
 		}
 
 		return { doorNum: selectedDoorNum ?? -1, from, to }
-	}, [
-		selectedDoorNum,
-		selectedHours,
-		selectedDate,
-		timeMode,
-		viewMode,
-		nowTick,
-	])
+	}, [selectedDoorNum, selectedHours, selectedDate, timeMode, viewMode])
+
+	/** ✅ queryKey 안정화용 dateKey */
+	const dateKey = useMemo(() => {
+		if (!selectedDate) return 'no-date'
+		return `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`
+	}, [selectedDate])
+
+	/** ✅ (변경) queryKey 안정화: from/to를 key에 넣지 않음 */
+	const graphKey = useMemo(() => {
+		if (!selectedDoorNum || viewMode === 'top6') return ['angle-graph', 'disabled']
+		return ['angle-graph', selectedDoorNum, timeMode, selectedHours, dateKey]
+	}, [selectedDoorNum, viewMode, timeMode, selectedHours, dateKey])
 
 	// ---------------- top6 그래프 ---------------- //
 	const topQueries = useQueries({
 		queries: (topDoorNums ?? []).map(dn => ({
-			queryKey: ['angle-graph-top', dn, graphRange?.from, graphRange?.to],
+			queryKey: ['angle-graph-top', dn, timeMode, selectedHours, dateKey],
 			queryFn: () =>
 				fetchAngleGraph({
 					doorNum: dn,
@@ -357,7 +352,7 @@ const AngleNodes = () => {
 			retry: 1,
 			refetchInterval: false,
 			refetchOnWindowFocus: false,
-			staleTime: 4000,
+			staleTime: Infinity, // ✅ 소켓이 갱신하므로
 		})),
 	})
 
@@ -380,17 +375,15 @@ const AngleNodes = () => {
 			.map(p => ({ ...p, timestamp: new Date(p.time).getTime() }))
 	}, [viewMode, topDoorNums, topQueries])
 
-	// ---------------- 그래프 데이터 ---------------- //
+	// ---------------- 그래프 데이터 (초기 로드만) ---------------- //
 	const { data: graphRaw = [] } = useQuery({
-		queryKey: graphRange
-			? ['angle-graph', graphRange.doorNum, graphRange.from, graphRange.to]
-			: ['angle-graph', 'disabled'],
+		queryKey: graphKey,
 		queryFn: () => fetchAngleGraph(graphRange!),
-		enabled: !!graphRange,
+		enabled: !!graphRange && viewMode !== 'top6' && !!selectedDoorNum,
 		retry: 1,
 		refetchInterval: false,
 		refetchOnWindowFocus: false,
-		staleTime: 4000,
+		staleTime: Infinity,
 	})
 
 	// ---------------- 그래프 뷰모드별 변환 ---------------- //
@@ -399,8 +392,7 @@ const AngleNodes = () => {
 
 		const filtered = graphRaw.filter(d => d.doorNum === selectedDoorNum)
 		const sorted = filtered.sort(
-			(a, b) =>
-				new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+			(a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
 		)
 
 		if (viewMode === 'general') {
@@ -462,22 +454,121 @@ const AngleNodes = () => {
 		return { graphData: [], deltaGraphData: avgDelta }
 	}, [graphRaw, selectedDoorNum, viewMode])
 
-	// ---------------- 소켓 리스너: ✅ 카드 최신값은 여기서만 갱신 ---------------- //
-	const graphRefetchTimer = useRef<number | null>(null)
-	const scheduleGraphRefetch = useCallback(() => {
-		if (graphRefetchTimer.current) return
-		graphRefetchTimer.current = window.setTimeout(() => {
-			queryClient.invalidateQueries({ queryKey: ['angle-graph'] })
-			graphRefetchTimer.current = null
-		}, 400)
-	}, [queryClient])
+	/** =========================
+	 * ✅ 소켓에서 그래프 캐시 append/replace + trim
+	 * ========================= */
+	const selectedDoorNumRef = useRef<number | null>(null)
+	const viewModeRef = useRef(viewMode)
+	const topDoorNumsRef = useRef<number[] | null>(null)
+	const timeModeRef = useRef(timeMode)
+	const selectedHoursRef = useRef(selectedHours)
+	const selectedDateRef = useRef<Date | null>(selectedDate)
+	const dateKeyRef = useRef(dateKey)
 
+	useEffect(() => {
+		selectedDoorNumRef.current = selectedDoorNum
+	}, [selectedDoorNum])
+	useEffect(() => {
+		viewModeRef.current = viewMode
+	}, [viewMode])
+	useEffect(() => {
+		topDoorNumsRef.current = topDoorNums
+	}, [topDoorNums])
+	useEffect(() => {
+		timeModeRef.current = timeMode
+	}, [timeMode])
+	useEffect(() => {
+		selectedHoursRef.current = selectedHours
+	}, [selectedHours])
+	useEffect(() => {
+		selectedDateRef.current = selectedDate
+	}, [selectedDate])
+	useEffect(() => {
+		dateKeyRef.current = dateKey
+	}, [dateKey])
+
+	const calcWindow = useCallback((refTimeMs: number) => {
+		const tm = timeModeRef.current
+		const sd = selectedDateRef.current
+		const hours = selectedHoursRef.current
+
+		let fromT: number
+		let toT: number
+
+		if (tm === 'day' && sd) {
+			const start = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate(), 0, 0, 0, 0)
+			const end = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate(), 23, 59, 59, 999)
+			fromT = start.getTime()
+			toT = end.getTime()
+		} else if (tm === 'week') {
+			const base = sd ?? new Date()
+			const day = base.getDay()
+			const diffToMonday = (day + 6) % 7
+			const monday = new Date(base)
+			monday.setDate(base.getDate() - diffToMonday)
+			monday.setHours(0, 0, 0, 0)
+			const sunday = new Date(monday)
+			sunday.setDate(monday.getDate() + 6)
+			sunday.setHours(23, 59, 59, 999)
+			fromT = monday.getTime()
+			toT = sunday.getTime()
+		} else if (tm === 'month') {
+			const base = sd ?? new Date()
+			const first = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0)
+			const last = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999)
+			fromT = first.getTime()
+			toT = last.getTime()
+		} else {
+			// hour: 새 데이터 시간 기준으로 슬라이딩
+			toT = refTimeMs
+			fromT = toT - hours * 60 * 60 * 1000
+		}
+
+		return { fromT, toT }
+	}, [])
+
+	const upsertGraphCache = useCallback(
+		(queryKeyForCache: any[], newData: SensorData) => {
+			const t = new Date(newData.createdAt).getTime()
+			if (Number.isNaN(t)) return false
+
+			const { fromT, toT } = calcWindow(t)
+
+			// 범위 밖 데이터는 무시
+			if (t < fromT || t > toT) return false
+
+			queryClient.setQueryData<SensorData[]>(queryKeyForCache, (old = []) => {
+				const sameDoor = old.filter(x => x.doorNum === newData.doorNum)
+
+				const idx = sameDoor.findIndex(x => x.createdAt === newData.createdAt)
+				let next =
+					idx >= 0
+						? sameDoor.map((x, i) => (i === idx ? newData : x))
+						: [...sameDoor, newData]
+
+				next.sort(
+					(a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+				)
+				next = next.filter(x => {
+					const tt = new Date(x.createdAt).getTime()
+					return tt >= fromT && tt <= toT
+				})
+
+				return next
+			})
+
+			return true // ✅ 그래프가 실제로 업데이트되었음을 반환
+		},
+		[calcWindow, queryClient],
+	)
+
+	// ---------------- 소켓 리스너: 카드 + 그래프 캐시 갱신 ---------------- //
 	useEffect(() => {
 		if (!buildingId) return
 		const topic = `${buildingId}_angle-nodes`
 
 		const listener = (newData: SensorData) => {
-			// ✅ 리스트(카드) 최신값을 소켓으로 반영 (폴링 제거)
+			// ✅ 1) 카드(리스트) 최신값 업데이트
 			queryClient.setQueryData<ResQuery>(
 				['get-building-angle-nodes', buildingId],
 				old => {
@@ -485,7 +576,6 @@ const AngleNodes = () => {
 					const list = old.angle_nodes ?? []
 					const idx = list.findIndex(n => n.doorNum === newData.doorNum)
 
-					// ✅ calibrated 우선(없으면 angle로 fallback)
 					const cx =
 						(newData as any).calibrated_x ??
 						(newData as any).calibratedX ??
@@ -503,10 +593,8 @@ const AngleNodes = () => {
 								{
 									_id: crypto.randomUUID(),
 									doorNum: newData.doorNum,
-									// ✅ 카드에서 calibrated_x/y를 쓰고 싶으면 여기에 넣어둠
 									calibrated_x: cx,
 									calibrated_y: cy,
-									// ✅ 호환성 위해 angle_x/y도 같이 업데이트(원하면 제거 가능)
 									angle_x: cx,
 									angle_y: cy,
 									node_status: false,
@@ -531,14 +619,39 @@ const AngleNodes = () => {
 				},
 			)
 
-			if (selectedDoorNum === newData.doorNum) scheduleGraphRefetch()
+			// ✅ 2) 그래프 캐시 upsert (invalidate 없이!)
+			const vm = viewModeRef.current
+			const dk = dateKeyRef.current
+			const tm = timeModeRef.current
+			const hours = selectedHoursRef.current
+
+			let graphUpdated = false
+
+			if (vm === 'top6') {
+				const top = topDoorNumsRef.current ?? []
+				if (top.includes(newData.doorNum)) {
+					const key = ['angle-graph-top', newData.doorNum, tm, hours, dk]
+					graphUpdated = upsertGraphCache(key, newData)
+				}
+			} else {
+				const sel = selectedDoorNumRef.current
+				if (sel === newData.doorNum && sel != null) {
+					const key = ['angle-graph', sel, tm, hours, dk]
+					graphUpdated = upsertGraphCache(key, newData)
+				}
+			}
+
+			// ✅ 3) "그래프가 업데이트되면 무조건 wind 재호출"
+			if (graphUpdated) {
+				refetchWind()
+			}
 		}
 
 		socket.on(topic, listener)
 		return () => {
 			socket.off(topic, listener)
 		}
-	}, [buildingId, queryClient, selectedDoorNum, scheduleGraphRefetch])
+	}, [buildingId, queryClient, upsertGraphCache, refetchWind])
 
 	/** ✅ 저장상태 토글도 /api 로 통일 */
 	const handleToggleSaveStatus = async (doorNum: number, next: boolean) => {
@@ -546,7 +659,7 @@ const AngleNodes = () => {
 			await api.patch(`/angle-nodes/${doorNum}/save-status`, {
 				save_status: next,
 			})
-			await refetchAlive() // ✅ 여기서만 다시 1번
+			await refetchAlive()
 			queryClient.invalidateQueries({ queryKey: ['angle-nodes-alive'] })
 		} catch (e) {
 			if (isAxiosError(e)) {
@@ -564,11 +677,7 @@ const AngleNodes = () => {
 	}
 
 	// ---------------- 알람 레벨 저장 ---------------- //
-	const handleSetAlarmLevels = async (levels: {
-		G: number
-		Y: number
-		R: number
-	}) => {
+	const handleSetAlarmLevels = async (levels: { G: number; Y: number; R: number }) => {
 		if (!buildingId) return
 		try {
 			await setBuildingAlarmLevelRequest(buildingId, {
