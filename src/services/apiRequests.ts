@@ -8,6 +8,7 @@ import {
 	ICreateClient,
 	ICreateGateway,
 	ICreateNode,
+	IGateway,
 	ILogin,
 	IRegisterUser,
 	IResetPasswordStep1,
@@ -15,7 +16,6 @@ import {
 	IUpdateProductStatus,
 	IUpdateUserType,
 	VerticalNodeCreate,
-	IGateway,
 } from '@/types/interfaces'
 import axios from 'axios'
 
@@ -111,12 +111,16 @@ export const resetPasswordRequest = async (user_email: IResetPasswordStep1) => {
 		if (error.response && error.response.data) {
 			throw new Error(error.response.data.message || 'Error on reset-password')
 		}
-		throw new Error(error.message || 'Error on reset-password: Undefined error.')
+		throw new Error(
+			error.message || 'Error on reset-password: Undefined error.',
+		)
 	}
 }
 
 /** 비밀번호 재설정 Step2: 코드 검증/변경 */
-export const resetPasswordVerifyRequest = async (resetData: IResetPasswordStep2) => {
+export const resetPasswordVerifyRequest = async (
+	resetData: IResetPasswordStep2,
+) => {
 	try {
 		const res = await axios.post(
 			`${import.meta.env.VITE_SERVER_BASE_URL}/auth/password-verify`,
@@ -134,7 +138,9 @@ export const resetPasswordVerifyRequest = async (resetData: IResetPasswordStep2)
 		if (error.response && error.response.data) {
 			throw new Error(error.response.data.message || 'Error on reset-password')
 		}
-		throw new Error(error.message || 'Error on reset-password: Undefined error.')
+		throw new Error(
+			error.message || 'Error on reset-password: Undefined error.',
+		)
 	}
 }
 
@@ -222,13 +228,15 @@ export const deleteUser = async (user_id: string) => {
 export const getGateways = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/get-gateways`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway`,
 			{ withCredentials: true },
 		)
 
 		const data = res.data
 		if (data.state === 'fail') {
-			throw new Error(data.message || 'Error on getting-gateways: Undefined error')
+			throw new Error(
+				data.message || 'Error on getting-gateways: Undefined error',
+			)
 		}
 		return data.gateways
 	} catch (error: any) {
@@ -240,13 +248,15 @@ export const getGateways = async () => {
 export const getActiveGateways = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/get-active-gateways`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/active-gateways`,
 			{ withCredentials: true },
 		)
 
 		const data = res.data
 		if (data.state === 'fail') {
-			throw new Error(data.message || 'Error on getting-gateways: Undefined error')
+			throw new Error(
+				data.message || 'Error on getting-gateways: Undefined error',
+			)
 		}
 		return data.gateways
 	} catch (error: any) {
@@ -261,18 +271,22 @@ export const getActiveGateways = async () => {
 export const getSingleGateway = async (gatewayNumber: string) => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/product/get-single-gateway/${gatewayNumber}`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/single-gateway/${gatewayNumber}`,
 			{ withCredentials: true },
 		)
 
 		const data = res.data
 		if (data.state === 'fail') {
-			throw new Error(data.message || 'Error on getting-gateways: Undefined error')
+			throw new Error(
+				data.message || 'Error on getting-gateways: Undefined error',
+			)
 		}
 		return data.gateway
 	} catch (error: any) {
 		// ❗ 서버 메시지 우선 throw
-		throw new Error(error.response?.data?.message || 'Serverda xatolik yuz berdi')
+		throw new Error(
+			error.response?.data?.message || 'Serverda xatolik yuz berdi',
+		)
 	}
 }
 
@@ -280,22 +294,26 @@ export const getSingleGateway = async (gatewayNumber: string) => {
 export const createGatewayRequest = async (gateway: ICreateGateway) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/create-gateway`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/create`,
 			gateway,
 			{ withCredentials: true },
 		)
 
 		const data = res.data
 		if (data.state === 'fail') {
-			throw new Error(data.message || 'Error on creating node')
+			throw new Error(data.message || 'Error on creating office-gateway')
 		}
 
 		return data
 	} catch (error: any) {
 		if (error.response && error.response.data) {
-			throw new Error(error.response.data.message || 'Error on creating node')
+			throw new Error(
+				error.response.data.message || 'Error on creating office-gateway',
+			)
 		}
-		throw new Error(error.message || 'Error on creating node: Undefined error.')
+		throw new Error(
+			error.message || 'Error on creating office-gateway: Undefined error.',
+		)
 	}
 }
 
@@ -303,22 +321,24 @@ export const createGatewayRequest = async (gateway: ICreateGateway) => {
 export const createOfficeGatewayRequest = async (data: any) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/product/create-office-gateway`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/create-office-gateway`,
 			data,
 			{ withCredentials: true },
 		)
 		const result = res.data
 
 		if (result.state === 'fail') {
-			throw new Error(result.message || 'Error on creating node')
+			throw new Error(result.message || 'Error on office-gateway')
 		}
 
 		return result
 	} catch (error: any) {
 		if (error.response && error.response.data) {
-			throw new Error(error.response.data.message || 'Error on creating node')
+			throw new Error(error.response.data.message || 'Error on office-gateway')
 		}
-		throw new Error(error.message || 'Error on creating node: Undefined error.')
+		throw new Error(
+			error.message || 'Error on office-gateway: Undefined error.',
+		)
 	}
 }
 
@@ -331,28 +351,29 @@ type GatewayByTypeResponse = {
 	VERTICAL_NODE_GATEWAY: IGateway[]
 }
 
-export const getGatewaysByTypeRequest = async (): Promise<GatewayByTypeResponse> => {
-	const res = await axios.get(
-		`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/get-gateways-bytype`,
-		{ withCredentials: true },
-	)
+export const getGatewaysByTypeRequest =
+	async (): Promise<GatewayByTypeResponse> => {
+		const res = await axios.get(
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/gateways-bytype`,
+			{ withCredentials: true },
+		)
 
-	const data = res.data
-	if (data.state === 'fail') {
-		throw new Error(data.message || 'Error on getting gateways by type')
-	}
+		const data = res.data
+		if (data.state === 'fail') {
+			throw new Error(data.message || 'Error on getting gateways by type')
+		}
 
-	return {
-		GATEWAY: data.gateways?.GATEWAY ?? [],
-		VERTICAL_NODE_GATEWAY: data.gateways?.VERTICAL_NODE_GATEWAY ?? [],
+		return {
+			GATEWAY: data.gateways?.GATEWAY ?? [],
+			VERTICAL_NODE_GATEWAY: data.gateways?.VERTICAL_NODE_GATEWAY ?? [],
+		}
 	}
-}
 
 /** Vertical Node Gateway만 별도로 필요할 때 쓰는 편의 함수 */
 export const getVerticalNodeGatewaysByTypeRequest = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/get-gateways-bytype`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway/gateways-bytype`,
 			{ withCredentials: true },
 		)
 
@@ -383,7 +404,7 @@ export const getVerticalNodeGatewaysByTypeRequest = async () => {
 export const getNodes = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/node/get-nodes`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/node`,
 			{ withCredentials: true },
 		)
 
@@ -403,10 +424,9 @@ export const getNodes = async () => {
  * - 기존 코드 호환용으로 남겨두되, 가능하면 getNodes로 통일 권장
  */
 export const getNodesRequest = async () => {
-	const res = await axios.get(
-		`${import.meta.env.VITE_SERVER_BASE_URL}/node/get-nodes`,
-		{ withCredentials: true },
-	)
+	const res = await axios.get(`${import.meta.env.VITE_SERVER_BASE_URL}/node`, {
+		withCredentials: true,
+	})
 	const data = res.data
 	if (data.state === 'fail') throw new Error(data.message || '...')
 	return data.nodes
@@ -416,7 +436,7 @@ export const getNodesRequest = async () => {
 export const getActiveNodes = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/node/get-alltype-active-nodes`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/node/alltype-active-nodes`,
 			{ withCredentials: true },
 		)
 
@@ -465,7 +485,8 @@ export const combineHatchNodesToGatewayRequest = async (payload: {
 	)
 
 	const data = res.data
-	if (data.state === 'fail') throw new Error(data.message || 'HATCH combine failed')
+	if (data.state === 'fail')
+		throw new Error(data.message || 'HATCH combine failed')
 	return data
 }
 
@@ -480,7 +501,7 @@ export const combineHatchNodesToGatewayRequest = async (payload: {
 export const createAngleNodeRequest = async (nodes: AngleNodeCreate[]) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/angle-node/create-angle-nodes`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/angle-node/create`,
 			nodes,
 			{ withCredentials: true },
 		)
@@ -503,7 +524,7 @@ export const createAngleNodeRequest = async (nodes: AngleNodeCreate[]) => {
 export const getActiveAngleNodes = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/angle-node/get-active-angle-nodes`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/angle-node/active`,
 			{ withCredentials: true },
 		)
 
@@ -516,12 +537,12 @@ export const getActiveAngleNodes = async () => {
 		throw new Error(error.message || 'Error on connecting to server.')
 	}
 }
-
+// ---------------------------------------------------------------------------------- //
 /** 빌딩별 Angle 노드 목록 */
 export const fetchBuildingAngleNodes = async (buildingId: string) => {
 	try {
 		const response = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/building/buildings/${buildingId}/angle-nodes`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/building/${buildingId}/angle-nodes`,
 			{ withCredentials: true },
 		)
 
@@ -533,31 +554,12 @@ export const fetchBuildingAngleNodes = async (buildingId: string) => {
 		return data
 	} catch (error: any) {
 		return new Error(
-			error.response?.data?.message || 'Error on fetching building angle-nodes.',
+			error.response?.data?.message ||
+				'Error on fetching building angle-nodes.',
 		)
 	}
 }
-
-/** 빌딩별 Angle 노드 summary */
-export const getAngleNodeSummary = async (buildingId: string) => {
-	try {
-		const response = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/angle-node/buildings/${buildingId}/angle-nodes/summary`,
-			{ withCredentials: true },
-		)
-
-		const data = response.data
-		if (data.state === 'fail') {
-			throw new Error(data.message || 'Error on creating node')
-		}
-
-		return data.angle_nodes
-	} catch (error: any) {
-		return new Error(
-			error.response?.data?.message || 'Error on fetching building angle-nodes.',
-		)
-	}
-}
+// ---------------------------------------------------------------------------------- //
 
 /**
  * Angle 노드 alive 목록
@@ -608,10 +610,12 @@ export const combineAngleNodesToGatewayRequest = async (payload: {
  */
 
 /** Vertical 노드 생성 */
-export const createVerticalNodeRequest = async (nodes: VerticalNodeCreate[]) => {
+export const createVerticalNodeRequest = async (
+	nodes: VerticalNodeCreate[],
+) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/vertical-node/`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/vertical-node/create`,
 			nodes,
 			{ withCredentials: true },
 		)
@@ -639,7 +643,7 @@ export const createVerticalNodeRequest = async (nodes: VerticalNodeCreate[]) => 
 export const getVerticalNodesRequest = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/vertical-node/`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/vertical-node`,
 			{ withCredentials: true },
 		)
 
@@ -696,7 +700,7 @@ export const combineVerticalNodesToGatewayRequest = async (payload: {
 export const getAllTypeActiveNodesRequest = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/node/get-alltype-active-nodes`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/node/alltype-active-nodes`,
 			{ withCredentials: true },
 		)
 
@@ -723,7 +727,7 @@ export const getAllTypeActiveNodesRequest = async () => {
  * - 노드 위치 세팅(FormData)
  */
 
-/** 제품 상태 변경 */
+/** 제품 상태 변경 */ // Need to be checked and completed
 export const updateProductStatus = async (updateData: IUpdateProductStatus) => {
 	try {
 		const res = await axios.post(
@@ -778,7 +782,9 @@ export const NodePositionRequest = async (FormData: FormData) => {
 
 		const data = res.data
 		if (data.state === 'fail') {
-			throw new Error(data.message || 'Error on node-positioning: Undefined error')
+			throw new Error(
+				data.message || 'Error on node-positioning: Undefined error',
+			)
 		}
 		return data
 	} catch (error: any) {
@@ -799,7 +805,7 @@ export const NodePositionRequest = async (FormData: FormData) => {
 export const createBuildingRequest = async (buildingData: ICreateBuilding) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/company/create-building`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/building/create`,
 			buildingData,
 			{ withCredentials: true },
 		)
@@ -822,7 +828,7 @@ export const createBuildingRequest = async (buildingData: ICreateBuilding) => {
 export const createClientRequest = async (clientData: ICreateClient) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/company/create-client`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/company/create`,
 			clientData,
 			{ withCredentials: true },
 		)
@@ -848,13 +854,14 @@ export const changeGatewayBuildingRequest = async (params: {
 }) => {
 	try {
 		const res = await axios.post(
-			'/company/building/change-gateway-building',
+			'/building/change-gateway-building',
 			{
 				gateway_id: params.gateway_id,
 				building_id: params.building_id,
 			},
 			{
-				baseURL: import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
+				baseURL:
+					import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
 				withCredentials: true,
 			},
 		)
@@ -878,7 +885,7 @@ export const changeGatewayBuildingRequest = async (params: {
 export const getActiveBuildings = async () => {
 	try {
 		const res = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/building/get-active-buildings`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/building/active-buildings`,
 			{ withCredentials: true },
 		)
 
@@ -902,7 +909,9 @@ export const getBuildings = async () => {
 
 		const data = res.data
 		if (data.state === 'fail') {
-			throw new Error(data.message || 'Error on getting-buildings: Undefined error')
+			throw new Error(
+				data.message || 'Error on getting-buildings: Undefined error',
+			)
 		}
 		return data.buildings
 	} catch (error: any) {
@@ -914,7 +923,7 @@ export const getBuildings = async () => {
 export const fetchClients = async (): Promise<IClient[]> => {
 	try {
 		const response = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/company/clients`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/company`,
 			{ withCredentials: true },
 		)
 		const data = response.data
@@ -926,7 +935,8 @@ export const fetchClients = async (): Promise<IClient[]> => {
 		return data.clients
 	} catch (error: any) {
 		throw new Error(
-			error.response?.data?.message || 'Server bilan bog‘lanishda xatolik yuz berdi',
+			error.response?.data?.message ||
+				'Server bilan bog‘lanishda xatolik yuz berdi',
 		)
 	}
 }
@@ -935,13 +945,15 @@ export const fetchClients = async (): Promise<IClient[]> => {
 export const deleteClient = async (clintId: string) => {
 	try {
 		const res = await axios.delete(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/company/delete/client/${clintId}`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/company/delete/${clintId}`,
 			{ withCredentials: true },
 		)
 
 		const data = res.data
 		if (data.state === 'fail') {
-			throw new Error(data.message || 'Error on deleting-Client: Undefined error')
+			throw new Error(
+				data.message || 'Error on deleting-Client: Undefined error',
+			)
 		}
 		return data
 	} catch (error: any) {
@@ -953,7 +965,7 @@ export const deleteClient = async (clintId: string) => {
 export const fetchClientBuildings = async (clientId: string | undefined) => {
 	try {
 		const response = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/company/clients/${clientId}`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/company/${clientId}`,
 			{ withCredentials: true },
 		)
 		const data = response.data
@@ -980,7 +992,9 @@ export const deleteBuilding = async (buildngId: string) => {
 
 		const data = res.data
 		if (data.state === 'fail') {
-			throw new Error(data.message || 'Error on deleting-bulding: Undefined error')
+			throw new Error(
+				data.message || 'Error on deleting-bulding: Undefined error',
+			)
 		}
 		return data
 	} catch (error: any) {
@@ -992,7 +1006,7 @@ export const deleteBuilding = async (buildngId: string) => {
 export const fetchBuildingNodes = async (buildingId: string) => {
 	try {
 		const response = await axios.get(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/building/buildings/${buildingId}`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/building/${buildingId}`,
 			{ withCredentials: true },
 		)
 		const data = response.data
@@ -1026,13 +1040,16 @@ export const fetchBossClients = async (userId: string): Promise<IClient[]> => {
 		return data.clients
 	} catch (error: any) {
 		throw new Error(
-			error.response?.data?.message || 'Server bilan bog‘lanishda xatolik yuz berdi',
+			error.response?.data?.message ||
+				'Server bilan bog‘lanishda xatolik yuz berdi',
 		)
 	}
 }
 
 /** boss client의 buildings 조회 */
-export const fetchClientBossBuildings = async (clientId: string | undefined) => {
+export const fetchClientBossBuildings = async (
+	clientId: string | undefined,
+) => {
 	try {
 		const response = await axios.get(
 			`${import.meta.env.VITE_SERVER_BASE_URL}/company/client/boss/${clientId}`,
@@ -1070,7 +1087,8 @@ export const setBuildingAlarmLevelRequest = async (
 				},
 			},
 			{
-				baseURL: import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
+				baseURL:
+					import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005',
 				withCredentials: true,
 			},
 		)

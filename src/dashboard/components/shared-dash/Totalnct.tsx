@@ -136,7 +136,7 @@ const TotalcntCsv = ({ nodes, onFilterChange }: IProps) => {
 							className={`w-fit flex items-center ${cn(
 								nodes.filter(node => node.doorChk === 1).length > 0
 									? 'text-red-500 gap-2'
-									: ''
+									: '',
 							)} gap-2`}
 						>
 							<p className='md:w-5 md:h-5 w-3 h-3 rounded-full bg-red-500 mx-auto animate-pulse' />
@@ -289,7 +289,7 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 				{
 					params: { buildingId: id },
 					responseType: 'blob',
-				}
+				},
 			)
 
 			const url = window.URL.createObjectURL(new Blob([response.data]))
@@ -372,7 +372,7 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 							className='flex items-center gap-2'
 						>
 							<ChartSpline className='w-4 h-4' />
-							<span className='text-sm'>건물 비계전도 노드 보기기</span>
+							<span className='text-sm'>건물 비계전도 노드 보기</span>
 						</Link>
 					</Button>
 				</div>

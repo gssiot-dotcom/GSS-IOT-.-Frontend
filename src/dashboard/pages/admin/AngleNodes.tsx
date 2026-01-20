@@ -103,7 +103,7 @@ async function fetchAngleGraph({
 	from: string
 	to: string
 }) {
-	const res = await api.get<SensorData[]>('/angle-node/angle-node/data', {
+	const res = await api.get<SensorData[]>('/angle-node/graphic-data', {
 		params: { doorNum, from, to },
 	})
 	return res.data
@@ -319,7 +319,9 @@ const AngleNodes = () => {
 		} else {
 			// hour
 			const now = new Date()
-			from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
+			from = new Date(
+				now.getTime() - selectedHours * 60 * 60 * 1000,
+			).toISOString()
 			to = now.toISOString()
 		}
 
@@ -334,7 +336,8 @@ const AngleNodes = () => {
 
 	/** ✅ (변경) queryKey 안정화: from/to를 key에 넣지 않음 */
 	const graphKey = useMemo(() => {
-		if (!selectedDoorNum || viewMode === 'top6') return ['angle-graph', 'disabled']
+		if (!selectedDoorNum || viewMode === 'top6')
+			return ['angle-graph', 'disabled']
 		return ['angle-graph', selectedDoorNum, timeMode, selectedHours, dateKey]
 	}, [selectedDoorNum, viewMode, timeMode, selectedHours, dateKey])
 
@@ -392,7 +395,8 @@ const AngleNodes = () => {
 
 		const filtered = graphRaw.filter(d => d.doorNum === selectedDoorNum)
 		const sorted = filtered.sort(
-			(a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+			(a, b) =>
+				new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
 		)
 
 		if (viewMode === 'general') {
@@ -496,8 +500,24 @@ const AngleNodes = () => {
 		let toT: number
 
 		if (tm === 'day' && sd) {
-			const start = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate(), 0, 0, 0, 0)
-			const end = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate(), 23, 59, 59, 999)
+			const start = new Date(
+				sd.getFullYear(),
+				sd.getMonth(),
+				sd.getDate(),
+				0,
+				0,
+				0,
+				0,
+			)
+			const end = new Date(
+				sd.getFullYear(),
+				sd.getMonth(),
+				sd.getDate(),
+				23,
+				59,
+				59,
+				999,
+			)
 			fromT = start.getTime()
 			toT = end.getTime()
 		} else if (tm === 'week') {
@@ -515,7 +535,15 @@ const AngleNodes = () => {
 		} else if (tm === 'month') {
 			const base = sd ?? new Date()
 			const first = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0)
-			const last = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999)
+			const last = new Date(
+				base.getFullYear(),
+				base.getMonth() + 1,
+				0,
+				23,
+				59,
+				59,
+				999,
+			)
 			fromT = first.getTime()
 			toT = last.getTime()
 		} else {
@@ -547,7 +575,8 @@ const AngleNodes = () => {
 						: [...sameDoor, newData]
 
 				next.sort(
-					(a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+					(a, b) =>
+						new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
 				)
 				next = next.filter(x => {
 					const tt = new Date(x.createdAt).getTime()
@@ -664,7 +693,7 @@ const AngleNodes = () => {
 		} catch (e) {
 			if (isAxiosError(e)) {
 				console.error('PATCH failed:', {
-					url: `/api/angle-nodes/${doorNum}/save-status`,
+					url: `/angle-node/${doorNum}/save-status`,
 					status: e.response?.status,
 					data: e.response?.data,
 					message: e.message,
@@ -677,7 +706,11 @@ const AngleNodes = () => {
 	}
 
 	// ---------------- 알람 레벨 저장 ---------------- //
-	const handleSetAlarmLevels = async (levels: { G: number; Y: number; R: number }) => {
+	const handleSetAlarmLevels = async (levels: {
+		G: number
+		Y: number
+		R: number
+	}) => {
 		if (!buildingId) return
 		try {
 			await setBuildingAlarmLevelRequest(buildingId, {
