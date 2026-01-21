@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Button } from '@/components/ui/button'
 import { useGatewaysList } from '@/hooks/useProducts'
-import { deleteProduct, updateProductStatus } from '@/services/apiRequests'
+import { deleteGateway, updateGatewaytStatus } from '@/services/apiRequests'
 import { IUpdateProductStatus } from '@/types/interfaces'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
@@ -14,7 +14,7 @@ const GatewaysList = () => {
 
 	const handleStatus = async (updatingData: IUpdateProductStatus) => {
 		try {
-			await updateProductStatus(updatingData)
+			await updateGatewaytStatus(updatingData)
 			toast.success('성공, 게이트웨이 상태가 바꼈읍니다!')
 			refetch()
 		} catch (error: any) {
@@ -24,7 +24,7 @@ const GatewaysList = () => {
 
 	const handleDelete = async (deletingProduct: IUpdateProductStatus) => {
 		try {
-			await deleteProduct(deletingProduct)
+			await deleteGateway(deletingProduct)
 			toast.success('성공, 게이트웨이가 삭제 하였읍니다!')
 			refetch()
 		} catch (error: any) {
@@ -35,7 +35,7 @@ const GatewaysList = () => {
 	console.log(data)
 
 	const sortedGateways = data?.sort(
-		(a, b) => parseInt(a.serial_number, 10) - parseInt(b.serial_number, 10)
+		(a, b) => parseInt(a.serial_number, 10) - parseInt(b.serial_number, 10),
 	)
 
 	return (
@@ -87,7 +87,7 @@ const GatewaysList = () => {
 											onClick={() =>
 												handleStatus({
 													product_type: 'GATEWAY',
-													product_endpoint: '/update-product',
+													product_endpoint: '/update-status',
 													product_id: gateway._id,
 												})
 											}
@@ -101,11 +101,11 @@ const GatewaysList = () => {
 										<Button
 											onClick={() =>
 												confirm(
-													`${gateway.serial_number} 번 게이트웨이를를 삭제 하시겠습니까 ?`
+													`${gateway.serial_number} 번 게이트웨이를를 삭제 하시겠습니까 ?`,
 												) &&
 												handleDelete({
 													product_type: 'GATEWAY',
-													product_endpoint: '/delete-product',
+													product_endpoint: '/delete',
 													product_id: gateway._id,
 												})
 											}
@@ -123,7 +123,7 @@ const GatewaysList = () => {
 											<Button
 												onClick={() =>
 													setExpandedRow(
-														expandedRow === gateway._id ? null : gateway._id
+														expandedRow === gateway._id ? null : gateway._id,
 													)
 												}
 												variant='outline'
@@ -158,7 +158,7 @@ const GatewaysList = () => {
 														onClick={() =>
 															handleStatus({
 																product_type: 'GATEWAY',
-																product_endpoint: '/update-product',
+																product_endpoint: '/update-status',
 																product_id: gateway._id,
 															})
 														}
@@ -170,11 +170,11 @@ const GatewaysList = () => {
 													<Button
 														onClick={() =>
 															confirm(
-																`${gateway.serial_number} 번 게이트웨이를를 삭제 하시겠습니까 ?`
+																`${gateway.serial_number} 번 게이트웨이를를 삭제 하시겠습니까 ?`,
 															) &&
 															handleDelete({
 																product_type: 'GATEWAY',
-																product_endpoint: '/delete-product',
+																product_endpoint: '/delete',
 																product_id: gateway._id,
 															})
 														}

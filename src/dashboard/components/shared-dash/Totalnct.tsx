@@ -112,7 +112,7 @@ const TotalcntCsv = ({ nodes, onFilterChange }: IProps) => {
 
 	if ((nodes?.length ?? 0) <= 0) {
 		return (
-			<h1 className='w-full h-full flex justify-center mt-10 text-red-600 text-lg'>
+			<h1 className='w-full h-full flex justify-center mt-10 text-gray-700 text-lg'>
 				이 건물의 노드를 못 찾았습니다 :(
 			</h1>
 		)
@@ -278,8 +278,6 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 	const [isOpen, setIsOpen] = useState(false)
 	const { clientId } = useParams()
 
-	console.log(building)
-
 	const handleDownload = async (id: string) => {
 		try {
 			const response = await axios.get(
@@ -306,86 +304,88 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 
 	return (
 		<Card className='mt-4 border-slate-400'>
-			<CardContent className='p-4'>
-				<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3'>
-					{/* Floor Plan Upload */}
-					<Button
-						variant='outline'
-						onClick={() => setIsOpen(true)}
-						className='flex items-center gap-2 h-auto py-3 border-slate-400'
-					>
-						<Upload className='w-4 h-4' />
-						<span className='text-sm'>도면 이미지 업로드</span>
-					</Button>
+			{building && (
+				<CardContent className='p-4'>
+					<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3'>
+						{/* Floor Plan Upload */}
+						<Button
+							variant='outline'
+							onClick={() => setIsOpen(true)}
+							className='flex items-center gap-2 h-auto py-3 border-slate-400'
+						>
+							<Upload className='w-4 h-4' />
+							<span className='text-sm'>도면 이미지 업로드</span>
+						</Button>
 
-					{/* Floor Plan View */}
-					<Button
-						variant='outline'
-						onClick={() => setIsOpen(true)}
-						className='flex items-center gap-2 h-auto py-3 border-slate-400'
-					>
-						<Eye className='w-4 h-4' />
-						<span className='text-sm'>도면 보기</span>
-					</Button>
+						{/* Floor Plan View */}
+						<Button
+							variant='outline'
+							onClick={() => setIsOpen(true)}
+							className='flex items-center gap-2 h-auto py-3 border-slate-400'
+						>
+							<Eye className='w-4 h-4' />
+							<span className='text-sm'>도면 보기</span>
+						</Button>
 
-					{/* Position File Download */}
-					{building?.nodes_position_file && (
+						{/* Position File Download */}
+						{building?.nodes_position_file && (
+							<Button
+								variant='outline'
+								asChild
+								className='flex items-center gap-2 h-auto py-3 border-slate-400'
+							>
+								<a
+									href={`${
+										import.meta.env.VITE_SERVER_BASE_URL
+									}/exels/${encodeURIComponent(building.nodes_position_file)}`}
+									download
+								>
+									<FileText className='w-4 h-4' />
+									<span className='text-sm'>위치 파일</span>
+									<Download className='w-3 h-3' />
+								</a>
+							</Button>
+						)}
+
+						{/* Nodes Report Download */}
+						<Button
+							variant='outline'
+							onClick={() => handleDownload(building!._id)}
+							className='flex items-center gap-2 h-auto py-3 border-slate-400'
+						>
+							<FileText className='w-4 h-4' />
+							<span className='text-sm'>현장 노드 리포트</span>
+							<Download className='w-3 h-3' />
+						</Button>
+
+						{/* Angle-Nodes page Link */}
 						<Button
 							variant='outline'
 							asChild
 							className='flex items-center gap-2 h-auto py-3 border-slate-400'
 						>
-							<a
-								href={`${
-									import.meta.env.VITE_SERVER_BASE_URL
-								}/exels/${encodeURIComponent(building.nodes_position_file)}`}
-								download
+							<Link
+								to={`/admin/dashboard/clients/${clientId}/buildings/${
+									building?._id
+								}/angle-nodes`}
+								className='flex items-center gap-2'
 							>
-								<FileText className='w-4 h-4' />
-								<span className='text-sm'>위치 파일</span>
-								<Download className='w-3 h-3' />
-							</a>
+								<ChartSpline className='w-4 h-4' />
+								<span className='text-sm'>건물 비계전도 노드 보기</span>
+							</Link>
 						</Button>
+					</div>
+
+					{/* Modal */}
+					{isOpen && (
+						<ImageModal
+							imageUrl={modalImg}
+							buildingName={building?.building_name}
+							onClose={() => setIsOpen(false)}
+						/>
 					)}
-
-					{/* Nodes Report Download */}
-					<Button
-						variant='outline'
-						onClick={() => handleDownload(building!._id)}
-						className='flex items-center gap-2 h-auto py-3 border-slate-400'
-					>
-						<FileText className='w-4 h-4' />
-						<span className='text-sm'>현장 노드 리포트</span>
-						<Download className='w-3 h-3' />
-					</Button>
-
-					{/* Angle-Nodes page Link */}
-					<Button
-						variant='outline'
-						asChild
-						className='flex items-center gap-2 h-auto py-3 border-slate-400'
-					>
-						<Link
-							to={`/admin/dashboard/clients/${clientId}/buildings/${
-								building!._id
-							}/angle-nodes`}
-							className='flex items-center gap-2'
-						>
-							<ChartSpline className='w-4 h-4' />
-							<span className='text-sm'>건물 비계전도 노드 보기</span>
-						</Link>
-					</Button>
-				</div>
-
-				{/* Modal */}
-				{isOpen && (
-					<ImageModal
-						imageUrl={modalImg}
-						buildingName={building?.building_name}
-						onClose={() => setIsOpen(false)}
-					/>
-				)}
-			</CardContent>
+				</CardContent>
+			)}
 		</Card>
 	)
 }

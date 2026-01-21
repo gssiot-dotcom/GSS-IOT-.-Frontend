@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Button } from '@/components/ui/button'
 import { useNodesList } from '@/hooks/useProducts'
-import { deleteProduct, updateProductStatus } from '@/services/apiRequests'
+import { deleteNode, updateNodetStatus } from '@/services/apiRequests'
 import { IUpdateProductStatus } from '@/types/interfaces'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
@@ -22,7 +22,7 @@ const NodesList = () => {
 
 	const handleProductStatus = async (updatingData: IUpdateProductStatus) => {
 		try {
-			await updateProductStatus(updatingData)
+			await updateNodetStatus(updatingData)
 			toast.success('성공, 노드 상태가 바꼈읍니다!')
 			refetch()
 		} catch (error: any) {
@@ -32,7 +32,7 @@ const NodesList = () => {
 
 	const handleDelete = async (deletingProduct: IUpdateProductStatus) => {
 		try {
-			await deleteProduct(deletingProduct)
+			await deleteNode(deletingProduct)
 			toast.success('성공, 노드가 삭제 하였읍니다!')
 			refetch()
 		} catch (error: any) {
@@ -96,7 +96,7 @@ const NodesList = () => {
 											onClick={() =>
 												handleProductStatus({
 													product_type: 'NODE',
-													product_endpoint: '/update-product',
+													product_endpoint: '/update-status',
 													product_id: node._id,
 												})
 											}
@@ -110,11 +110,11 @@ const NodesList = () => {
 										<Button
 											onClick={() =>
 												confirm(
-													`${node.doorNum} 번 노드를 삭제 하시겠습니까 ?`
+													`${node.doorNum} 번 노드를 삭제 하시겠습니까 ?`,
 												) &&
 												handleDelete({
 													product_type: 'NODE',
-													product_endpoint: '/delete-product',
+													product_endpoint: '/delete',
 													product_id: node._id,
 												})
 											}
@@ -132,7 +132,7 @@ const NodesList = () => {
 											<Button
 												onClick={() =>
 													setExpandedRow(
-														expandedRow === node._id ? null : node._id
+														expandedRow === node._id ? null : node._id,
 													)
 												}
 												variant='outline'
@@ -171,7 +171,7 @@ const NodesList = () => {
 														onClick={() =>
 															handleProductStatus({
 																product_type: 'NODE',
-																product_endpoint: '/update-product',
+																product_endpoint: '/update-status',
 																product_id: node._id,
 															})
 														}
@@ -183,11 +183,11 @@ const NodesList = () => {
 													<Button
 														onClick={() =>
 															confirm(
-																`${node.doorNum} 번 노드를 삭제 하시겠습니까 ?`
+																`${node.doorNum} 번 노드를 삭제 하시겠습니까 ?`,
 															) &&
 															handleDelete({
 																product_type: 'NODE',
-																product_endpoint: '/delete-product',
+																product_endpoint: '/delete',
 																product_id: node._id,
 															})
 														}

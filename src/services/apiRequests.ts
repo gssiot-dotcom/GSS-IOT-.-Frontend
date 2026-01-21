@@ -342,6 +342,54 @@ export const createOfficeGatewayRequest = async (data: any) => {
 	}
 }
 
+/** 제품 상태 변경 */ // Need to be checked and completed
+export const updateGatewaytStatus = async (
+	updateData: IUpdateProductStatus,
+) => {
+	try {
+		const res = await axios.post(
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway${updateData.product_endpoint}`,
+			{
+				product_type: updateData.product_type,
+				product_id: updateData.product_id,
+			},
+			{ withCredentials: true },
+		)
+
+		const data = res.data
+		if (data.state === 'fail') {
+			throw new Error(data.message || 'Error on updating-user: Undefined error')
+		}
+		return data
+	} catch (error: any) {
+		throw new Error(error.message || 'Error on connecting to server.')
+	}
+}
+
+/** 제품 삭제 */
+export const deleteGateway = async (deleteData: IUpdateProductStatus) => {
+	try {
+		const res = await axios.delete(
+			`${import.meta.env.VITE_SERVER_BASE_URL}/gateway${deleteData.product_endpoint}`,
+			{
+				withCredentials: true,
+				params: {
+					product_type: deleteData.product_type,
+					product_id: deleteData.product_id,
+				},
+			},
+		)
+
+		const data = res.data
+		if (data.state === 'fail') {
+			throw new Error(data.message || 'Error on deleting-user: Undefined error')
+		}
+		return data
+	} catch (error: any) {
+		throw new Error(error.message || 'Error on connecting to server.')
+	}
+}
+
 /**
  * 게이트웨이 타입별 조회
  * - response: { gateways: { GATEWAY: [], VERTICAL_NODE_GATEWAY: [] } }
@@ -728,10 +776,10 @@ export const getAllTypeActiveNodesRequest = async () => {
  */
 
 /** 제품 상태 변경 */ // Need to be checked and completed
-export const updateProductStatus = async (updateData: IUpdateProductStatus) => {
+export const updateNodetStatus = async (updateData: IUpdateProductStatus) => {
 	try {
 		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/product${updateData.product_endpoint}`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/node${updateData.product_endpoint}`,
 			{
 				product_type: updateData.product_type,
 				product_id: updateData.product_id,
@@ -750,15 +798,17 @@ export const updateProductStatus = async (updateData: IUpdateProductStatus) => {
 }
 
 /** 제품 삭제 */
-export const deleteProduct = async (deleteData: IUpdateProductStatus) => {
+export const deleteNode = async (deleteData: IUpdateProductStatus) => {
 	try {
-		const res = await axios.post(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/product${deleteData.product_endpoint}`,
+		const res = await axios.delete(
+			`${import.meta.env.VITE_SERVER_BASE_URL}/node${deleteData.product_endpoint}`,
 			{
-				product_type: deleteData.product_type,
-				product_id: deleteData.product_id,
+				withCredentials: true,
+				params: {
+					product_type: deleteData.product_type,
+					product_id: deleteData.product_id,
+				},
 			},
-			{ withCredentials: true },
 		)
 
 		const data = res.data

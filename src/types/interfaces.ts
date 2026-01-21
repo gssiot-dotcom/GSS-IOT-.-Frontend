@@ -89,7 +89,7 @@ export interface IAngleNode {
 	angle_x: number
 	angle_y: number
 	node_status: boolean
-	save_status?: boolean;
+	save_status?: boolean
 	gateway_id?: { _id: string; serial_number: string }
 	position: string
 	angle_node_img?: string
@@ -104,11 +104,10 @@ export interface ICreateNode {
 }
 
 export type GatewayType =
-  | 'GATEWAY'
-  | 'NODE_GATEWAY'
-  | 'VERTICAL_NODE_GATEWAY'
-  | 'OFFICE_GATEWAY'
-
+	| 'GATEWAY'
+	| 'NODE_GATEWAY'
+	| 'VERTICAL_NODE_GATEWAY'
+	| 'OFFICE_GATEWAY'
 
 export interface IGateway {
 	_id: string
@@ -126,17 +125,15 @@ export interface IGateway {
 	zone_name: string
 	lastSeen: Date
 	gateway_alive: boolean
-	gateway_type: GatewayType   // ✅ 필수 + 정확한 타입
+	gateway_type: GatewayType // ✅ 필수 + 정확한 타입
 }
-
 
 export interface ICreateGateway {
 	serial_number: string
 	nodes: string[]
 	zone_name?: string
-	gateway_type: GatewayType   // ✅ 추가 (필수)
+	gateway_type: GatewayType // ✅ 추가 (필수)
 }
-
 
 export interface IBuilding {
 	_id: string
@@ -231,7 +228,7 @@ export interface IUpdateUserType {
 export interface IUpdateProductStatus {
 	product_type: 'NODE' | 'GATEWAY'
 	product_id: string
-	product_endpoint: '/update-product' | '/delete-product'
+	product_endpoint: '/update-status' | '/delete'
 }
 
 export type AngleNodeCreate = {
@@ -239,7 +236,7 @@ export type AngleNodeCreate = {
 }
 
 export type VerticalNodeCreate = {
-	 node_number: number
+	node_number: number
 }
 
 // 모든 타입 인터페이스를 이곳에서 정의하고 export 합니다.
@@ -265,12 +262,12 @@ export interface DeltaGraphPoint {
 }
 
 export interface IVerticalNode {
-  _id: string
-  node_number: number
-  angle_x: number
-  angle_y: number
-  gateway_id: string | null | { _id: string; serial_number: string } // null 가능
-  node_status: boolean
-  createdAt?: string
-  updatedAt?: string
+	_id: string
+	node_number: number
+	angle_x: number
+	angle_y: number
+	gateway_id: string | null | { _id: string; serial_number: string } // null 가능
+	node_status: boolean
+	createdAt?: string
+	updatedAt?: string
 }

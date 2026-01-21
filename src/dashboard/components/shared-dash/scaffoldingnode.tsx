@@ -20,7 +20,6 @@ const BuildingNodes = () => {
 	if (!buildingId) {
 		throw new Error('Building ID is missing')
 	}
-
 	const { isLoading } = useBuildingNodes(buildingId)
 
 	useEffect(() => {
@@ -130,7 +129,7 @@ const BuildingNodes = () => {
 					<div className='grid grid-cols-3  md:grid-cols-6 md:gap-4 gap-2 md:p-4 p-2'>
 						{filteredNodes?.map((door, index) => {
 							const { color, percentage } = getBatteryIconAndPercentage(
-								door.betChk
+								door.betChk,
 							)
 							return (
 								<Card
