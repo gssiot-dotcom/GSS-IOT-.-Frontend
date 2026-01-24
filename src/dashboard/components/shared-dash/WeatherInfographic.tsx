@@ -59,15 +59,6 @@ const WeatherInfographic = ({ buildingId }: { buildingId: string }) => {
                 {weather.typhoonLabel ?? (weather.typhoon ? '태풍 특보' : '없음')}
               </span>
             </div>
-
-
-            {/* 지진 특보 */}
-            <div className='flex items-center gap-0.5 mx-1'>
-              <span>🌋지진:</span>
-              {weather.earthquake
-                ? <span className='text-red-600'>지진 특보</span>
-                : <span className='text-gray-500'>없음</span>}
-            </div>
           </>
         )}
       </div>
