@@ -34,6 +34,7 @@ interface AlertLog {
 }
 
 interface Props {
+  buildingId?: string
   building_angle_nodes: IAngleNode[]
   onSelectNode: (doorNum: number) => void
   buildingData?: IBuilding
@@ -78,18 +79,22 @@ const buildPlanS3Url = (buildingName?: string) => {
 }
 
 /** ================================
- *   calibrated 값 getter (핵심 변경)
+ *   calibrated 값 getter
  *  ================================ */
-const getX = (n: IAngleNode) =>
-  (n as any).calibrated_x ?? (n as any).calibratedX ?? n.angle_x ?? 0
+const getX = (n: IAngleNode) => (n as any).calibrated_x ?? (n as any).calibratedX ?? n.angle_x ?? 0
+const getY = (n: IAngleNode) => (n as any).calibrated_y ?? (n as any).calibratedY ?? n.angle_y ?? 0
 
-const getY = (n: IAngleNode) =>
-  (n as any).calibrated_y ?? (n as any).calibratedY ?? n.angle_y ?? 0
+/** ================================
+ *  ✅ Gateway type 판단 유틸
+ *  - 백엔드 필드명이 애매할 수 있으니 여러 후보를 방어적으로 
+
+
 
 /** ================================
  *   컴포넌트
  *  ================================ */
 const AngleNodeScroll = ({
+  buildingId,
   building_angle_nodes,
   onSelectNode,
   buildingData,
@@ -130,6 +135,22 @@ const AngleNodeScroll = ({
   // ✅ 초기화 모달 관련
   const [isInitModalOpen, setIsInitModalOpen] = useState(false)
   const [selectedNodesForInit, setSelectedNodesForInit] = useState<number[]>([])
+
+  /** ================================
+   * ✅ (핵심) GATEWAY 타입만 사용
+   * ================================ */
+  const gatewaysOnly = useMemo(() => {
+    return (gateways ?? []).filter((gw: any) => {
+      const type = String(gw?.gateway_type ?? '').toUpperCase()
+      if (type !== 'GATEWAY') return false
+
+      // ✅ building_id가 null/undefined면 제외
+      if (gw?.building_id == null) return false
+
+      return String(gw.building_id) === String(buildingData?._id ?? '')
+    })
+  }, [gateways, buildingData?._id])
+
 
   // ✅ 오늘 날짜 로그만 필터링 (UTC → KST)
   const todayLogs = useMemo(() => {
@@ -178,7 +199,7 @@ const AngleNodeScroll = ({
   }, [selectedNodeObj, secondLastNodeOfSelectedGw, selectedBuildingName, planImgUrl])
 
   /** ================================
-   *  ✅ 정렬 기준 변경: angle_x → calibrated_x (fallback)
+   *  ✅ 정렬 기준: calibrated_x 우선
    *  ================================ */
   const sortedNodes = useMemo(() => {
     if (!localNodes?.length) return []
@@ -234,7 +255,7 @@ const AngleNodeScroll = ({
   }
 
   /** ================================
-   *  ✅ 게이트웨이 색상 기준 변경: angle_x → calibrated_x
+   *  ✅ 게이트웨이 색상 기준: GATEWAY 타입만 표시하므로 여기서는 alive/노드기준만
    *  ================================ */
   const getGatewayColorClass = (gw: IGateway) => {
     if (!gw.gateway_alive) return 'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
@@ -247,10 +268,7 @@ const AngleNodeScroll = ({
 
     if (!activeNodes.length) return 'bg-gray-300 text-gray-700'
 
-    const worstActive = [...activeNodes].sort(
-      (a, b) => Math.abs(getX(b)) - Math.abs(getX(a))
-    )[0]
-
+    const worstActive = [...activeNodes].sort((a, b) => Math.abs(getX(b)) - Math.abs(getX(a)))[0]
     return getNodeColorClass(getX(worstActive)) + ' text-gray-800'
   }
 
@@ -339,9 +357,12 @@ const AngleNodeScroll = ({
     </>
   )
 
+  /** ================================
+   * ✅ 게이트웨이 다운 로그도 "GATEWAY 타입만"
+   * ================================ */
   const gatewayDownRows = useMemo(
     () =>
-      (gateways ?? [])
+      (gatewaysOnly ?? [])
         .filter((gw) => gw && gw.gateway_alive === false)
         .map((gw) => ({
           createdAt: (gw as any).lastSeen
@@ -350,7 +371,7 @@ const AngleNodeScroll = ({
           serial: gw.serial_number,
           zone: (gw as any).zone_name ?? 'N/A',
         })),
-    [gateways]
+    [gatewaysOnly]
   )
 
   // ▼▼▼ 연속(순차) 같은 노드 로그를 묶기 + 접기/펼치기 상태 ▼▼▼
@@ -380,8 +401,8 @@ const AngleNodeScroll = ({
     level === 'yellow'
       ? 'bg-yellow-200'
       : level === 'red'
-      ? 'bg-red-400'
-      : 'bg-blue-200'
+        ? 'bg-red-400'
+        : 'bg-blue-200'
 
   // ✅ 리스트가 갱신될 때, 모달이 열려있고 선택 노드가 있으면 최신 객체로 갈아끼움
   useEffect(() => {
@@ -435,6 +456,11 @@ const AngleNodeScroll = ({
     onTop6Change?.(top6AliveDoorNums)
   }, [viewMode, top6AliveDoorNums, onTop6Change])
 
+  useEffect(() => {
+    console.log('AngleNodeScroll buildingId:', buildingId, 'buildingData._id:', buildingData?._id)
+  }, [buildingId, buildingData?._id])
+
+
   return (
     <div className="grid grid-cols-12 gap-4 w-full h-screen px-4 py-4 mt-2">
       {/* =============== Angle-Nodes grid ================ */}
@@ -486,7 +512,7 @@ const AngleNodeScroll = ({
               전원
             </label>
 
-            <div className="border border-gray-500 rounded-md px-2 min-w-[2rem] h-[3.1vh] flex items-center justify-center lg:text-[11px] 2xl:text-xs bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold">
+            <div className="border border-gray-500 rounded-md px-2 min-w-[2rem] h-[3.1vh] flex items-center justify-center lg:text-[11px]  bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold">
               OFF
             </div>
           </div>
@@ -503,33 +529,29 @@ const AngleNodeScroll = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex gap-2">
             <button
-              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-                viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
-              }`}
+              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
+                }`}
               onClick={() => setViewMode('general')}
             >
               기울기
             </button>
             <button
-              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-                viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
-              }`}
+              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
+                }`}
               onClick={() => setViewMode('delta')}
             >
               변화량
             </button>
             <button
-              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-                viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
-              }`}
+              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
+                }`}
               onClick={() => setViewMode('avgDelta')}
             >
               평균변화
             </button>
             <button
-              className={`px-1 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
-                viewMode === 'top6' ? 'bg-emerald-600' : 'bg-gray-400 hover:bg-gray-500'
-              }`}
+              className={`px-1 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'top6' ? 'bg-emerald-600' : 'bg-gray-400 hover:bg-gray-500'
+                }`}
               onClick={() => {
                 setViewMode('top6')
                 onTop6Change?.(top6AliveDoorNums)
@@ -549,13 +571,14 @@ const AngleNodeScroll = ({
 
         {/* Gateway + Node 선택 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          {/* ✅ 여기 옵션도 GATEWAY 타입만 */}
           <select
             className="border border-gray-400 rounded-md px-1 py-0.5 text-sm overflow-y-auto"
             value={selectedGateway}
             onChange={(e) => setSelectedGateway(e.target.value)}
           >
             <option value="">전체구역</option>
-            {gateways?.map((gw) => (
+            {gatewaysOnly?.map((gw) => (
               <option key={gw._id} value={gw.serial_number}>
                 {(gw as any).zone_name && String((gw as any).zone_name).trim() !== ''
                   ? (gw as any).zone_name
@@ -594,7 +617,7 @@ const AngleNodeScroll = ({
               onClick={() => handleNodeCardClick(item)}
               className={cn(
                 'border border-slate-300 flex flex-col justify-center shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer relative text-gray-600',
-                getNodeColorClass(getX(item)) // ✅ 변경: calibrated_x 기준
+                getNodeColorClass(getX(item))
               )}
             >
               <CardContent className="flex flex-col justify-center p-2 text-[14px]">
@@ -605,11 +628,11 @@ const AngleNodeScroll = ({
 
                 <div className="flex justify-between mb-1 font-medium">
                   <p>Axis-X:</p>
-                  <p>{getX(item)}</p> {/* ✅ 변경 */}
+                  <p>{getX(item)}</p>
                 </div>
                 <div className="flex justify-between mb-1 font-medium">
                   <p>Axis-Y:</p>
-                  <p>{getY(item)}</p> {/* ✅ 변경 */}
+                  <p>{getY(item)}</p>
                 </div>
 
                 {renderPositionAndGateway(item)}
@@ -647,11 +670,11 @@ const AngleNodeScroll = ({
 
                       <div className="flex justify-between mb-1 font-medium">
                         <p>Axis-X:</p>
-                        <p>{getX(item)}</p> {/* ✅ 변경 */}
+                        <p>{getX(item)}</p>
                       </div>
                       <div className="flex justify-between mb-1 font-medium">
                         <p>Axis-Y:</p>
-                        <p>{getY(item)}</p> {/* ✅ 변경 */}
+                        <p>{getY(item)}</p>
                       </div>
 
                       <div className="flex justify-between mb-1 font-medium">
@@ -680,15 +703,16 @@ const AngleNodeScroll = ({
           <div className="flex flex-col items-center lg:col-span-1 col-span-2 lg:h-[27.5vh] 2xl:h-[35vh] 3xl:h-[35vh] rounded-md bg-gray-50 text-gray-600">
             <ScrollArea className="pr-3 pl-4 lg:py-1 2xl:py-2 3xl:py-2 border-none">
               <button
-                className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${
-                  !selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
-                }`}
+                className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
+                  }`}
                 onClick={() => setSelectedGateway('')}
               >
                 전체구역
               </button>
+
+              {/* ✅ 여기 게이트웨이 버튼(타일)도 GATEWAY 타입만 */}
               <div className="grid grid-cols-2 gap-2 w-full">
-                {gateways?.map((gw, index) => (
+                {gatewaysOnly?.map((gw, index) => (
                   <div
                     onClick={() => onToggleGatewaySelection(gw)}
                     key={index}
@@ -718,7 +742,7 @@ const AngleNodeScroll = ({
               alt="도면 사진"
               className="max-h-full max-w-full object-contain"
               onError={(e) => {
-                ;(e.currentTarget as HTMLImageElement).src = planImgUrl || '/no-image.png'
+                ; (e.currentTarget as HTMLImageElement).src = planImgUrl || '/no-image.png'
               }}
             />
             <p className="absolute bottom-1 right-2 text-[12px] text-black px-2 py-0.5 rounded border border-black">
@@ -741,7 +765,7 @@ const AngleNodeScroll = ({
       {/* 우측: 로그 */}
       <ScrollArea className="col-span-12 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-5 lg:h-[34.3vh] 2xl:h-[40.7vh] 3xl:h-[40vh] lg:w-[112%] 2xl:w-[109%]">
         <div className="flex flex-col gap-2 text-sm">
-          {/* 게이트웨이 다운 */}
+          {/* 게이트웨이 다운 (GATEWAY 타입만) */}
           {gatewayDownRows.length > 0 && (
             <>
               {gatewayDownRows.map((g) => (
@@ -773,9 +797,8 @@ const AngleNodeScroll = ({
                         <div
                           key={`log-${idx}-${i}`}
                           onClick={clickable ? () => toggleGroup(idx) : undefined}
-                          className={`${logBg(log.level)} px-2 py-1 rounded border border-black/10 shadow-sm ${
-                            clickable ? 'cursor-pointer' : ''
-                          }`}
+                          className={`${logBg(log.level)} px-2 py-1 rounded border border-black/10 shadow-sm ${clickable ? 'cursor-pointer' : ''
+                            }`}
                           title={clickable ? '접기' : undefined}
                           style={{ minHeight: 30, width: 'calc(100% - 2px)' }}
                         >
@@ -924,13 +947,14 @@ const AngleNodeScroll = ({
           angleNodes={localNodes}
           buildingName={selectedBuildingName}
           onNodesChange={setLocalNodes}
+          buildingId={buildingData?._id ?? buildingId}
         />
       )}
       {isGatewaysEditOpen && (
         <GatewaysEditModal
           isOpen={isGatewaysEditOpen}
           onClose={() => setIsGatewaysEditOpen(false)}
-          gatewyas={gateways}
+          gatewyas={gatewaysOnly /* ✅ 여기서도 GATEWAY 타입만 편집하도록(원하면 gateways로 되돌려도 됨) */}
           onSave={() => setIsGatewaysEditOpen(false)}
         />
       )}

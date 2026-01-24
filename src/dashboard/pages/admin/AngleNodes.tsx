@@ -739,6 +739,7 @@ const AngleNodes = () => {
 
 			<div className='lg:-ml-[1%]'>
 				<AngleNodeScroll
+					buildingId={buildingId}
 					onSelectNode={setSelectedDoorNum}
 					building_angle_nodes={nodesForScroll}
 					buildingData={buildingData}

@@ -82,6 +82,7 @@ interface NodesEditModalProps {
   angleNodes: IAngleNode[]
   buildingName?: string
   onNodesChange?: (nodes: IAngleNode[]) => void
+  buildingId?: string
 }
 
 export const NodesEditModal = ({
@@ -106,19 +107,37 @@ export const NodesEditModal = ({
     setEditedNodes(angleNodes)
   }, [angleNodes])
 
-  // ✅ 모달 열릴 때 게이트웨이 목록 불러오기
+
   useEffect(() => {
     const fetchGateways = async () => {
       try {
-        const url = `${import.meta.env.VITE_SERVER_BASE_URL}/product/get-gateways`
+        const url = `${import.meta.env.VITE_SERVER_BASE_URL}/gateway/`
         const res = await fetch(url)
         if (!res.ok) throw new Error('게이트웨이 목록 조회 실패')
 
         const data = await res.json()
+        const list: IGateway[] = Array.isArray(data?.gateways) ? data.gateways : []
 
-        // ✅ 여기 핵심: gateways 배열만 state로
-        const list = Array.isArray(data?.gateways) ? data.gateways : []
-        setGatewayList(list)
+        // ✅ 이 빌딩의 노드에 연결된 gateway_id만 추출
+        const usedGatewayIds = new Set(
+          (angleNodes ?? [])
+            .map((n: any) => n?.gateway_id?._id)
+            .filter(Boolean)
+            .map(String)
+        )
+
+        const filtered = list.filter((gw: any) => {
+          const isGateway = String(gw?.gateway_type ?? '').toUpperCase() === 'GATEWAY'
+          if (!isGateway) return false
+
+          // ✅ 노드에서 쓰이는 GW만
+          if (usedGatewayIds.size > 0) return usedGatewayIds.has(String(gw._id))
+
+          // (fallback) 노드에 gateway_id가 아예 없으면 타입만
+          return true
+        })
+
+        setGatewayList(filtered)
       } catch (e) {
         console.error(e)
         setGatewayList([])
@@ -126,7 +145,10 @@ export const NodesEditModal = ({
     }
 
     if (isOpen) fetchGateways()
-  }, [isOpen])
+  }, [isOpen, angleNodes])
+
+
+
 
   if (!isOpen) return null
 
@@ -214,7 +236,7 @@ export const NodesEditModal = ({
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 z-[9999]">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-7xl max-h-[90vh] overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>노드 정보</CardTitle>
