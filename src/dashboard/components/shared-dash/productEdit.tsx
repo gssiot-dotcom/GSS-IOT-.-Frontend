@@ -127,7 +127,8 @@ export const NodesEditModal = ({
         )
 
         const filtered = list.filter((gw: any) => {
-          const isGateway = String(gw?.gateway_type ?? '').toUpperCase() === 'GATEWAY'
+          const type = String(gw?.gateway_type ?? '').toUpperCase()
+          const isGateway = type === 'GATEWAY' || type === 'NODE_GATEWAY'
           if (!isGateway) return false
 
           // ✅ 노드에서 쓰이는 GW만
@@ -136,6 +137,7 @@ export const NodesEditModal = ({
           // (fallback) 노드에 gateway_id가 아예 없으면 타입만
           return true
         })
+
 
         setGatewayList(filtered)
       } catch (e) {
@@ -146,7 +148,6 @@ export const NodesEditModal = ({
 
     if (isOpen) fetchGateways()
   }, [isOpen, angleNodes])
-
 
 
 

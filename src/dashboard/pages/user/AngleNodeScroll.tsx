@@ -476,7 +476,7 @@ const AngleNodeScroll = ({
             </label>
 
             {/* ⬇️ 변경: 테두리 더 진하게 + 가로폭 살짝 줄임 */}
-            <div className='border border-gray-500 rounded-md px-2 min-w-[2rem] h-[3.1vh] flex items-center justify-center lg:text-[11px] 2xl:text-xs bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold'>
+            <div className='border border-gray-500 rounded-md px-2 min-w-[2rem] h-[3.1vh] flex items-center justify-center lg:text-[11px] bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold'>
               OFF
             </div>
           </div>

@@ -15,7 +15,7 @@ import Download from '@/dashboard/components/shared-dash/download'
 import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
 import { Eye } from 'lucide-react'
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { NodeDetailModal } from '@/dashboard/components/shared-dash/angleNodeDetail'
 import Draggable from 'react-draggable'
 
@@ -85,12 +85,6 @@ const getX = (n: IAngleNode) => (n as any).calibrated_x ?? (n as any).calibrated
 const getY = (n: IAngleNode) => (n as any).calibrated_y ?? (n as any).calibratedY ?? n.angle_y ?? 0
 
 /** ================================
- *  ✅ Gateway type 판단 유틸
- *  - 백엔드 필드명이 애매할 수 있으니 여러 후보를 방어적으로 
-
-
-
-/** ================================
  *   컴포넌트
  *  ================================ */
 const AngleNodeScroll = ({
@@ -113,6 +107,9 @@ const AngleNodeScroll = ({
   onToggleSaveStatus,
   onTop6Change,
 }: Props) => {
+  // ✅ base path 고려한 no-image 경로 (Vite)
+  const NO_IMAGE = `${import.meta.env.BASE_URL}no-image.png`
+
   // 🔹 로컬 노드 상태
   const [localNodes, setLocalNodes] = useState<IAngleNode[]>(building_angle_nodes)
 
@@ -136,6 +133,14 @@ const AngleNodeScroll = ({
   const [isInitModalOpen, setIsInitModalOpen] = useState(false)
   const [selectedNodesForInit, setSelectedNodesForInit] = useState<number[]>([])
 
+  // ✅ 이미지 실패 URL 캐시: 한 번 실패한 URL은 다시 candidates에서 제외
+  const failedImgUrlSetRef = useRef<Set<string>>(new Set())
+
+  // ✅ 빌딩이 바뀌면 실패 캐시 초기화 (빌딩별 이미지가 다르므로)
+  useEffect(() => {
+    failedImgUrlSetRef.current.clear()
+  }, [buildingData?._id])
+
   /** ================================
    * ✅ (핵심) GATEWAY 타입만 사용
    * ================================ */
@@ -150,7 +155,6 @@ const AngleNodeScroll = ({
       return String(gw.building_id) === String(buildingData?._id ?? '')
     })
   }, [gateways, buildingData?._id])
-
 
   // ✅ 오늘 날짜 로그만 필터링 (UTC → KST)
   const todayLogs = useMemo(() => {
@@ -191,12 +195,21 @@ const AngleNodeScroll = ({
     return localNodes.find((n) => n.doorNum === selectedNode) ?? null
   }, [selectedNode, localNodes])
 
-  // ✅ 중앙 이미지는 S3만 사용 (노드 → 게이트웨이 → 전체도면.png)
+  /**
+   * ✅ 중앙 이미지 후보 (노드 → 게이트웨이 → 전체도면 → NO_IMAGE)
+   * ✅ 단, 한 번 실패한 URL은 제외해서 재시도 방지
+   */
   const mainImageUrl = useMemo(() => {
-    const s3Selected = buildS3Url(selectedNodeObj, selectedBuildingName)
-    const s3Gateway = buildS3Url(secondLastNodeOfSelectedGw, selectedBuildingName)
-    return s3Selected || s3Gateway || planImgUrl
-  }, [selectedNodeObj, secondLastNodeOfSelectedGw, selectedBuildingName, planImgUrl])
+    const candidates = [
+      buildS3Url(selectedNodeObj, selectedBuildingName),
+      buildS3Url(secondLastNodeOfSelectedGw, selectedBuildingName),
+      planImgUrl,
+      NO_IMAGE,
+    ].filter(Boolean) as string[]
+
+    const failed = failedImgUrlSetRef.current
+    return candidates.find((u) => !failed.has(u)) || NO_IMAGE
+  }, [selectedNodeObj, secondLastNodeOfSelectedGw, selectedBuildingName, planImgUrl, NO_IMAGE])
 
   /** ================================
    *  ✅ 정렬 기준: calibrated_x 우선
@@ -261,9 +274,7 @@ const AngleNodeScroll = ({
     if (!gw.gateway_alive) return 'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
 
     const activeNodes = localNodes.filter(
-      (node) =>
-        (node as any)?.gateway_id?.serial_number === gw.serial_number &&
-        node.node_alive === true
+      (node) => (node as any)?.gateway_id?.serial_number === gw.serial_number && node.node_alive === true
     )
 
     if (!activeNodes.length) return 'bg-gray-300 text-gray-700'
@@ -365,9 +376,7 @@ const AngleNodeScroll = ({
       (gatewaysOnly ?? [])
         .filter((gw) => gw && gw.gateway_alive === false)
         .map((gw) => ({
-          createdAt: (gw as any).lastSeen
-            ? new Date((gw as any).lastSeen).toISOString()
-            : new Date().toISOString(),
+          createdAt: (gw as any).lastSeen ? new Date((gw as any).lastSeen).toISOString() : new Date().toISOString(),
           serial: gw.serial_number,
           zone: (gw as any).zone_name ?? 'N/A',
         })),
@@ -398,11 +407,7 @@ const AngleNodeScroll = ({
   const toggleGroup = (idx: number) => setOpenGroups((p) => ({ ...p, [idx]: !p[idx] }))
 
   const logBg = (level: string) =>
-    level === 'yellow'
-      ? 'bg-yellow-200'
-      : level === 'red'
-        ? 'bg-red-400'
-        : 'bg-blue-200'
+    level === 'yellow' ? 'bg-yellow-200' : level === 'red' ? 'bg-red-400' : 'bg-blue-200'
 
   // ✅ 리스트가 갱신될 때, 모달이 열려있고 선택 노드가 있으면 최신 객체로 갈아끼움
   useEffect(() => {
@@ -459,7 +464,6 @@ const AngleNodeScroll = ({
   useEffect(() => {
     console.log('AngleNodeScroll buildingId:', buildingId, 'buildingData._id:', buildingData?._id)
   }, [buildingId, buildingData?._id])
-
 
   return (
     <div className="grid grid-cols-12 gap-4 w-full h-screen px-4 py-4 mt-2">
@@ -529,29 +533,33 @@ const AngleNodeScroll = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex gap-2">
             <button
-              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
-                }`}
+              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
+                viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
               onClick={() => setViewMode('general')}
             >
               기울기
             </button>
             <button
-              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
-                }`}
+              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
+                viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
               onClick={() => setViewMode('delta')}
             >
               변화량
             </button>
             <button
-              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
-                }`}
+              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
+                viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
               onClick={() => setViewMode('avgDelta')}
             >
               평균변화
             </button>
             <button
-              className={`px-1 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'top6' ? 'bg-emerald-600' : 'bg-gray-400 hover:bg-gray-500'
-                }`}
+              className={`px-1 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${
+                viewMode === 'top6' ? 'bg-emerald-600' : 'bg-gray-400 hover:bg-gray-500'
+              }`}
               onClick={() => {
                 setViewMode('top6')
                 onTop6Change?.(top6AliveDoorNums)
@@ -703,8 +711,9 @@ const AngleNodeScroll = ({
           <div className="flex flex-col items-center lg:col-span-1 col-span-2 lg:h-[27.5vh] 2xl:h-[35vh] 3xl:h-[35vh] rounded-md bg-gray-50 text-gray-600">
             <ScrollArea className="pr-3 pl-4 lg:py-1 2xl:py-2 3xl:py-2 border-none">
               <button
-                className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
-                  }`}
+                className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${
+                  !selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
+                }`}
                 onClick={() => setSelectedGateway('')}
               >
                 전체구역
@@ -742,7 +751,17 @@ const AngleNodeScroll = ({
               alt="도면 사진"
               className="max-h-full max-w-full object-contain"
               onError={(e) => {
-                ; (e.currentTarget as HTMLImageElement).src = planImgUrl || '/no-image.png'
+                const img = e.currentTarget as HTMLImageElement
+                const cur = img.currentSrc || img.src
+
+                // ✅ fallback 자체가 깨지면 무한 onError가 나기 때문에, fallback이면 더 이상 처리하지 않음
+                if (cur && cur.includes('no-image.png')) return
+
+                // ✅ 실패 URL 캐시 (placeholder는 캐시 X)
+                if (cur) failedImgUrlSetRef.current.add(cur)
+
+                // ✅ base path 고려한 fallback
+                img.src = NO_IMAGE
               }}
             />
             <p className="absolute bottom-1 right-2 text-[12px] text-black px-2 py-0.5 rounded border border-black">
@@ -753,11 +772,7 @@ const AngleNodeScroll = ({
 
         <div className="w-full flex justify-center">
           <div className="w-full max-w-[100%]">
-            <Download
-              buildingId={buildingData?._id ?? ''}
-              angleNodes={localNodes}
-              buildingName={selectedBuildingName}
-            />
+            <Download buildingId={buildingData?._id ?? ''} angleNodes={localNodes} buildingName={selectedBuildingName} />
           </div>
         </div>
       </div>
@@ -797,8 +812,9 @@ const AngleNodeScroll = ({
                         <div
                           key={`log-${idx}-${i}`}
                           onClick={clickable ? () => toggleGroup(idx) : undefined}
-                          className={`${logBg(log.level)} px-2 py-1 rounded border border-black/10 shadow-sm ${clickable ? 'cursor-pointer' : ''
-                            }`}
+                          className={`${logBg(log.level)} px-2 py-1 rounded border border-black/10 shadow-sm ${
+                            clickable ? 'cursor-pointer' : ''
+                          }`}
                           title={clickable ? '접기' : undefined}
                           style={{ minHeight: 30, width: 'calc(100% - 2px)' }}
                         >
@@ -808,9 +824,7 @@ const AngleNodeScroll = ({
                                 log.metric
                               )}: ${log.value}`}
                             </div>
-                            {clickable && (
-                              <span className="shrink-0 text-[13px] text-gray-700 font-bold ">▲</span>
-                            )}
+                            {clickable && <span className="shrink-0 text-[13px] text-gray-700 font-bold ">▲</span>}
                           </div>
                         </div>
                       )
@@ -861,9 +875,7 @@ const AngleNodeScroll = ({
                           latest.metric
                         )}: ${latest.value}`}
                       </div>
-                      <span className="shrink-0 text-[13px] text-gray-700 font-bold">
-                        {isOpen ? '▲' : '▼'}
-                      </span>
+                      <span className="shrink-0 text-[13px] text-gray-700 font-bold">{isOpen ? '▲' : '▼'}</span>
                     </div>
                   </div>
                 </button>
@@ -954,18 +966,15 @@ const AngleNodeScroll = ({
         <GatewaysEditModal
           isOpen={isGatewaysEditOpen}
           onClose={() => setIsGatewaysEditOpen(false)}
-          gatewyas={gatewaysOnly /* ✅ 여기서도 GATEWAY 타입만 편집하도록(원하면 gateways로 되돌려도 됨) */}
+          gatewyas={gatewaysOnly}
           onSave={() => setIsGatewaysEditOpen(false)}
         />
       )}
 
       {isPlanImgOpen && (
-        <PlanImageModal
-          imageUrl={mainImageUrl || planImgUrl || '/no-image.png'}
-          buildingName={selectedBuildingName}
-          onClose={() => setIsPlanImgOpen(false)}
-        />
+        <PlanImageModal imageUrl={mainImageUrl || planImgUrl || NO_IMAGE} buildingName={selectedBuildingName} onClose={() => setIsPlanImgOpen(false)} />
       )}
+
 
       {/* ✅ 초기화 모달 */}
       {isInitModalOpen && (
@@ -1003,10 +1012,7 @@ const AngleNodeScroll = ({
             </div>
 
             <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setIsInitModalOpen(false)}
-                className="px-3 py-1 bg-gray-400 text-white rounded-md"
-              >
+              <button onClick={() => setIsInitModalOpen(false)} className="px-3 py-1 bg-gray-400 text-white rounded-md">
                 닫기
               </button>
             </div>
