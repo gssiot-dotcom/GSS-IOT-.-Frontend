@@ -594,7 +594,7 @@ const AngleNodes = () => {
 	// ---------------- 소켓 리스너: 카드 + 그래프 캐시 갱신 ---------------- //
 	useEffect(() => {
 		if (!buildingId) return
-		const topic = `${buildingId}_angle-nodes`
+		const topic = `socket/building/${buildingId}/angle-nodes`
 
 		const listener = (newData: SensorData) => {
 			// ✅ 1) 카드(리스트) 최신값 업데이트

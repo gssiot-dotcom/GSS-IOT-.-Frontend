@@ -159,7 +159,7 @@ export interface ICreateBuilding {
 	building_name: string
 	building_num: number
 	building_addr: string
-	gateway_sets: string[]
+	// gateway_sets: string[]
 	users?: string[]
 	permit_date: string
 	expiry_date: string

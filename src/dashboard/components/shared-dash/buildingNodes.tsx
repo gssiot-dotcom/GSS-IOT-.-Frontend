@@ -1,12 +1,9 @@
 // src/dashboard/pages/user/buildingNodes.tsx
 'use client'
 
-import socket from '@/hooks/useSocket'
 import { useClientStore } from '@/stores/buildingsStore'
 import { useBuildingNodesStore } from '@/stores/nodeStore'
-import { useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { INode } from '../../../types/interfaces'
 import WeatherInfo from './WeatherInfo'
 
 import digaenode from '@/assets/digaenode.png'
@@ -14,7 +11,7 @@ import erpendicularnode from '@/assets/erpendicularnode.png'
 import scaffoldingnode from '@/assets/scaffoldingnode.png'
 
 const BuildingNodes = () => {
-	const { building, updateNode } = useBuildingNodesStore()
+	const { building } = useBuildingNodesStore()
 	const { client } = useClientStore()
 	const { clientId, buildingId } = useParams()
 	const navigate = useNavigate()
@@ -29,15 +26,15 @@ const BuildingNodes = () => {
 
 	// const { isLoading } = useBuildingNodes(buildingId)
 
-	useEffect(() => {
-		const topic = `mqtt/building/${buildingId}`
-		socket.on(topic, (updatedNode: INode) => {
-			updateNode(updatedNode)
-		})
-		return () => {
-			socket.off(topic)
-		}
-	}, [buildingId, updateNode])
+	// useEffect(() => {
+	// 	const topic = `socket/building/${buildingId}/node`
+	// 	socket.on(topic, (updatedNode: INode) => {
+	// 		updateNode(updatedNode)
+	// 	})
+	// 	return () => {
+	// 		socket.off(topic)
+	// 	}
+	// }, [buildingId, updateNode])
 
 	// if () return <FillLoading />
 

@@ -2,7 +2,7 @@
 import WhiteHeader from '@/dashboard/components/shared-dash/verticalHeader'
 import socket from '@/hooks/useSocket'
 import {
-	fetchBuildingAngleNodes,
+	fetchBuildingVerticalNodes,
 	setBuildingAlarmLevelRequest,
 } from '@/services/apiRequests'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -31,7 +31,7 @@ import {
 interface ResQuery {
 	state: string
 	building: IBuilding
-	angle_nodes: IAngleNode[]
+	vertical_nodes: IAngleNode[]
 	gateways?: any[]
 }
 
@@ -173,7 +173,7 @@ const VerticalNodes = () => {
 	// ---------------- 메타 (AngleNodes와 동일) ---------------- //
 	const { data: metaData } = useQuery({
 		queryKey: ['get-building-vertical-nodes', buildingId],
-		queryFn: () => fetchBuildingAngleNodes(buildingId!),
+		queryFn: () => fetchBuildingVerticalNodes(buildingId!),
 		enabled: !!buildingId,
 		retry: 1,
 		refetchOnWindowFocus: false,
@@ -181,7 +181,7 @@ const VerticalNodes = () => {
 
 	const buildingData = metaData?.building
 	const gateways = metaData?.gateways
-	const verticalNodes = (metaData?.angle_nodes as IAngleNode[]) || []
+	const verticalNodes = (metaData?.vertical_nodes as IAngleNode[]) || []
 
 	const stableNodes = useMemo(
 		() => [...verticalNodes].sort((a, b) => a.doorNum - b.doorNum),
@@ -292,15 +292,16 @@ const VerticalNodes = () => {
 
 	useEffect(() => {
 		if (!buildingId) return
-		const topic = `${buildingId}_angle-nodes`
+		const topic = `socket/building/${buildingId}/vertical-nodes`
 
 		const listener = (newData: SensorData) => {
+			console.log('socket vertical-nodes:', newData)
 			// ✅ 카드(리스트) 최신값은 소켓으로만 반영
 			queryClient.setQueryData<ResQuery>(
 				['get-building-vertical-nodes', buildingId],
 				old => {
 					if (!old) return old
-					const list = old.angle_nodes ?? []
+					const list = old.vertical_nodes ?? []
 					const idx = list.findIndex(n => n.doorNum === newData.doorNum)
 
 					// ✅ calibrated 우선(없으면 angle fallback) — AngleNodes와 동일
@@ -316,7 +317,7 @@ const VerticalNodes = () => {
 					if (idx === -1) {
 						return {
 							...old,
-							angle_nodes: [
+							vertical_nodes: [
 								...list,
 								{
 									_id: crypto.randomUUID(),
@@ -343,7 +344,7 @@ const VerticalNodes = () => {
 						createdAt: newData.createdAt,
 					}
 
-					return { ...old, angle_nodes: next }
+					return { ...old, vertical_nodes: next }
 				},
 			)
 

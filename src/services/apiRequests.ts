@@ -736,6 +736,27 @@ export const combineVerticalNodesToGatewayRequest = async (payload: {
 	return data
 }
 
+export const fetchBuildingVerticalNodes = async (buildingId: string) => {
+	try {
+		const response = await axios.get(
+			`${import.meta.env.VITE_SERVER_BASE_URL}/building/${buildingId}/vertical-nodes`,
+			{ withCredentials: true },
+		)
+
+		const data = response.data
+		if (data.state === 'fail') {
+			throw new Error(data.message || 'Error on creating node')
+		}
+
+		return data
+	} catch (error: any) {
+		return new Error(
+			error.response?.data?.message ||
+				'Error on fetching building angle-nodes.',
+		)
+	}
+}
+
 /**
  * =========================================
  * ALL-TYPE ACTIVE (통합)
@@ -1036,7 +1057,7 @@ export const fetchClientBuildings = async (clientId: string | undefined) => {
 export const deleteBuilding = async (buildngId: string) => {
 	try {
 		const res = await axios.delete(
-			`${import.meta.env.VITE_SERVER_BASE_URL}/company/delete/building/${buildngId}`,
+			`${import.meta.env.VITE_SERVER_BASE_URL}/building/delete/${buildngId}`,
 			{ withCredentials: true },
 		)
 
@@ -1126,7 +1147,7 @@ export const setBuildingAlarmLevelRequest = async (
 ) => {
 	try {
 		const res = await axios.put(
-			'/company/building/set-alarm-level',
+			'/building/set-alarm-level',
 			{
 				building_id: buildingId,
 				alarmLevel: {

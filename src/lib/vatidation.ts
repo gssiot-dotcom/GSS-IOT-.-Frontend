@@ -51,9 +51,9 @@ export const addBuildingSchema = z
 		building_name: z.string().min(3),
 		building_num: z.number(),
 		building_addr: z.string().min(4),
-		gateway_sets: z
-			.array(z.string())
-			.min(1, '최소 1개 게이트웨이를 선택해야됩니다.'),
+		// gateway_sets: z
+		// 	.array(z.string())
+		// 	.min(1, '최소 1개 게이트웨이를 선택해야됩니다.'),
 		users: z.array(z.string()).optional(),
 		permit_date: z.string(),
 		expiry_date: z.string(),
@@ -92,11 +92,11 @@ export const combineAngleNodeToGatewaySchema = z.object({
 
 // ============= Vertical-Node Validation Field ============= //
 export const verticalNodeSchema = z.object({
-  vertical_node_counts: z.string(),
+	vertical_node_counts: z.string(),
 })
 
 export const nodeRangeSchema = z.object({
-  node_counts: z.string(),
+	node_counts: z.string(),
 })
 
 export const combineVerticalNodeToGatewaySchema = z.object({

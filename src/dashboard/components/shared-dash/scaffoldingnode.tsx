@@ -23,7 +23,7 @@ const BuildingNodes = () => {
 	const { isLoading } = useBuildingNodes(buildingId)
 
 	useEffect(() => {
-		const topic = `mqtt/building/${buildingId}`
+		const topic = `socket/building/${buildingId}/node`
 		socket.on(topic, (updatedNode: INode) => {
 			console.log('Socket node-data listener is on')
 			updateNode(updatedNode)
