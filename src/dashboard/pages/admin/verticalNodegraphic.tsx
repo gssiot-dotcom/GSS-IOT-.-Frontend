@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -7,12 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import React, { forwardRef, useMemo } from 'react'
 import { useEffect, useState } from 'react'
 import {
@@ -44,7 +39,6 @@ function getWeekOfMonth(date: Date) {
 function getMondayOf(date: Date) {
   const d = new Date(date)
   const day = d.getDay() // 0=Sun, 1=Mon, ...
-  // 월요일(1)이 되도록 이동. 일요일(0)이면 -6일, 그 외에는 1 - day
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
   d.setHours(0, 0, 0, 0)
@@ -137,7 +131,7 @@ export type SensorGraphProps = {
   windHistory: WindPoint[]
 }
 
-const SensorGraph: React.FC<SensorGraphProps> = ({
+const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
   buildingId,
   doorNum,
   graphData,
@@ -158,17 +152,17 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
   const [data, setData] = useState<
     GraphDataPoint[] | DeltaGraphPoint[] | AvgDeltaDataPoint[]
   >(graphData)
+
   const isMobile = useMediaQuery('(max-width: 640px)')
   const isTablet = useMediaQuery('(max-width: 1024px)')
 
   useEffect(() => setData(graphData), [graphData])
 
-  // ▶ 추가: "일 → 주" 전환 시, 기존 날짜의 월요일로 자동 보정
+  // "일 → 주" 전환 시 월요일로 자동 보정
   useEffect(() => {
     if (timeMode === 'week') {
       const base = selectedDate ?? new Date()
       const monday = getMondayOf(base)
-      // 이미 월요일이면 불필요한 업데이트 방지
       if (
         !selectedDate ||
         selectedDate.getDay() !== 1 ||
@@ -182,8 +176,11 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeMode])
 
-  // ✅ 여기만 수정: month 모드에서 양 끝만 틱, 도메인은 그 달 전체
-  const getXAxisTicksAndDomain = (): { ticks: number[]; domain: [number, number] } => {
+  // X축 ticks/domain
+  const getXAxisTicksAndDomain = (): {
+    ticks: number[]
+    domain: [number, number]
+  } => {
     const now = new Date()
     let startPoint: Date
     let endPoint: Date
@@ -200,7 +197,6 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
       startPoint = monday
       endPoint = sundayEnd
 
-      // 월~일 자정 + 마지막 눈금
       for (let i = 0; i < 7; i++) {
         const tick = new Date(monday)
         tick.setDate(monday.getDate() + i)
@@ -219,20 +215,17 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         ticks.push(tickTime.getTime())
       }
     } else if (timeMode === 'month' && selectedDate) {
-      // ✅ 월간 모드: 그 달 1일부터 말일까지 tick 생성
       const year = selectedDate.getFullYear()
       const month = selectedDate.getMonth()
 
       startPoint = new Date(year, month, 1, 0, 0, 0, 0)
-      endPoint = new Date(year, month + 1, 0, 23, 59, 59, 999) // 그달 마지막 날
+      endPoint = new Date(year, month + 1, 0, 23, 59, 59, 999)
 
       const lastDay = endPoint.getDate()
-
       for (let i = 1; i <= lastDay; i++) {
         const tickTime = new Date(year, month, i, 0, 0, 0, 0)
         ticks.push(tickTime.getTime())
       }
-      // 마지막 눈금도 추가 (그래프 오른쪽 끝)
       ticks.push(endPoint.getTime())
     } else if (hours === 1) {
       const roundedMinutes = Math.ceil(now.getMinutes() / 10) * 10
@@ -287,9 +280,11 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
   const { ticks: xAxisTicks, domain: xAxisDomain } = getXAxisTicksAndDomain()
 
-  // ✨ 풍속 데이터를 모든 모드에 매핑
+  // wind 매핑
   const attachWindData = (points: { time: string }[]) => {
     if (!points || points.length === 0) return []
+
+    // timestamp는 항상 세팅 (wind 없어도)
     if (!windHistory || windHistory.length === 0) {
       return points.map((p) => ({
         ...p,
@@ -298,7 +293,6 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
       }))
     }
 
-    // 도우미: 다양한 형태의 타임스탬프를 ms로 안전 변환
     const toMs = (ts: unknown): number => {
       if (ts == null) return NaN
       if (typeof ts === 'number') return Number.isFinite(ts) ? ts : NaN
@@ -318,8 +312,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         const ts = toMs(w.timestamp)
         return {
           wind_speed: Number(w.wind_speed),
-          // ✅ windHistory timestamp는 백에서 +9h 저장된 값이라
-          // 매칭용으로만 -9h 해서 UTC instant로 되돌림
+          // windHistory timestamp는 백에서 +9h 저장된 값 -> 매칭만 -9h 보정
           timestampNum: Number.isFinite(ts) ? ts - NINE_HOURS_MS : NaN,
         }
       })
@@ -369,9 +362,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
   }
 
   const finalData = useMemo(() => {
-    if (viewMode === 'general') {
-      return attachWindData(data as GraphDataPoint[])
-    }
+    if (viewMode === 'general') return attachWindData(data as GraphDataPoint[])
     return []
   }, [data, windHistory, viewMode])
 
@@ -380,14 +371,22 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     return attachWindData(data as DeltaGraphPoint[])
   }, [viewMode, data, windHistory])
 
-  const getYDomainAndTicks = (graph: (GraphDataPoint | DeltaGraphPoint | AvgDeltaDataPoint)[]) => {
-    if (!graph || graph.length === 0) return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
+  const getYDomainAndTicks = (
+    graph: (GraphDataPoint | DeltaGraphPoint | AvgDeltaDataPoint)[]
+  ) => {
+    if (!graph || graph.length === 0) {
+      return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
+    }
 
     if (viewMode === 'general') {
       const values = graph
         .flatMap((d) => [(d as GraphDataPoint).angle_x, (d as GraphDataPoint).angle_y])
         .filter((v) => v != null && !isNaN(v as number)) as number[]
-      if (values.length === 0) return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
+
+      if (values.length === 0) {
+        return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
+      }
+
       const minVal = Math.min(...values)
       const maxVal = Math.max(...values)
 
@@ -402,31 +401,40 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         ticks = [-15, 0, 15]
       }
       return { domain, ticks }
-    } else {
-      const values = graph.flatMap((d) => {
-        const point = d as DeltaGraphPoint
-        const dataKey = Object.keys(point).find((key) => key.startsWith('node_'))
-        if (!dataKey) return []
-        const rawValue = point[dataKey]
-        const numValue = parseFloat(rawValue as string)
-        return isNaN(numValue) ? [] : [numValue]
-      })
-      if (values.length === 0) return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
-      const maxAbs = Math.max(...values.map((v) => Math.abs(v)))
-      let boundary = 5
-      if (maxAbs > 10) boundary = 15
-      else if (maxAbs > 5) boundary = 10
-      return { domain: [-boundary, boundary] as [number, number], ticks: [-boundary, 0, boundary] }
     }
+
+    // delta / avgDelta / top6
+    const values: number[] = []
+    for (const row of graph as DeltaGraphPoint[]) {
+      for (const k of Object.keys(row)) {
+        if (!k.startsWith('node_')) continue
+        const v = row[k]
+        const num = typeof v === 'number' ? v : parseFloat(String(v))
+        if (!isNaN(num)) values.push(num)
+      }
+    }
+
+    if (values.length === 0) {
+      return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
+    }
+
+    const maxAbs = Math.max(...values.map((v) => Math.abs(v)))
+    let boundary = 5
+    if (maxAbs > 10) boundary = 15
+    else if (maxAbs > 5) boundary = 10
+    return { domain: [-boundary, boundary] as [number, number], ticks: [-boundary, 0, boundary] }
   }
 
-  const { domain: yDomain, ticks: yTicks } = getYDomainAndTicks(
-    viewMode === 'general' ? finalData : processedDeltaData
-  )
+  const chartData = viewMode === 'general' ? finalData : processedDeltaData
+  const { domain: yDomain, ticks: yTicks } = getYDomainAndTicks(chartData as any)
 
   const getWindDomainAndTicks = (graph: any[]) => {
-    const windValues = graph.map((d) => d.wind_speed).filter((v) => v != null && !isNaN(v as number)) as number[]
+    const windValues = graph
+      .map((d) => d.wind_speed)
+      .filter((v) => v != null && !isNaN(v as number)) as number[]
+
     if (windValues.length === 0) return { domain: [0, 20] as [number, number], ticks: [0, 5, 10, 20] }
+
     const maxWind = Math.max(...windValues)
     const top = Math.ceil(maxWind / 10) * 10 || 20
     const ticks: number[] = []
@@ -435,9 +443,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     return { domain: [0, top] as [number, number], ticks }
   }
 
-  const { domain: windDomain, ticks: windTicks } = getWindDomainAndTicks(
-    viewMode === 'general' ? finalData : processedDeltaData
-  )
+  const { domain: windDomain, ticks: windTicks } = getWindDomainAndTicks(chartData as any)
 
   const getChartMargins = () => {
     if (isMobile) return { top: 10, right: 10, left: 0, bottom: 18 }
@@ -480,11 +486,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
     return `${yyyy}-${MM}-${dd} ${hh}:${mm}`
   }
 
-  const chartData = viewMode === 'general' ? finalData : processedDeltaData
-
   // 현재 시각 표시용
   const [now, setNow] = useState(new Date())
-
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(id)
@@ -501,12 +504,12 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
   }, [now])
 
   const TOP6_COLORS = [
-    '#ef4444', // red
-    '#ff00c3ff', // pink-ish
-    '#001effff', // blue
-    '#f59e0b', // amber
-    '#8b5cf6', // purple
-    '#06b6d4', // cyan
+    '#ef4444',
+    '#ff00c3ff',
+    '#001effff',
+    '#f59e0b',
+    '#8b5cf6',
+    '#06b6d4',
   ]
 
   return (
@@ -515,7 +518,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         <CardHeader className="p-3 sm:p-4 space-y-2">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <CardTitle className="text-sm sm:text-base md:text-lg text-gray-900">
-              비계전도 실시간 데이터{' '}
+              폼 변형 실시간 데이터{' '}
               {viewMode === 'general' && doorNum !== null && (
                 <span className="text-blue-400 font-bold text-sm sm:text-base md:text-lg">
                   Node-{doorNum}
@@ -542,7 +545,6 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
               <span className="hidden lg:inline 2xl:hidden text-gray-600 text-[12px] font-bold">
                 {nowDate} {nowTime}
               </span>
-
               <div className="hidden 2xl:flex items-center gap-3 font-mono tabular-nums text-[110%] font-bold text-gray-600">
                 <span>{nowDate}</span>
                 <span className="opacity-50">|</span>
@@ -550,16 +552,15 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
               </div>
             </div>
 
-            <div className="flex flex-row items-center justify-between sm:justify-end gap-3">
+            <div className="flex flex-row items-center justify-between sm:justify-end gap-3 relative z-[50]">
               <div className="flex items-center gap-x-2">
-                <label className="text-xs font-medium text-gray-700 whitespace-nowrap">
-                  기간:
-                </label>
+                <label className="text-xs font-medium text-gray-700 whitespace-nowrap">기간:</label>
+
                 <Select value={timeMode} onValueChange={(v) => setTimeMode(v as any)}>
                   <SelectTrigger className="h-6 w-[90px] sm:w-[120px] text-xs md:text-sm border border-slate-400">
                     <SelectValue placeholder="Select mode" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[9999]">
                     <SelectItem value="hour">시간</SelectItem>
                     <SelectItem value="day">일</SelectItem>
                     <SelectItem value="week">주</SelectItem>
@@ -568,14 +569,11 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                 </Select>
 
                 {timeMode === 'hour' && (
-                  <Select
-                    value={hours.toString()}
-                    onValueChange={(v) => onSelectTime(Number(v))}
-                  >
+                  <Select value={hours.toString()} onValueChange={(v) => onSelectTime(Number(v))}>
                     <SelectTrigger className="h-6 w-[90px] sm:w-[120px] text-xs md:text-sm border border-slate-400">
                       <SelectValue placeholder="Select time" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[9999]">
                       <SelectItem value="1">1 시간</SelectItem>
                       <SelectItem value="6">6 시간</SelectItem>
                       <SelectItem value="12">12 시간</SelectItem>
@@ -592,8 +590,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                     dateFormat="yyyy-MM-dd"
                     className="border border-slate-400 rounded px-2 py-1 text-xs"
                     placeholderText="날짜 선택"
-                    popperClassName="z-[9999]"
-                    portalId="root"
+                    popperClassName="z-[99999]"
                   />
                 )}
 
@@ -604,8 +601,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                     locale={ko}
                     customInput={<WeekInput />}
                     placeholderText="주차 선택"
-                    popperClassName="z-[9999]"
-                    portalId="root"
+                    popperClassName="z-[99999]"
                     filterDate={(date) => date.getDay() === 1}
                   />
                 )}
@@ -619,26 +615,29 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                     dateFormat="yyyy-MM"
                     className="border border-slate-400 rounded px-2 py-1 text-xs"
                     placeholderText="월 선택"
-                    popperClassName="z-[9999]"
-                    portalId="root"
+                    popperClassName="z-[99999]"
                   />
                 )}
               </div>
+
               <Badge variant="outline" className="h-6 text-xs md:text-sm border-slate-400">
                 데이터 수: {data.length}
               </Badge>
             </div>
           </div>
 
-          <div className="flex items-center px-2 py-1">
-            <WeatherInfographic buildingId={buildingId!} />
-          </div>
+          {/* ✅ buildingId 없으면 크래시 방지 */}
+          {buildingId ? (
+            <div className="flex items-center px-2 py-1">
+              <WeatherInfographic buildingId={buildingId} />
+            </div>
+          ) : null}
         </CardHeader>
 
         <CardContent className="p-0 pt-2 overflow-x-hidden overflow-visible">
-          <div className="px-1 px-2 w-full h-full lg:h-[60.5vh] 2xl:h-[39.3vh] 3xl:h-[42vh]">
-            <ResponsiveContainer width="106%" height="100%">
-              <LineChart data={chartData} margin={getChartMargins()}>
+          <div className="w-full h-full lg:h-[60vh] relative z-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData as any} margin={getChartMargins()}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
 
                 <XAxis
@@ -660,11 +659,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                           x={x + width / 2}
                           y={y + 50}
                           textAnchor="middle"
-                          style={{
-                            fontSize: isMobile ? 10 : 12,
-                            fontWeight: 'bold',
-                            fill: '#000',
-                          }}
+                          style={{ fontSize: isMobile ? 10 : 12, fontWeight: 'bold', fill: '#000' }}
                         >
                           {timeMode === 'week' || timeMode === 'month' ? '날짜' : '시간'}
                         </text>
@@ -694,15 +689,9 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                           textAnchor="middle"
                           style={{ fontSize: isMobile ? 10 : 12, fontWeight: 'bold' }}
                         >
-                          <tspan x={x + 31} dy="-0.6em">
-                            기
-                          </tspan>
-                          <tspan x={x + 31} dy="1.2em">
-                            울
-                          </tspan>
-                          <tspan x={x + 31} dy="1.2em">
-                            기
-                          </tspan>
+                          <tspan x={x + 31} dy="-0.6em">기</tspan>
+                          <tspan x={x + 31} dy="1.2em">울</tspan>
+                          <tspan x={x + 31} dy="1.2em">기</tspan>
                         </text>
                       )
                     }}
@@ -730,12 +719,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                           textAnchor="middle"
                           style={{ fontSize: isMobile ? 10 : 12, fontWeight: 'bold' }}
                         >
-                          <tspan x={x + 35} dy="0">
-                            풍
-                          </tspan>
-                          <tspan x={x + 35} dy="1.2em">
-                            속
-                          </tspan>
+                          <tspan x={x + 35} dy="0">풍</tspan>
+                          <tspan x={x + 35} dy="1.2em">속</tspan>
                         </text>
                       )
                     }}
@@ -752,8 +737,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                   }}
                   itemStyle={{ padding: isMobile ? '1px 0' : '2px 0' }}
                   labelStyle={{ marginBottom: isMobile ? '2px' : '5px' }}
-                  formatter={formatTooltipValue}
-                  labelFormatter={formatTooltipLabel}
+                  formatter={formatTooltipValue as any}
+                  labelFormatter={formatTooltipLabel as any}
                 />
 
                 {!isMobile && (
@@ -775,73 +760,19 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
                 {(viewMode === 'general' || viewMode === 'top6') && (
                   <>
-                    <ReferenceArea
-                      yAxisId="angle"
-                      y1={yDomain[0]}
-                      y2={clamp(-R, yDomain[0], yDomain[1])}
-                      fill="#ef4444"
-                      fillOpacity={0.1}
-                    />
-                    <ReferenceArea
-                      yAxisId="angle"
-                      y1={clamp(R, yDomain[0], yDomain[1])}
-                      y2={yDomain[1]}
-                      fill="#ef4444"
-                      fillOpacity={0.1}
-                    />
-                    <ReferenceArea
-                      yAxisId="angle"
-                      y1={clamp(-R, yDomain[0], yDomain[1])}
-                      y2={clamp(-Y, yDomain[0], yDomain[1])}
-                      fill="#eab308"
-                      fillOpacity={0.1}
-                    />
-                    <ReferenceArea
-                      yAxisId="angle"
-                      y1={clamp(Y, yDomain[0], yDomain[1])}
-                      y2={clamp(R, yDomain[0], yDomain[1])}
-                      fill="#eab308"
-                      fillOpacity={0.1}
-                    />
-                    <ReferenceArea
-                      yAxisId="angle"
-                      y1={clamp(-Y, yDomain[0], yDomain[1])}
-                      y2={clamp(-G, yDomain[0], yDomain[1])}
-                      fill="#22c55e"
-                      fillOpacity={0.1}
-                    />
-                    <ReferenceArea
-                      yAxisId="angle"
-                      y1={clamp(G, yDomain[0], yDomain[1])}
-                      y2={clamp(Y, yDomain[0], yDomain[1])}
-                      fill="#22c55e"
-                      fillOpacity={0.1}
-                    />
-                    <ReferenceArea
-                      yAxisId="angle"
-                      y1={clamp(-G, yDomain[0], yDomain[1])}
-                      y2={clamp(-B, yDomain[0], yDomain[1])}
-                      fill="#3b82f6"
-                      fillOpacity={0.1}
-                    />
-                    <ReferenceArea
-                      yAxisId="angle"
-                      y1={clamp(B, yDomain[0], yDomain[1])}
-                      y2={clamp(G, yDomain[0], yDomain[1])}
-                      fill="#3b82f6"
-                      fillOpacity={0.1}
-                    />
-                    <ReferenceArea
-                      yAxisId="angle"
-                      y1={clamp(-B, yDomain[0], yDomain[1])}
-                      y2={clamp(B, yDomain[0], yDomain[1])}
-                      fill="#3b82f6"
-                      fillOpacity={0.1}
-                    />
+                    <ReferenceArea yAxisId="angle" y1={yDomain[0]} y2={clamp(-R, yDomain[0], yDomain[1])} fill="#ef4444" fillOpacity={0.1} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(R, yDomain[0], yDomain[1])} y2={yDomain[1]} fill="#ef4444" fillOpacity={0.1} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(-R, yDomain[0], yDomain[1])} y2={clamp(-Y, yDomain[0], yDomain[1])} fill="#eab308" fillOpacity={0.1} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(Y, yDomain[0], yDomain[1])} y2={clamp(R, yDomain[0], yDomain[1])} fill="#eab308" fillOpacity={0.1} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(-Y, yDomain[0], yDomain[1])} y2={clamp(-G, yDomain[0], yDomain[1])} fill="#22c55e" fillOpacity={0.1} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(G, yDomain[0], yDomain[1])} y2={clamp(Y, yDomain[0], yDomain[1])} fill="#22c55e" fillOpacity={0.1} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(-G, yDomain[0], yDomain[1])} y2={clamp(-B, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(B, yDomain[0], yDomain[1])} y2={clamp(G, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(-B, yDomain[0], yDomain[1])} y2={clamp(B, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
                   </>
                 )}
 
-                {/* 풍속 그래프는 항상 표시 */}
+                {/* 풍속은 항상 표시 */}
                 <Line
                   yAxisId="wind"
                   type="monotone"
@@ -918,35 +849,4 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
   )
 }
 
-export default SensorGraph
-
-// =====================================================
-// ✅ 추가: 모달 래퍼 컴포넌트 (그래프 버튼 클릭 시 모달로 띄우기)
-// =====================================================
-export type SensorGraphModalProps = SensorGraphProps & {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title?: string
-}
-
-export const SensorGraphModal: React.FC<SensorGraphModalProps> = ({
-  open,
-  onOpenChange,
-  title,
-  doorNum,
-  ...rest
-}) => {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden z-[200]">
-        <DialogHeader className="p-3 border-b">
-          <DialogTitle>{title ?? `그래프 ${doorNum != null ? `- Node-${doorNum}` : ''}`}</DialogTitle>
-        </DialogHeader>
-
-        <div className="h-[calc(90vh-56px)] overflow-auto p-3">
-          <SensorGraph doorNum={doorNum} {...rest} />
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
+export default VerticalSensorGraph

@@ -17,7 +17,7 @@ import {
 	SensorData,
 } from '../../../types/interfaces'
 import VerticalNodeScroll from './VerticalNodeScroll'
-import SensorGraph from './verticalNodegraphic'
+
 
 import {
 	Dialog,
@@ -27,6 +27,7 @@ import {
 	DialogPortal,
 	DialogTitle,
 } from '@/components/ui/dialog'
+import VerticalSensorGraph from './verticalNodegraphic'
 
 interface ResQuery {
 	state: string
@@ -112,11 +113,12 @@ async function fetchAngleGraph({
 	from: string
 	to: string
 }) {
-	const res = await api.get<SensorData[]>('/vertical-node/graphic-data', {
+	const res = await api.get<SensorData[]>('/angle-node/graphic-data', {
 		params: { doorNum, from, to },
 	})
 	return res.data
 }
+
 
 const VerticalNodes = () => {
 	const { buildingId } = useParams()
@@ -596,8 +598,8 @@ const VerticalNodes = () => {
 
 			<Dialog open={isGraphOpen} onOpenChange={setIsGraphOpen}>
 				<DialogPortal>
-					<DialogOverlay className='fixed inset-0 bg-black/50 z-[120]' />
-					<DialogContent className='z-[121] w-[95vw] max-w-[1200px] h-[90vh] overflow-hidden p-3 sm:p-4'>
+					<DialogOverlay className='fixed inset-0 bg-black/50 z-[100]' />
+					<DialogContent className='z-[300] w-[95vw] max-w-[1200px] h-[90vh] overflow-hidden p-3 sm:p-4'>
 						<DialogHeader className='pb-2'>
 							<DialogTitle>
 								{selectedDoorNum != null
@@ -607,7 +609,7 @@ const VerticalNodes = () => {
 						</DialogHeader>
 
 						<div className='h-[82vh] overflow-hidden'>
-							<SensorGraph
+							<VerticalSensorGraph
 								buildingId={buildingId}
 								doorNum={selectedDoorNum}
 								graphData={
