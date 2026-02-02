@@ -159,7 +159,7 @@ const AngleNodes = () => {
   const [alertLogs, setAlertLogs] = useState<any[]>([])
   const [isFirstLoad, setIsFirstLoad] = useState(true)
 
-  /** ✅ wind: 초기 1회만 */
+  /** ✅ wind: 초기 1회 + (소켓 refetch 타이밍에 같이) */
   const refetchWind = useCallback(async () => {
     if (!buildingId) return
     try {
@@ -519,6 +519,7 @@ const AngleNodes = () => {
   /** =========================
    * ✅ 소켓: 카드 최신값 업데이트 + 그래프 refetch(디바운스)
    * - "데이터 들어올 때만" 리퀘스트 가도록 nowTick interval 제거됨
+   * ✅ 변경: 그래프 refetch될 때 wind도 같이 refetch
    * ========================= */
   const refetchTimer = useRef<number | null>(null)
 
@@ -530,7 +531,7 @@ const AngleNodes = () => {
       if (refetchTimer.current) return
       refetchTimer.current = window.setTimeout(() => {
         refetchGraph()
-        // refetchWind() // 원하면 같이
+        refetchWind() // ✅ wind도 그래프 갱신 타이밍에 같이
         refetchTimer.current = null
       }, 300)
     }
@@ -580,7 +581,7 @@ const AngleNodes = () => {
         },
       )
 
-      // ✅ 2) 그래프: 현재 선택 노드일 때만 refetch
+      // ✅ 2) 그래프(+wind): 현재 선택 노드일 때만 refetch
       if (
         viewMode !== 'top6' &&
         selectedDoorNum != null &&
@@ -601,7 +602,15 @@ const AngleNodes = () => {
         refetchTimer.current = null
       }
     }
-  }, [buildingId, queryClient, refetchGraph, viewMode, selectedDoorNum])
+  }, [
+    buildingId,
+    queryClient,
+    refetchGraph,
+    refetchWind, // ✅ 추가
+    viewMode,
+    selectedDoorNum,
+    // topDoorNums, // top6까지 켤거면 의존성에 포함
+  ])
 
   /** ✅ 저장상태 토글 */
   const handleToggleSaveStatus = async (doorNum: number, next: boolean) => {

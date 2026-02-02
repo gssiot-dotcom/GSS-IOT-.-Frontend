@@ -292,16 +292,15 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
             return NaN;
         };
 
-        const NINE_HOURS_MS = 9 * 60 * 60 * 1000;
+    
 
         const sortedWindHistory = (windHistory ?? [])
             .map(w => {
                 const ts = toMs(w.timestamp)
                 return {
                     wind_speed: Number(w.wind_speed),
-                    // ✅ windHistory timestamp는 백에서 +9h 저장된 값이라
-                    // 매칭용으로만 -9h 해서 UTC instant로 되돌림
-                    timestampNum: Number.isFinite(ts) ? ts - NINE_HOURS_MS : NaN,
+
+                    timestampNum: Number.isFinite(ts) ? ts : NaN,
                 }
             })
             .filter(w => Number.isFinite(w.timestampNum))
