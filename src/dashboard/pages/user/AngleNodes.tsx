@@ -36,7 +36,7 @@ interface WindPoint {
  * ------------------------------------------------------------------ */
 async function fetchLatestAngleForDoor(doorNum: number) {
 	const baseURL =
-		import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005/api'
+		import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:3005'
 	try {
 		const res = await axios.get('/angles/history/latest', {
 			params: { doorNum },

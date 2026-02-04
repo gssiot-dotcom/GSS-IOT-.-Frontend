@@ -195,7 +195,7 @@ const VerticalNodeScroll = ({
 
   // ✅ 초기화 API
   const postCalibrationStart = async (payload: { doorNum?: number; doorNums?: number[] }) => {
-    const res = await axios.post('/api/angles/calibration/start-all', payload, {
+    const res = await axios.post('/angles/calibration/start-all', payload, {
       baseURL: import.meta.env.VITE_SERVER_BASE_URL,
     })
     return res.data

@@ -39,7 +39,7 @@ function normalizeHostBase(url?: string) {
 }
 
 const HOST_BASE = normalizeHostBase(import.meta.env.VITE_SERVER_BASE_URL)
-const API_BASE = `${HOST_BASE}/api`
+const API_BASE = `${HOST_BASE}`
 
 /** ✅ /api 용 axios */
 const api = axios.create({

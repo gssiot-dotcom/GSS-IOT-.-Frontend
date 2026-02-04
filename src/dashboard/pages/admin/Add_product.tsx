@@ -22,8 +22,6 @@ const AddProduct = () => {
         <div
           className="
             grid
-            grid-cols-1
-            grid-cols-2
             gap-6
             h-full
           "

@@ -49,7 +49,7 @@ function normalizeHostBase(url?: string) {
 }
 
 const HOST_BASE = normalizeHostBase(import.meta.env.VITE_SERVER_BASE_URL)
-const API_BASE = `${HOST_BASE}/api`
+const API_BASE = `${HOST_BASE}`
 
 /** ✅ /api 용 axios */
 const api = axios.create({
@@ -379,7 +379,7 @@ const VerticalNodes = () => {
 		} catch (e) {
 			if (isAxiosError(e)) {
 				console.error('PATCH failed:', {
-					url: `/api/nodes/${doorNum}/save-status`,
+					url: `/nodes/${doorNum}/save-status`,
 					status: e.response?.status,
 					data: e.response?.data,
 					message: e.message,
