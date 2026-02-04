@@ -403,7 +403,7 @@ const VerticalNodeScroll = ({
         </div>
 
         {/* ✅ 살아있는 노드 grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-7  gap-4">
           {aliveNodes.map((item) => (
             <Card
               key={item.doorNum}
@@ -454,7 +454,7 @@ const VerticalNodeScroll = ({
           <div className="mt-8">
             <h2 className="text-center font-bold text-gray-600 mb-3">비활성 노드</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-7 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-7 gap-4">
               {deadNodes.map((item) => (
                 <Card
                   key={item.doorNum}
