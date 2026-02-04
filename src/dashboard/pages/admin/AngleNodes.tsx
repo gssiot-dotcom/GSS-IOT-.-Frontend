@@ -249,7 +249,8 @@ const AngleNodes = () => {
   const { data: aliveList = [], refetch: refetchAlive } = useQuery({
     queryKey: ['angle-nodes-alive'],
     queryFn: fetchAliveNodes,
-    refetchInterval: false,
+    // ✅ FIX: v5에서 boolean 금지. polling 안 쓸거면 속성 자체를 빼도 됨.
+    // refetchInterval: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity,
   })
@@ -295,8 +296,16 @@ const AngleNodes = () => {
 
   /** ✅ graphKey: from/to 제거해서 "자동 요청" 방지 + 상태 기반 안정화 */
   const graphKey = useMemo(() => {
-    if (!selectedDoorNum || viewMode === 'top6') return ['angle-graph', 'disabled']
-    return ['angle-graph', selectedDoorNum, viewMode, timeMode, selectedHours, dateKey]
+    if (!selectedDoorNum || viewMode === 'top6')
+      return ['angle-graph', 'disabled'] as const
+    return [
+      'angle-graph',
+      selectedDoorNum,
+      viewMode,
+      timeMode,
+      selectedHours,
+      dateKey,
+    ] as const
   }, [selectedDoorNum, viewMode, timeMode, selectedHours, dateKey])
 
   /** ✅ queryFn 실행 시점에 from/to 계산 (hour는 now 기준) */
@@ -328,7 +337,15 @@ const AngleNodes = () => {
     } else if (timeMode === 'month') {
       const base = selectedDate ?? new Date()
       const first = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0)
-      const last = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999)
+      const last = new Date(
+        base.getFullYear(),
+        base.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      )
       from = first.toISOString()
       to = last.toISOString()
     } else {
@@ -342,33 +359,63 @@ const AngleNodes = () => {
   }, [selectedDoorNum, timeMode, selectedDate, selectedHours])
 
   // ---------------- top6 그래프 ---------------- //
+  // ✅ FIX 포인트:
+  // - useQueries 옵션에서 refetchInterval 제거(또는 false as const)
+  // - refetchOnWindowFocus도 as const로 고정하면 타입 widening 방지에 도움
   const topQueries = useQueries({
     queries: (topDoorNums ?? []).map(dn => ({
-      queryKey: ['angle-graph-top', dn, timeMode, selectedHours, dateKey],
+      queryKey: ['angle-graph-top', dn, timeMode, selectedHours, dateKey] as const,
       queryFn: async () => {
         const range = (() => {
           // top6도 같은 기간을 쓰도록 buildRange와 동일 계산
           let from: string
           let to: string
           if (timeMode === 'day' && selectedDate) {
-            const start = new Date(selectedDate); start.setHours(0,0,0,0)
-            const end = new Date(selectedDate); end.setHours(23,59,59,999)
-            from = start.toISOString(); to = end.toISOString()
+            const start = new Date(selectedDate)
+            start.setHours(0, 0, 0, 0)
+            const end = new Date(selectedDate)
+            end.setHours(23, 59, 59, 999)
+            from = start.toISOString()
+            to = end.toISOString()
           } else if (timeMode === 'week') {
             const base = selectedDate ?? new Date()
             const day = base.getDay()
             const diffToMonday = (day + 6) % 7
-            const monday = new Date(base); monday.setDate(base.getDate() - diffToMonday); monday.setHours(0,0,0,0)
-            const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); sunday.setHours(23,59,59,999)
-            from = monday.toISOString(); to = sunday.toISOString()
+            const monday = new Date(base)
+            monday.setDate(base.getDate() - diffToMonday)
+            monday.setHours(0, 0, 0, 0)
+            const sunday = new Date(monday)
+            sunday.setDate(monday.getDate() + 6)
+            sunday.setHours(23, 59, 59, 999)
+            from = monday.toISOString()
+            to = sunday.toISOString()
           } else if (timeMode === 'month') {
             const base = selectedDate ?? new Date()
-            const first = new Date(base.getFullYear(), base.getMonth(), 1, 0,0,0,0)
-            const last = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23,59,59,999)
-            from = first.toISOString(); to = last.toISOString()
+            const first = new Date(
+              base.getFullYear(),
+              base.getMonth(),
+              1,
+              0,
+              0,
+              0,
+              0,
+            )
+            const last = new Date(
+              base.getFullYear(),
+              base.getMonth() + 1,
+              0,
+              23,
+              59,
+              59,
+              999,
+            )
+            from = first.toISOString()
+            to = last.toISOString()
           } else {
             const now = new Date()
-            from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
+            from = new Date(
+              now.getTime() - selectedHours * 60 * 60 * 1000,
+            ).toISOString()
             to = now.toISOString()
           }
           return { from, to }
@@ -378,8 +425,7 @@ const AngleNodes = () => {
       },
       enabled: !!dn && viewMode === 'top6',
       retry: 1,
-      refetchInterval: false,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: false as const,
       staleTime: Infinity,
     })),
   })
@@ -405,10 +451,7 @@ const AngleNodes = () => {
   }, [viewMode, topDoorNums, topQueries])
 
   // ---------------- 그래프 데이터 (HTTP) ---------------- //
-  const {
-    data: graphRaw = [],
-    refetch: refetchGraph,
-  } = useQuery({
+  const { data: graphRaw = [], refetch: refetchGraph } = useQuery({
     queryKey: graphKey,
     queryFn: async () => {
       const range = buildRange()
@@ -417,7 +460,8 @@ const AngleNodes = () => {
     },
     enabled: !!selectedDoorNum && viewMode !== 'top6',
     retry: 1,
-    refetchInterval: false,
+    // ✅ FIX: polling 안 쓰면 제거(또는 false as const)
+    // refetchInterval: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity, // ✅ 소켓에서만 갱신 트리거
   })
