@@ -697,7 +697,7 @@ const AngleNodes = () => {
   }
 
   return (
-    <div className='w-full max-h-screen bg-gray-50 px-2 md:px-5 pt-0 overflow-hidden'>
+   <div className='w-full bg-gray-50 px-2 md:px-5 pt-0 overflow-auto md:overflow-hidden min-h-dvh md:max-h-screen'>
       <WhiteHeader
         buildingName={
           buildingData?.building_name ??
@@ -730,7 +730,7 @@ const AngleNodes = () => {
         />
       </div>
 
-      <div className='lg:-mt-[42.2%] 2xl:-mt-[61.5vh] 3xl:-mt-[62vh]'>
+      <div className='lg:-mt-[39.4%] 2xl:-mt-[62.8vh]'>
         <SensorGraph
           graphData={
             viewMode === 'top6'

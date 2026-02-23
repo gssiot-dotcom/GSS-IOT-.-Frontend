@@ -107,7 +107,7 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
 					{/* 3D 도면 보기 */}
 					<Button
 						variant='outline'
-						className='h-auto py-1 border-slate-400 text-sm font-medium'
+						className='h-6 2xl:h-8 py-1 border-slate-400 text-sm font-medium'
 					>
 						3D 도면 보기
 					</Button>
@@ -115,7 +115,7 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
 					{/* 노드 정보 */}
 					<Button
 						variant='outline'
-						className='h-auto py-1 border-slate-400 text-sm font-medium'
+						className='h-6 2xl:h-8 py-1 border-slate-400 text-sm font-medium'
 						onClick={() => setIsNodesEditOpen(true)}
 					>
 						노드 정보
@@ -124,7 +124,7 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
 					{/* CSV */}
 					<Button
 						variant='outline'
-						className='h-auto py-1 border-slate-400 text-sm font-medium'
+						className='h-6 2xl:h-8 py-1 border-slate-400 text-sm font-medium'
 						onClick={() => setOpenCsvPicker(true)}
 					>
 						CSV
@@ -134,7 +134,7 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
 					<Button
 						variant='outline'
 						onClick={() => setOpenPicker(true)}
-						className='h-auto py-1 border-slate-400 text-sm font-medium'
+						className='h-6 2xl:h-8 py-1 border-slate-400 text-sm font-medium'
 					>
 						보고서
 					</Button>

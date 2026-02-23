@@ -39,39 +39,45 @@ const WeatherInfo = ({ buildingId }: { buildingId: string }) => {
           <>
             {/* 풍속 */}
             <div className="flex items-center gap-1">
-              <span>💨풍속:</span>
+              <span aria-label="풍속" title="풍속">💨</span>
+              <span className="hidden md:inline">풍속:</span>
               <span>{weather.windSpeed} m/s</span>
             </div>
 
             {/* 풍향 */}
             {weather.windDeg !== undefined && (
               <div className="flex items-center gap-1">
-                <span>🧭풍향:</span>
+                <span aria-label="풍향" title="풍향">🧭</span>
+                <span className="hidden md:inline">풍향:</span>
                 <span>{getWindDirection(weather.windDeg)}풍</span>
               </div>
             )}
 
             {/* 날씨 설명 */}
             <div className="flex items-center gap-1">
-              <span>☁️날씨:</span>
+              <span aria-label="날씨" title="날씨">☁️</span>
+              <span className="hidden md:inline">날씨:</span>
               <span>{weather.description ?? '정보 없음'}</span>
             </div>
 
             {/* 온도 */}
             <div className="flex items-center gap-1">
-              <span>🌡️온도:</span>
+              <span aria-label="온도" title="온도">🌡️</span>
+              <span className="hidden md:inline">온도:</span>
               <span>{weather.temp.toFixed(1)}℃</span>
             </div>
 
             {/* 습도 */}
             <div className="flex items-center gap-1">
-              <span>💧습도:</span>
+              <span aria-label="습도" title="습도">💧</span>
+              <span className="hidden md:inline">습도:</span>
               <span>{weather.humidity}%</span>
             </div>
 
             {/* 태풍 특보 */}
             <div className="flex items-center gap-1">
-              <span>🌀태풍:</span>
+              <span aria-label="태풍" title="태풍">🌀</span>
+              <span className="hidden md:inline">태풍:</span>
               <span className={weather.typhoon ? 'text-purple-600' : 'text-gray-500'}>
                 {weather.typhoonLabel ?? (weather.typhoon ? '태풍 특보' : '없음')}
               </span>
