@@ -496,9 +496,23 @@ const AngleNodeScroll = ({
               정상
             </label>
 
-            <div className="border border-gray-400 rounded-md w-9 md:w-10 h-7 md:h-[3.1vh] flex items-center justify-center">
-              <span className="text-[10px] md:text-[11px] 2xl:text-xs">{G}</span>
-              <span className="ml-1 text-[10px] md:text-[11px] 2xl:text-xs">이하</span>
+            <div
+              className={cn(
+                'border border-gray-400 rounded-md flex items-center justify-center',
+                // ✅ 크기: 모바일은 더 낮게
+                'w-9 md:w-10',
+                'h-6 md:h-[3.1vh]',
+                // ✅ 글씨 크기
+                'text-[10px] md:text-[11px] 2xl:text-xs',
+              )}
+            >
+              <span className="leading-none">{G}</span>
+
+              {/* ✅ 모바일에서는 "이하" 대신 ▼ */}
+              <span className="ml-1 leading-none">
+                <span className="inline sm:hidden">▼</span>
+                <span className="hidden sm:inline">이하</span>
+              </span>
             </div>
           </div>
 
@@ -535,13 +549,13 @@ const AngleNodeScroll = ({
               전원
             </label>
 
-            <div className="border border-gray-500 rounded-md px-2 min-w-[2rem] h-7 md:h-[3.1vh] flex items-center justify-center text-[11px] md:text-[11px] bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold">
+            <div className="border border-gray-500 rounded-md px-2 min-w-[2rem] h-6 md:h-[3.1vh] flex items-center justify-center text-[11px] md:text-[11px] bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold">
               OFF
             </div>
           </div>
 
           <button
-            className="px-2 py-1 bg-blue-600 text-white rounded-lg text-[11px] md:text-[10px] 2xl:text-xs font-semibold hover:bg-blue-700 transition-colors"
+            className="px-2 py-1 bg-blue-600 text-white rounded-lg text-[9px] md:text-[10px] 2xl:text-xs font-semibold hover:bg-blue-700 transition-colors"
             onClick={() => onSetAlarmLevels({ G, Y, R })}
           >
             저장
@@ -840,9 +854,8 @@ const AngleNodeScroll = ({
                         <div
                           key={`log-${idx}-${i}`}
                           onClick={clickable ? () => toggleGroup(idx) : undefined}
-                          className={`${logBg(log.level)} px-2 py-1 rounded border border-black/10 shadow-sm ${
-                            clickable ? 'cursor-pointer' : ''
-                          }`}
+                          className={`${logBg(log.level)} px-2 py-1 rounded border border-black/10 shadow-sm ${clickable ? 'cursor-pointer' : ''
+                            }`}
                           title={clickable ? '접기' : undefined}
                           style={{ minHeight: 30, width: 'calc(100% - 2px)' }}
                         >

@@ -121,8 +121,8 @@ const WhiteHeader = ({ buildingName }: WhiteHeaderProps) => {
             className={`
               object-contain
               w-20 sm:w-10 md:w-16 h-auto
-              ml-0 sm:ml-1 md:ml-[20%]
-              scale-130 md:scale-[4.5] 2xl:scale-[5.5]
+              ml-[-12px] sm:ml-1 md:ml-[20%]
+              scale-110 md:scale-[4.5] 2xl:scale-[5.5]
               max-w-full
             `}
             onError={e => {
@@ -160,7 +160,8 @@ const WhiteHeader = ({ buildingName }: WhiteHeaderProps) => {
           className={`
             object-contain
             w-20 sm:w-8 md:w-14 h-auto
-            scale-130 md:scale-[2.5] 2xl:scale-[3.5]
+            mr-[-15px]
+            scale-110 md:scale-[2.5] 2xl:scale-[3.5]
             flex-shrink-0
           `}
         />

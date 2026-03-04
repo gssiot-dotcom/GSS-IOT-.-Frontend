@@ -662,7 +662,7 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                 <CardContent className="p-0 pt-2 overflow-hidden">
                     {/* ✅ 모바일 높이 확보 + width 100% */}
                     <div className="w-full h-[260px] sm:h-[320px] lg:h-[39.8vh] lg:max-w-[70rem] 2xl:h-[43.2vh] 2xl:max-w-[76.5rem]">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width={isMobile ? "104%" : "108%"} height="100%">
                             <LineChart data={chartData} margin={getChartMargins()}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
 
