@@ -1,21 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import WhiteHeader from '@/dashboard/components/shared-dash/dashbordHeader'
 import socket from '@/hooks/useSocket'
-import {
-  fetchBuildingAngleNodes,
-  setBuildingAlarmLevelRequest,
-} from '@/services/apiRequests'
+import { fetchBuildingAngleNodes, setBuildingAlarmLevelRequest } from '@/services/apiRequests'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios, { isAxiosError } from 'axios'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import {
-  DeltaGraphPoint,
-  GraphDataPoint,
-  IAngleNode,
-  IBuilding,
-  SensorData,
-} from '../../../types/interfaces'
+import { DeltaGraphPoint, GraphDataPoint, IAngleNode, IBuilding, SensorData } from '../../../types/interfaces'
 import AngleNodeScroll from './AngleNodeScroll'
 import SensorGraph from './angleNodegraphic'
 
@@ -113,27 +104,24 @@ async function fetchAngleGraph({
  * calibrated 우선 추출 (없으면 angle로 fallback)
  * ------------------------------------------------------------------ */
 function pickCalibratedXY(d: any) {
-  const cx =
-    d?.calibrated_x ??
-    d?.calibratedX ??
-    d?.angle_x ??
-    d?.angleX ??
-    null
+  const cx = d?.calibrated_x ?? d?.calibratedX ?? d?.angle_x ?? d?.angleX ?? null
+  const cy = d?.calibrated_y ?? d?.calibratedY ?? d?.angle_y ?? d?.angleY ?? null
 
-  const cy =
-    d?.calibrated_y ??
-    d?.calibratedY ??
-    d?.angle_y ??
-    d?.angleY ??
-    null
-
-  const toNumOrNull = (v: any) =>
-    v == null ? null : typeof v === 'number' ? v : Number(v)
+  const toNumOrNull = (v: any) => (v == null ? null : typeof v === 'number' ? v : Number(v))
 
   return {
     calibrated_x: toNumOrNull(cx),
     calibrated_y: toNumOrNull(cy),
   }
+}
+
+/** ------------------------------------------------------------------
+ * ✅ Top6 timestamp 정렬/합치기용: bucket(초)로 맞춤
+ * - 10초 단위로 자르면 서로 timestamp가 약간 달라도 같은 점으로 합쳐짐
+ * ------------------------------------------------------------------ */
+function bucketTs(ms: number, stepSec = 10) {
+  const step = stepSec * 1000
+  return Math.floor(ms / step) * step
 }
 
 const AngleNodes = () => {
@@ -144,12 +132,9 @@ const AngleNodes = () => {
 
   const [selectedHours, setSelectedHours] = useState<number>(12)
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
-  const [timeMode, setTimeMode] = useState<'hour' | 'day' | 'week' | 'month'>(
-    'hour',
-  )
-  const [viewMode, setViewMode] = useState<
-    'general' | 'delta' | 'avgDelta' | 'top6'
-  >('general')
+  const [timeMode, setTimeMode] = useState<'hour' | 'day' | 'week' | 'month'>('hour')
+
+  const [viewMode, setViewMode] = useState<'general' | 'delta' | 'avgDelta' | 'top6'>('general')
   const [topDoorNums, setTopDoorNums] = useState<number[] | null>(null)
 
   const [windHistory, setWindHistory] = useState<WindPoint[]>([])
@@ -223,8 +208,7 @@ const AngleNodes = () => {
         })
 
         const sorted = (res.data.items ?? []).sort(
-          (a: any, b: any) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
         )
 
         const mapped = sorted.map((log: any) => ({
@@ -249,8 +233,6 @@ const AngleNodes = () => {
   const { data: aliveList = [], refetch: refetchAlive } = useQuery({
     queryKey: ['angle-nodes-alive'],
     queryFn: fetchAliveNodes,
-    // ✅ FIX: v5에서 boolean 금지. polling 안 쓸거면 속성 자체를 빼도 됨.
-    // refetchInterval: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity,
   })
@@ -287,140 +269,82 @@ const AngleNodes = () => {
   }, [stableNodes, aliveSet, aliveMap])
 
   /** =========================
-   * ✅ 그래프용 dateKey (queryKey 안정화)
+   * ✅ dateKey (queryKey 안정화)
    * ========================= */
   const dateKey = useMemo(() => {
     if (!selectedDate) return 'no-date'
     return `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`
   }, [selectedDate])
 
+  /** =========================
+   * ✅ 기간 계산 공통 (single/top6 둘 다 사용)
+   * - hour 모드는 selectedDate와 무관하게 now 기준
+   * ========================= */
+  const buildRangeFor = useCallback(
+    (doorNum: number) => {
+      let from: string
+      let to: string
+
+      if (timeMode === 'day' && selectedDate) {
+        const start = new Date(selectedDate)
+        start.setHours(0, 0, 0, 0)
+        const end = new Date(selectedDate)
+        end.setHours(23, 59, 59, 999)
+        from = start.toISOString()
+        to = end.toISOString()
+      } else if (timeMode === 'week') {
+        const base = selectedDate ?? new Date()
+        const day = base.getDay()
+        const diffToMonday = (day + 6) % 7
+        const monday = new Date(base)
+        monday.setDate(base.getDate() - diffToMonday)
+        monday.setHours(0, 0, 0, 0)
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 6)
+        sunday.setHours(23, 59, 59, 999)
+        from = monday.toISOString()
+        to = sunday.toISOString()
+      } else if (timeMode === 'month') {
+        const base = selectedDate ?? new Date()
+        const first = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0)
+        const last = new Date(base.getFullYear(), base.getMonth() + 1, 0, 23, 59, 59, 999)
+        from = first.toISOString()
+        to = last.toISOString()
+      } else {
+        // hour
+        const now = new Date()
+        from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
+        to = now.toISOString()
+      }
+
+      return { doorNum, from, to }
+    },
+    [timeMode, selectedDate, selectedHours],
+  )
+
   /** ✅ graphKey: from/to 제거해서 "자동 요청" 방지 + 상태 기반 안정화 */
   const graphKey = useMemo(() => {
-    if (!selectedDoorNum || viewMode === 'top6')
-      return ['angle-graph', 'disabled'] as const
-    return [
-      'angle-graph',
-      selectedDoorNum,
-      viewMode,
-      timeMode,
-      selectedHours,
-      dateKey,
-    ] as const
+    if (!selectedDoorNum || viewMode === 'top6') return ['angle-graph', 'disabled'] as const
+
+    // hour 모드는 dateKey 의미 없지만, 기존 유지(캐시 분리 목적이면 ok)
+    // 더 깔끔히 하려면 timeMode==='hour'일 때 dateKey를 'hour'로 고정해도 됨
+    return ['angle-graph', selectedDoorNum, viewMode, timeMode, selectedHours, dateKey] as const
   }, [selectedDoorNum, viewMode, timeMode, selectedHours, dateKey])
 
-  /** ✅ queryFn 실행 시점에 from/to 계산 (hour는 now 기준) */
-  const buildRange = useCallback(() => {
-    if (!selectedDoorNum) return null
-
-    let from: string
-    let to: string
-
-    if (timeMode === 'day' && selectedDate) {
-      const start = new Date(selectedDate)
-      start.setHours(0, 0, 0, 0)
-      const end = new Date(selectedDate)
-      end.setHours(23, 59, 59, 999)
-      from = start.toISOString()
-      to = end.toISOString()
-    } else if (timeMode === 'week') {
-      const base = selectedDate ?? new Date()
-      const day = base.getDay()
-      const diffToMonday = (day + 6) % 7
-      const monday = new Date(base)
-      monday.setDate(base.getDate() - diffToMonday)
-      monday.setHours(0, 0, 0, 0)
-      const sunday = new Date(monday)
-      sunday.setDate(monday.getDate() + 6)
-      sunday.setHours(23, 59, 59, 999)
-      from = monday.toISOString()
-      to = sunday.toISOString()
-    } else if (timeMode === 'month') {
-      const base = selectedDate ?? new Date()
-      const first = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0)
-      const last = new Date(
-        base.getFullYear(),
-        base.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-        999,
-      )
-      from = first.toISOString()
-      to = last.toISOString()
-    } else {
-      // hour
-      const now = new Date()
-      from = new Date(now.getTime() - selectedHours * 60 * 60 * 1000).toISOString()
-      to = now.toISOString()
-    }
-
-    return { doorNum: selectedDoorNum, from, to }
-  }, [selectedDoorNum, timeMode, selectedDate, selectedHours])
-
   // ---------------- top6 그래프 ---------------- //
-  // ✅ FIX 포인트:
-  // - useQueries 옵션에서 refetchInterval 제거(또는 false as const)
-  // - refetchOnWindowFocus도 as const로 고정하면 타입 widening 방지에 도움
   const topQueries = useQueries({
     queries: (topDoorNums ?? []).map(dn => ({
-      queryKey: ['angle-graph-top', dn, timeMode, selectedHours, dateKey] as const,
+      queryKey: [
+        'angle-graph-top',
+        dn,
+        viewMode,
+        timeMode,
+        selectedHours,
+        // ✅ hour 모드에선 dateKey 의미 없으니 고정 키로 안정화
+        timeMode === 'hour' ? 'hour' : dateKey,
+      ] as const,
       queryFn: async () => {
-        const range = (() => {
-          // top6도 같은 기간을 쓰도록 buildRange와 동일 계산
-          let from: string
-          let to: string
-          if (timeMode === 'day' && selectedDate) {
-            const start = new Date(selectedDate)
-            start.setHours(0, 0, 0, 0)
-            const end = new Date(selectedDate)
-            end.setHours(23, 59, 59, 999)
-            from = start.toISOString()
-            to = end.toISOString()
-          } else if (timeMode === 'week') {
-            const base = selectedDate ?? new Date()
-            const day = base.getDay()
-            const diffToMonday = (day + 6) % 7
-            const monday = new Date(base)
-            monday.setDate(base.getDate() - diffToMonday)
-            monday.setHours(0, 0, 0, 0)
-            const sunday = new Date(monday)
-            sunday.setDate(monday.getDate() + 6)
-            sunday.setHours(23, 59, 59, 999)
-            from = monday.toISOString()
-            to = sunday.toISOString()
-          } else if (timeMode === 'month') {
-            const base = selectedDate ?? new Date()
-            const first = new Date(
-              base.getFullYear(),
-              base.getMonth(),
-              1,
-              0,
-              0,
-              0,
-              0,
-            )
-            const last = new Date(
-              base.getFullYear(),
-              base.getMonth() + 1,
-              0,
-              23,
-              59,
-              59,
-              999,
-            )
-            from = first.toISOString()
-            to = last.toISOString()
-          } else {
-            const now = new Date()
-            from = new Date(
-              now.getTime() - selectedHours * 60 * 60 * 1000,
-            ).toISOString()
-            to = now.toISOString()
-          }
-          return { from, to }
-        })()
-
+        const range = buildRangeFor(dn)
         return fetchAngleGraph({ doorNum: dn, from: range.from, to: range.to })
       },
       enabled: !!dn && viewMode === 'top6',
@@ -430,6 +354,7 @@ const AngleNodes = () => {
     })),
   })
 
+  /** ✅ Top6 데이터 합치기: timestamp를 bucket(10초)으로 맞춰 합침 */
   const top6GraphData = useMemo(() => {
     if (viewMode !== 'top6' || !topDoorNums?.length) return []
 
@@ -438,11 +363,13 @@ const AngleNodes = () => {
     topDoorNums.forEach((dn, idx) => {
       const arr = (topQueries[idx]?.data ?? []) as SensorData[]
       arr.forEach(item => {
-        const ts = Date.parse(item.createdAt)
-        if (!Number.isFinite(ts)) return
+        const rawTs = Date.parse(item.createdAt)
+        if (!Number.isFinite(rawTs)) return
+
+        const ts = bucketTs(rawTs, 10) // ✅ 10초 단위로 합치기
         const { calibrated_x } = pickCalibratedXY(item)
 
-        if (!map.has(ts)) map.set(ts, { time: item.createdAt, timestamp: ts })
+        if (!map.has(ts)) map.set(ts, { time: new Date(ts).toISOString(), timestamp: ts })
         map.get(ts)![`node_${dn}`] = calibrated_x
       })
     })
@@ -454,14 +381,12 @@ const AngleNodes = () => {
   const { data: graphRaw = [], refetch: refetchGraph } = useQuery({
     queryKey: graphKey,
     queryFn: async () => {
-      const range = buildRange()
-      if (!range) return []
+      if (!selectedDoorNum) return []
+      const range = buildRangeFor(selectedDoorNum)
       return fetchAngleGraph(range)
     },
     enabled: !!selectedDoorNum && viewMode !== 'top6',
     retry: 1,
-    // ✅ FIX: polling 안 쓰면 제거(또는 false as const)
-    // refetchInterval: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity, // ✅ 소켓에서만 갱신 트리거
   })
@@ -471,9 +396,7 @@ const AngleNodes = () => {
     if (!selectedDoorNum) return { graphData: [], deltaGraphData: [] }
 
     const filtered = graphRaw.filter(d => d.doorNum === selectedDoorNum)
-    const sorted = filtered.sort(
-      (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
-    )
+    const sorted = filtered.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
 
     // ✅ general: calibrated_x/y만 사용 + timestamp 포함
     if (viewMode === 'general') {
@@ -562,8 +485,8 @@ const AngleNodes = () => {
 
   /** =========================
    * ✅ 소켓: 카드 최신값 업데이트 + 그래프 refetch(디바운스)
-   * - "데이터 들어올 때만" 리퀘스트 가도록 nowTick interval 제거됨
-   * ✅ 변경: 그래프 refetch될 때 wind도 같이 refetch
+   * - Top6 모드도 refetch 되도록 수정
+   * - 그래프 refetch될 때 wind도 같이 refetch
    * ========================= */
   const refetchTimer = useRef<number | null>(null)
 
@@ -575,67 +498,63 @@ const AngleNodes = () => {
       if (refetchTimer.current) return
       refetchTimer.current = window.setTimeout(() => {
         refetchGraph()
-        refetchWind() // ✅ wind도 그래프 갱신 타이밍에 같이
+        refetchWind()
+        // ✅ top6는 개별 query라 invalidate로 한번에 갱신 트리거
+        queryClient.invalidateQueries({ queryKey: ['angle-graph-top'] })
         refetchTimer.current = null
       }, 300)
     }
 
     const listener = (newData: SensorData) => {
       // ✅ 1) 카드 최신값 업데이트
-      queryClient.setQueryData<ResQuery>(
-        ['get-building-angle-nodes', buildingId],
-        old => {
-          if (!old) return old
-          const list = old.angle_nodes ?? []
-          const idx = list.findIndex(n => n.doorNum === newData.doorNum)
+      queryClient.setQueryData<ResQuery>(['get-building-angle-nodes', buildingId], old => {
+        if (!old) return old
+        const list = old.angle_nodes ?? []
+        const idx = list.findIndex(n => n.doorNum === newData.doorNum)
 
-          const { calibrated_x, calibrated_y } = pickCalibratedXY(newData)
+        const { calibrated_x, calibrated_y } = pickCalibratedXY(newData)
 
-          if (idx === -1) {
-            return {
-              ...old,
-              angle_nodes: [
-                ...list,
-                {
-                  _id: crypto.randomUUID(),
-                  doorNum: newData.doorNum,
-                  calibrated_x,
-                  calibrated_y,
-                  angle_x: calibrated_x,
-                  angle_y: calibrated_y,
-                  node_status: false,
-                  node_alive: true,
-                  createdAt: newData.createdAt,
-                } as any as IAngleNode,
-              ],
-            }
+        if (idx === -1) {
+          return {
+            ...old,
+            angle_nodes: [
+              ...list,
+              {
+                _id: crypto.randomUUID(),
+                doorNum: newData.doorNum,
+                calibrated_x,
+                calibrated_y,
+                angle_x: calibrated_x,
+                angle_y: calibrated_y,
+                node_status: false,
+                node_alive: true,
+                createdAt: newData.createdAt,
+              } as any as IAngleNode,
+            ],
           }
+        }
 
-          const next = [...list]
-          next[idx] = {
-            ...next[idx],
-            calibrated_x,
-            calibrated_y,
-            angle_x: calibrated_x,
-            angle_y: calibrated_y,
-            createdAt: newData.createdAt,
-          } as any
+        const next = [...list]
+        next[idx] = {
+          ...next[idx],
+          calibrated_x,
+          calibrated_y,
+          angle_x: calibrated_x,
+          angle_y: calibrated_y,
+          createdAt: newData.createdAt,
+        } as any
 
-          return { ...old, angle_nodes: next }
-        },
-      )
+        return { ...old, angle_nodes: next }
+      })
 
-      // ✅ 2) 그래프(+wind): 현재 선택 노드일 때만 refetch
-      if (
-        viewMode !== 'top6' &&
-        selectedDoorNum != null &&
-        newData.doorNum === selectedDoorNum
-      ) {
-        scheduleRefetch()
+      // ✅ 2) 그래프(+wind)
+      if (viewMode !== 'top6') {
+        if (selectedDoorNum != null && newData.doorNum === selectedDoorNum) scheduleRefetch()
+        return
       }
 
-      // ✅ (선택) top6도 즉시 갱신 원하면:
-      // if (viewMode === 'top6' && topDoorNums?.includes(newData.doorNum)) scheduleRefetch()
+      // ✅ Top6 모드면 topDoorNums 안에 들어오는 노드 갱신 시 반영
+      if (topDoorNums?.includes(newData.doorNum)) scheduleRefetch()
     }
 
     socket.on(topic, listener)
@@ -650,18 +569,16 @@ const AngleNodes = () => {
     buildingId,
     queryClient,
     refetchGraph,
-    refetchWind, // ✅ 추가
+    refetchWind,
     viewMode,
     selectedDoorNum,
-    // topDoorNums, // top6까지 켤거면 의존성에 포함
+    topDoorNums, // ✅ Top6 refetch 조건에 필요
   ])
 
   /** ✅ 저장상태 토글 */
   const handleToggleSaveStatus = async (doorNum: number, next: boolean) => {
     try {
-      await api.patch(`/angle-nodes/${doorNum}/save-status`, {
-        save_status: next,
-      })
+      await api.patch(`/angle-nodes/${doorNum}/save-status`, { save_status: next })
       await refetchAlive()
       queryClient.invalidateQueries({ queryKey: ['angle-nodes-alive'] })
     } catch (e) {
@@ -697,7 +614,7 @@ const AngleNodes = () => {
   }
 
   return (
-    <div className='w-full max-h-screen bg-gray-50 px-2 md:px-5 pt-0 overflow-hidden'>
+    <div className="w-full bg-gray-50 px-2 md:px-5 pt-0 overflow-auto md:overflow-hidden min-h-dvh md:max-h-screen">
       <WhiteHeader
         buildingName={
           buildingData?.building_name ??
@@ -707,7 +624,7 @@ const AngleNodes = () => {
         }
       />
 
-      <div className='lg:-ml-[1%]'>
+      <div className="lg:-ml-[1%]">
         <AngleNodeScroll
           buildingId={buildingId}
           onSelectNode={setSelectedDoorNum}
@@ -730,7 +647,7 @@ const AngleNodes = () => {
         />
       </div>
 
-      <div className='lg:-mt-[42.2%] 2xl:-mt-[61.5vh] 3xl:-mt-[62vh]'>
+      <div className="lg:-mt-[39.4%] 2xl:-mt-[62.8vh]">
         <SensorGraph
           graphData={
             viewMode === 'top6'
