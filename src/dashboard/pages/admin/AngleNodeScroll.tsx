@@ -20,10 +20,7 @@ import { NodeDetailModal } from '@/dashboard/components/shared-dash/angleNodeDet
 import Draggable from 'react-draggable'
 
 // ✅ 편집 모달
-import {
-  NodesEditModal,
-  GatewaysEditModal,
-} from '@/dashboard/components/shared-dash/productEdit'
+import { NodesEditModal, GatewaysEditModal } from '@/dashboard/components/shared-dash/productEdit'
 
 import axios from 'axios'
 
@@ -62,8 +59,7 @@ interface Props {
  *  ================================ */
 const S3_BASE_URL = 'http://gssiot-image-bucket.s3.us-east-1.amazonaws.com'
 const toS3Folder = (name: string) => encodeURIComponent(name).replace(/%20/g, '+')
-const toKeyPart = (s?: string | number) =>
-  s == null ? '' : encodeURIComponent(String(s).trim())
+const toKeyPart = (s?: string | number) => (s == null ? '' : encodeURIComponent(String(s).trim()))
 const sanitizePosForFilename = (s?: string) => (s ?? '').trim().replace(/[\/\\]/g, '')
 
 const buildS3Url = (node?: IAngleNode | null, buildingName?: string) => {
@@ -362,10 +358,10 @@ const AngleNodeScroll = ({
 
   const renderPositionAndGateway = (item: IAngleNode) => (
     <>
-      <div className="flex flex-col mb-1 font-medium">
+      <div className="flex flex-col mb-0.5 md:mb-1 font-medium">
         <p className="truncate max-w-full">{(item as any).position || 'N/A'}</p>
       </div>
-      <div className="flex flex-col mb-1 font-medium">
+      <div className="flex flex-col mb-0.5 md:mb-1 font-medium">
         <p className="truncate max-w-full">
           ({(item as any)?.gateway_id?.serial_number ? `gw-${(item as any).gateway_id.serial_number}` : 'N/A'})
         </p>
@@ -478,31 +474,31 @@ const AngleNodeScroll = ({
      * - md 이상: 3개(좌/중앙/우) 한 화면 고정(부모가 overflow-hidden일 때), 각 ScrollArea 내부 스크롤
      * - md 이하: 중앙(hidden) 제거 + 좌/우만 세로로 쌓이고 페이지 스크롤 가능
      */
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 w-full px-4 py-4 mt-2 md:h-[calc(100vh-24px)] 2xl:h-[calc(100vh-34px)]">
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 w-full px-3 md:px-4 py-3 md:py-4 mt-2 md:h-[calc(100vh-24px)] 2xl:h-[calc(100vh-34px)]">
       {/* ================= 좌측: 노드 카드 영역 ================= */}
       <ScrollArea
         className={cn(
-          // grid span
           'col-span-1 md:col-span-4 2xl:col-span-3',
-          // box
-          'overflow-auto rounded-lg border border-slate-400 bg-white p-4 -mt-5',
-          // height behavior
-         'h-[clamp(280px,55dvh,520px)] md:h-full md:min-h-0',
-          // 기존 너비/높이 커스텀 유지(필요 시)
+          'overflow-auto rounded-lg border border-slate-400 bg-white',
+          // ✅ 모바일에서 패딩/마진/높이 더 컴팩트
+          'p-2 md:p-4',
+          '-mt-2 md:-mt-5',
+          'h-[clamp(240px,48dvh,480px)] md:h-full md:min-h-0',
           'lg:w-[22rem] 2xl:w-[25rem] 3xl:w-[25rem]',
         )}
       >
         {/* BGYR 설정 & 알람 저장 */}
-        <div className="flex justify-between mb-4 gap-2 items-end">
+        <div className="flex justify-between mb-2 md:mb-4 gap-1 md:gap-2 items-end">
           {/* 정상(B) */}
           <div className="flex flex-col items-center 3xl:items-center">
-            <label className="flex items-center lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1">
-              <span className="w-3 h-3 bg-blue-500 inline-block rounded-sm" />
+            <label className="flex items-center text-[10px] md:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1">
+              <span className="w-2.5 h-2.5 md:w-3 md:h-3 bg-blue-500 inline-block rounded-sm" />
               정상
             </label>
-            <div className="border border-gray-400 rounded-md w-10 h-[3.1vh] flex items-center justify-center 2xl:w-[2.6vw] 2xl:h-[2.3vh] 2xl:text-base">
-              <span className="lg:text-[11px] 2xl:text-xs">{G}</span>
-              <span className="ml-1 mt-[0.1vh] text-[11px] 2xl:text-xs">이하</span>
+
+            <div className="border border-gray-400 rounded-md w-9 md:w-10 h-7 md:h-[3.1vh] flex items-center justify-center">
+              <span className="text-[10px] md:text-[11px] 2xl:text-xs">{G}</span>
+              <span className="ml-1 text-[10px] md:text-[11px] 2xl:text-xs">이하</span>
             </div>
           </div>
 
@@ -514,12 +510,12 @@ const AngleNodeScroll = ({
             const minValue = key === 'G' ? 0 : key === 'Y' ? G : Y
             return (
               <div key={key} className="flex flex-col items-center">
-                <label className="flex items-center lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1">
-                  <span className={`w-3 h-3 ${color} inline-block rounded-sm`} />
+                <label className="flex items-center text-[10px] md:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1">
+                  <span className={cn('w-2.5 h-2.5 md:w-3 md:h-3 inline-block rounded-sm', color)} />
                   {label}
                 </label>
                 <select
-                  className="border border-gray-400 rounded-md px-1 text-sm"
+                  className="border border-gray-400 rounded-md px-1 py-0.5 text-[11px] md:text-sm"
                   value={value}
                   onChange={e => setter(Number.parseFloat(e.target.value))}
                 >
@@ -534,18 +530,18 @@ const AngleNodeScroll = ({
           })}
 
           <div className="flex flex-col items-center ml-1">
-            <label className="flex items-center lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1 text-gray-700">
-              <span className="w-3 h-3 bg-gray-500 inline-block rounded-sm" />
+            <label className="flex items-center text-[10px] md:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1 text-gray-700">
+              <span className="w-2.5 h-2.5 md:w-3 md:h-3 bg-gray-500 inline-block rounded-sm" />
               전원
             </label>
 
-            <div className="border border-gray-500 rounded-md px-2 min-w-[2rem] h-[3.1vh] flex items-center justify-center lg:text-[11px] 3xl:text-[13px] bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold">
+            <div className="border border-gray-500 rounded-md px-2 min-w-[2rem] h-7 md:h-[3.1vh] flex items-center justify-center text-[11px] md:text-[11px] bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold">
               OFF
             </div>
           </div>
 
           <button
-            className="px-2 2xl:p-2 py-1 bg-blue-600 text-white rounded-lg lg:text-[10px] 2xl:text-xs font-semibold hover:bg-blue-700 transition-colors"
+            className="px-2 py-1 bg-blue-600 text-white rounded-lg text-[11px] md:text-[10px] 2xl:text-xs font-semibold hover:bg-blue-700 transition-colors"
             onClick={() => onSetAlarmLevels({ G, Y, R })}
           >
             저장
@@ -553,32 +549,40 @@ const AngleNodeScroll = ({
         </div>
 
         {/* 뷰 모드 + 설정 */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex gap-2">
+        <div className="flex items-center justify-between mb-2 md:mb-4">
+          <div className="flex gap-1.5 md:gap-2">
             <button
-              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500'
-                }`}
+              className={cn(
+                'px-1.5 py-0.5 md:px-2 md:py-1 rounded-lg font-bold text-[11px] md:text-xs text-white transition-colors duration-200',
+                viewMode === 'general' ? 'bg-blue-600' : 'bg-gray-400 hover:bg-gray-500',
+              )}
               onClick={() => setViewMode('general')}
             >
               기울기
             </button>
             <button
-              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500'
-                }`}
+              className={cn(
+                'px-1.5 py-0.5 md:px-2 md:py-1 rounded-lg font-bold text-[11px] md:text-xs text-white transition-colors duration-200',
+                viewMode === 'delta' ? 'bg-purple-600' : 'bg-gray-400 hover:bg-gray-500',
+              )}
               onClick={() => setViewMode('delta')}
             >
               변화량
             </button>
             <button
-              className={`px-2 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500'
-                }`}
+              className={cn(
+                'px-1.5 py-0.5 md:px-2 md:py-1 rounded-lg font-bold text-[11px] md:text-xs text-white transition-colors duration-200',
+                viewMode === 'avgDelta' ? 'bg-orange-400' : 'bg-gray-400 hover:bg-gray-500',
+              )}
               onClick={() => setViewMode('avgDelta')}
             >
               평균변화
             </button>
             <button
-              className={`px-1 py-1 rounded-lg font-bold text-xs text-white transition-colors duration-200 ${viewMode === 'top6' ? 'bg-emerald-600' : 'bg-gray-400 hover:bg-gray-500'
-                }`}
+              className={cn(
+                'px-1.5 py-0.5 md:px-1 md:py-1 rounded-lg font-bold text-[11px] md:text-xs text-white transition-colors duration-200',
+                viewMode === 'top6' ? 'bg-emerald-600' : 'bg-gray-400 hover:bg-gray-500',
+              )}
               onClick={() => {
                 setViewMode('top6')
                 onTop6Change?.(top6AliveDoorNums)
@@ -589,7 +593,7 @@ const AngleNodeScroll = ({
           </div>
 
           <button
-            className="px-3 py-1 rounded-lg font-bold text-xs text-white bg-gray-700 hover:bg-gray-800 transition-colors ml-6"
+            className="px-2 py-0.5 md:px-3 md:py-1 rounded-lg font-bold text-[11px] md:text-xs text-white bg-gray-700 hover:bg-gray-800 transition-colors ml-3 md:ml-6"
             onClick={() => setIsSettingsOpen(true)}
           >
             설정
@@ -597,10 +601,10 @@ const AngleNodeScroll = ({
         </div>
 
         {/* Gateway + Node 선택 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 md:gap-4 mb-2 md:mb-4">
           {/* ✅ 여기 옵션도 GATEWAY 타입만 */}
           <select
-            className="border border-gray-400 rounded-md px-1 py-0.5 text-sm overflow-y-auto"
+            className="border border-gray-400 rounded-md px-1 py-1 text-[11px] md:text-sm overflow-y-auto"
             value={selectedGateway}
             onChange={e => setSelectedGateway(e.target.value)}
           >
@@ -615,7 +619,7 @@ const AngleNodeScroll = ({
           </select>
 
           <select
-            className="border border-gray-400 rounded-md px-1 py-1 text-sm overflow-y-auto"
+            className="border border-gray-400 rounded-md px-1 py-1 text-[11px] md:text-sm overflow-y-auto"
             value={selectedNode as any}
             onChange={e => {
               const v = e.target.value
@@ -636,7 +640,7 @@ const AngleNodeScroll = ({
         </div>
 
         {/* 노드 카드 */}
-        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-2 gap-2 md:gap-4">
           {/* 활성 노드 */}
           {aliveNodes.map(item => (
             <Card
@@ -647,17 +651,19 @@ const AngleNodeScroll = ({
                 getNodeColorClass(getX(item)),
               )}
             >
-              <CardContent className="flex flex-col justify-center p-2 text-[14px]">
-                <div className="flex justify-between items-center mb-2 font-bold text-blue-700">
-                  <h1>노드넘버</h1>
-                  <span className="font-semibold text-[16px]">{(item as any).doorNum}</span>
+              <CardContent className="flex flex-col justify-center p-1.5 md:p-2 text-[12px] md:text-[14px]">
+                <div className="flex justify-between items-center mb-1.5 md:mb-2 font-bold text-blue-700">
+                  <h1 className="text-[11px] md:text-[14px]">노드넘버</h1>
+                  <span className="font-semibold text-[13px] md:text-[16px]">
+                    {(item as any).doorNum}
+                  </span>
                 </div>
 
-                <div className="flex justify-between mb-1 font-medium">
+                <div className="flex justify-between mb-0.5 md:mb-1 font-medium">
                   <p>Axis-X:</p>
                   <p>{getX(item)}</p>
                 </div>
-                <div className="flex justify-between mb-1 font-medium">
+                <div className="flex justify-between mb-0.5 md:mb-1 font-medium">
                   <p>Axis-Y:</p>
                   <p>{getY(item)}</p>
                 </div>
@@ -666,10 +672,10 @@ const AngleNodeScroll = ({
 
                 <button
                   onClick={e => handleNodeDetailClick(e, item)}
-                  className="mt-2 w-full flex items-center justify-center gap-2 py-1 text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+                  className="mt-1.5 md:mt-2 w-full flex items-center justify-center gap-2 py-0.5 md:py-1 text-[11px] md:text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
                 >
-                  <Eye className="w-4 h-4" />
-                  <span className="text-[13px]">상세정보</span>
+                  <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  <span className="text-[11px] md:text-[13px]">상세정보</span>
                 </button>
               </CardContent>
             </Card>
@@ -677,9 +683,11 @@ const AngleNodeScroll = ({
 
           {/* 비활성 노드 */}
           {deadNodes.length > 0 && (
-            <div className="col-span-2 lg:col-span-2 mt-6">
-              <h2 className="text-center font-bold text-gray-600 mb-3">비활성 노드</h2>
-              <div className="grid grid-cols-2 lg:grid-cols-2 gap-4">
+            <div className="col-span-2 lg:col-span-2 mt-4 md:mt-6">
+              <h2 className="text-center font-bold text-gray-600 mb-2 md:mb-3 text-[12px] md:text-base">
+                비활성 노드
+              </h2>
+              <div className="grid grid-cols-2 lg:grid-cols-2 gap-2 md:gap-4">
                 {deadNodes.map(item => (
                   <Card
                     key={(item as any).doorNum}
@@ -689,31 +697,33 @@ const AngleNodeScroll = ({
                       'bg-gray-400 text-gray-50 hover:bg-gray-400/70',
                     )}
                   >
-                    <CardContent className="flex flex-col justify-center p-2 text-[14px]">
-                      <div className="flex justify-between items-center mb-2 font-bold">
-                        <h1>노드넘버</h1>
-                        <span className="font-semibold text-[16px]">{(item as any).doorNum}</span>
+                    <CardContent className="flex flex-col justify-center p-1.5 md:p-2 text-[12px] md:text-[14px]">
+                      <div className="flex justify-between items-center mb-1.5 md:mb-2 font-bold">
+                        <h1 className="text-[11px] md:text-[14px]">노드넘버</h1>
+                        <span className="font-semibold text-[13px] md:text-[16px]">
+                          {(item as any).doorNum}
+                        </span>
                       </div>
 
-                      <div className="flex justify-between mb-1 font-medium">
+                      <div className="flex justify-between mb-0.5 md:mb-1 font-medium">
                         <p>Axis-X:</p>
                         <p>{getX(item)}</p>
                       </div>
-                      <div className="flex justify-between mb-1 font-medium">
+                      <div className="flex justify-between mb-0.5 md:mb-1 font-medium">
                         <p>Axis-Y:</p>
                         <p>{getY(item)}</p>
                       </div>
 
-                      <div className="flex justify-between mb-1 font-medium">
-                        <p className="mt-1">{(item as any).position || 'N/A'}</p>
+                      <div className="flex justify-between mb-0.5 md:mb-1 font-medium">
+                        <p className="mt-1 truncate">{(item as any).position || 'N/A'}</p>
                       </div>
 
                       <button
                         onClick={e => handleNodeDetailClick(e, item)}
-                        className="mt-2 w-full flex items-center justify-center gap-2 py-1 text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white"
+                        className="mt-1.5 md:mt-2 w-full flex items-center justify-center gap-2 py-0.5 md:py-1 text-[11px] md:text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white"
                       >
-                        <Eye className="w-4 h-4" />
-                        <span className="text-[13px]">상세정보</span>
+                        <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        <span className="text-[11px] md:text-[13px]">상세정보</span>
                       </button>
                     </CardContent>
                   </Card>
@@ -730,8 +740,10 @@ const AngleNodeScroll = ({
           <div className="flex flex-col items-center lg:col-span-1 col-span-2 rounded-md bg-gray-50 text-gray-600 md:h-full md:min-h-0">
             <ScrollArea className="pr-3 pl-4 lg:py-1 2xl:py-2 3xl:py-2 border-none md:h-full md:min-h-0">
               <button
-                className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700'
-                  }`}
+                className={cn(
+                  'w-full mb-2 p-1 rounded-md text-[12px] font-semibold',
+                  !selectedGateway ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-700',
+                )}
                 onClick={() => setSelectedGateway('')}
               >
                 전체구역
@@ -794,7 +806,7 @@ const AngleNodeScroll = ({
       </div>
 
       {/* ================= 우측: 로그 (md 이하에서도 남김) ================= */}
-      <ScrollArea className="col-span-1 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-5 h-[40vh] md:max-h-[35.5vh] 2xl:max-h-[35.78vh] md:min-h-0 lg:w-[112%] 2xl:w-[109%]">
+      <ScrollArea className="col-span-1 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-2 md:-mt-5 h-[40vh] md:max-h-[35.5vh] 2xl:max-h-[35.78vh] md:min-h-0 lg:w-[112%] 2xl:w-[109%]">
         <div className="flex flex-col gap-2 text-sm">
           {/* 게이트웨이 다운 (GATEWAY 타입만) */}
           {gatewayDownRows.length > 0 && (
@@ -802,7 +814,7 @@ const AngleNodeScroll = ({
               {gatewayDownRows.map(g => (
                 <div
                   key={g.serial}
-                  className="px-2 py-1 rounded-lg bg-gray-400 text-white font-semibold md:text-[0.6rem] 2xl:text-[0.9rem]"
+                  className="px-2 py-1 rounded-lg bg-gray-400 text-white font-semibold text-[11px] md:text-[0.6rem] 2xl:text-[0.9rem]"
                 >
                   {`${formatKSTTime(g.createdAt)} | gw-${g.serial} | ${g.zone}`}
                 </div>
@@ -828,18 +840,21 @@ const AngleNodeScroll = ({
                         <div
                           key={`log-${idx}-${i}`}
                           onClick={clickable ? () => toggleGroup(idx) : undefined}
-                          className={`${logBg(log.level)} px-2 py-1 rounded border border-black/10 shadow-sm ${clickable ? 'cursor-pointer' : ''
-                            }`}
+                          className={`${logBg(log.level)} px-2 py-1 rounded border border-black/10 shadow-sm ${
+                            clickable ? 'cursor-pointer' : ''
+                          }`}
                           title={clickable ? '접기' : undefined}
                           style={{ minHeight: 30, width: 'calc(100% - 2px)' }}
                         >
-                          <div className="flex items-center justify-between lg:text-[0.8rem] 2xl:text-[1rem] 3xl:text-[1rem] font-medium">
+                          <div className="flex items-center justify-between text-[11px] md:text-[0.8rem] 2xl:text-[1rem] 3xl:text-[1rem] font-medium">
                             <div className="truncate mr-2">
                               {`${formatKSTTime(log.createdAt)} | 노드: ${log.doorNum} | ${formatMetricLabel(
                                 log.metric,
                               )}: ${log.value}`}
                             </div>
-                            {clickable && <span className="shrink-0 text-[13px] text-gray-700 font-bold ">▲</span>}
+                            {clickable && (
+                              <span className="shrink-0 text-[13px] text-gray-700 font-bold ">▲</span>
+                            )}
                           </div>
                         </div>
                       )
@@ -885,12 +900,14 @@ const AngleNodeScroll = ({
                       className={`${logBg(latest.level)} absolute px-2 py-1 rounded border border-black/10 shadow-sm flex items-center justify-between`}
                       style={{ left: 0, top: 0, right: 2, height: 32, zIndex: 50 }}
                     >
-                      <div className="truncate mr-1 lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium">
+                      <div className="truncate mr-1 text-[11px] lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium">
                         {`${formatKSTTime(latest.createdAt)} | 노드: ${doorNum} | ${formatMetricLabel(
                           latest.metric,
                         )}: ${latest.value}`}
                       </div>
-                      <span className="shrink-0 text-[13px] text-gray-700 font-bold">{isOpen ? '▲' : '▼'}</span>
+                      <span className="shrink-0 text-[13px] text-gray-700 font-bold">
+                        {isOpen ? '▲' : '▼'}
+                      </span>
                     </div>
                   </div>
                 </button>
@@ -898,7 +915,9 @@ const AngleNodeScroll = ({
             })
           ) : (
             <div className="p-2 bg-blue-500 border rounded-md">
-              <p className="text-center text-white text-[16px]">오늘은 위험 로그가 없습니다.</p>
+              <p className="text-center text-white text-[14px] md:text-[16px]">
+                오늘은 위험 로그가 없습니다.
+              </p>
             </div>
           )}
         </div>
@@ -1000,11 +1019,17 @@ const AngleNodeScroll = ({
           <div className="bg-white p-6 rounded-lg w-[90%] max-w-lg">
             <h2 className="text-lg font-bold mb-4">노드 초기화</h2>
             <div className="flex flex-col gap-3 mb-4">
-              <button onClick={handleSelectAll} className="px-3 py-2 bg-blue-500 text-white rounded-md">
+              <button
+                onClick={handleSelectAll}
+                className="px-3 py-2 bg-blue-500 text-white rounded-md"
+              >
                 {selectedNodesForInit.length === allNodes.length ? '전체 선택 해제' : '전체 선택'} (
                 {selectedNodesForInit.length}/{allNodes.length})
               </button>
-              <button onClick={handleInitSelected} className="px-3 py-2 bg-red-500 text-white rounded-md">
+              <button
+                onClick={handleInitSelected}
+                className="px-3 py-2 bg-red-500 text-white rounded-md"
+              >
                 초기화
               </button>
             </div>
@@ -1030,7 +1055,10 @@ const AngleNodeScroll = ({
             </div>
 
             <div className="flex justify-end mt-4">
-              <button onClick={() => setIsInitModalOpen(false)} className="px-3 py-1 bg-gray-400 text-white rounded-md">
+              <button
+                onClick={() => setIsInitModalOpen(false)}
+                className="px-3 py-1 bg-gray-400 text-white rounded-md"
+              >
                 닫기
               </button>
             </div>
