@@ -474,14 +474,14 @@ const AngleNodeScroll = ({
      * - md 이상: 3개(좌/중앙/우) 한 화면 고정(부모가 overflow-hidden일 때), 각 ScrollArea 내부 스크롤
      * - md 이하: 중앙(hidden) 제거 + 좌/우만 세로로 쌓이고 페이지 스크롤 가능
      */
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 w-full px-3 md:px-4 py-3 md:py-4 mt-2 md:h-[calc(100vh-24px)] 2xl:h-[calc(100vh-34px)]">
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 w-full px-1.5 md:px-4 py-3 md:py-4 mt-2 md:h-[calc(100vh-24px)] 2xl:h-[calc(100vh-34px)]">
       {/* ================= 좌측: 노드 카드 영역 ================= */}
       <ScrollArea
         className={cn(
           'col-span-1 md:col-span-4 2xl:col-span-3',
-          'overflow-auto rounded-lg border border-slate-400 bg-white',
-          // ✅ 모바일에서 패딩/마진/높이 더 컴팩트
-          'p-2 md:p-4',
+          'overflow-auto rounded-lg border border-slate-400 bg-white overflow-x-hidden',
+          // ✅ 모바일에서 패딩/마진/높이 더 컴팩트 + 가로 오버플로우 방지
+          'p-1.5 md:p-4',
           '-mt-2 md:-mt-5',
           'h-[clamp(240px,48dvh,480px)] md:h-full md:min-h-0',
           'lg:w-[22rem] 2xl:w-[25rem] 3xl:w-[25rem]',
@@ -640,14 +640,14 @@ const AngleNodeScroll = ({
         </div>
 
         {/* 노드 카드 */}
-        <div className="grid grid-cols-2 lg:grid-cols-2 gap-2 md:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-2 gap-1.5 md:gap-4 w-full min-w-0">
           {/* 활성 노드 */}
           {aliveNodes.map(item => (
             <Card
               key={(item as any).doorNum}
               onClick={() => handleNodeCardClick(item)}
               className={cn(
-                'border border-slate-300 flex flex-col justify-center shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer relative text-gray-600',
+                'border border-slate-300 flex flex-col justify-center shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer relative text-gray-600 w-full min-w-0',
                 getNodeColorClass(getX(item)),
               )}
             >
@@ -683,17 +683,17 @@ const AngleNodeScroll = ({
 
           {/* 비활성 노드 */}
           {deadNodes.length > 0 && (
-            <div className="col-span-2 lg:col-span-2 mt-4 md:mt-6">
+            <div className="col-span-2 lg:col-span-2 mt-4 md:mt-6 w-full min-w-0">
               <h2 className="text-center font-bold text-gray-600 mb-2 md:mb-3 text-[12px] md:text-base">
                 비활성 노드
               </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-2 gap-2 md:gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-2 gap-1.5 md:gap-4 w-full min-w-0">
                 {deadNodes.map(item => (
                   <Card
                     key={(item as any).doorNum}
                     onClick={() => handleNodeCardClick(item)}
                     className={cn(
-                      'border border-slate-300 flex flex-col justify-center shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer relative',
+                      'border border-slate-300 flex flex-col justify-center shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer relative w-full min-w-0',
                       'bg-gray-400 text-gray-50 hover:bg-gray-400/70',
                     )}
                   >
