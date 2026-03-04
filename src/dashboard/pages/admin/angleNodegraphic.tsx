@@ -716,8 +716,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                             if (isMobile) {
                                                 return (
                                                     <text
-                                                        x={x + 12}
-                                                        y={y + 12}
+                                                        x={x + 6}
+                                                        y={y + 30}
                                                         textAnchor="start"
                                                         style={{ fontSize: 10, fontWeight: 'bold' }}
                                                     >
@@ -764,8 +764,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                                             if (isMobile) {
                                                 return (
                                                     <text
-                                                        x={x - 8}
-                                                        y={y + 12}
+                                                        x={x + 24}
+                                                        y={y + 30}
                                                         textAnchor="end"
                                                         style={{ fontSize: 10, fontWeight: 'bold' }}
                                                     >
