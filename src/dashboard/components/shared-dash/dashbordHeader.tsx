@@ -110,6 +110,7 @@ const WhiteHeader = ({ buildingName }: WhiteHeaderProps) => {
         py-1.5 md:py-2
         min-h-[56px] md:min-h-[72px]
         overflow-x-hidden
+        overflow-hidden
       `}
     >
       {/* 왼쪽: 빌딩 로고 */}
@@ -153,7 +154,7 @@ const WhiteHeader = ({ buildingName }: WhiteHeaderProps) => {
       </div>
 
       {/* 오른쪽: GSS 로고 + 텍스트 */}
-      <div className="flex justify-end items-center gap-1.5 sm:gap-2 md:gap-5 2xl:gap-10 min-w-0">
+      <div className="flex justify-end items-center gap-1.5 sm:gap-2 md:gap-9 2xl:gap-12 min-w-0">
         <img
           src={GSSLogo}
           alt="GSS Logo"

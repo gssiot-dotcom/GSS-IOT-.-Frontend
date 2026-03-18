@@ -483,7 +483,7 @@ const AngleNodeScroll = ({
           // ✅ 모바일에서 패딩/마진/높이 더 컴팩트 + 가로 오버플로우 방지
           'p-1.5 md:p-4',
           '-mt-2 md:-mt-5',
-          'h-[clamp(240px,48dvh,480px)] md:h-full md:min-h-0',
+          'h-[clamp(240px,48dvh,480px)] md:h-[calc(100%-22px)] 2xl:h-[calc(100%-12px)] md:min-h-0',
           'lg:w-[22rem] 2xl:w-[25rem] 3xl:w-[25rem]',
         )}
       >

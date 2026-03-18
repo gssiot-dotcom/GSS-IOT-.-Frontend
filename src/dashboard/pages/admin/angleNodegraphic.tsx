@@ -82,6 +82,8 @@ const useMediaQuery = (query: string) => {
   return matches
 }
 
+
+
 // 공통 필드 정의
 export interface BasePoint {
   time: string
@@ -208,6 +210,13 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
 
   const isMobile = useMediaQuery('(max-width: 640px)')
   const isTablet = useMediaQuery('(max-width: 1024px)')
+  const is2xlUp = useMediaQuery('(min-width: 1536px)')
+
+  const containerWidth = isMobile
+  ? '104%'
+  : is2xlUp
+    ? '108%'
+    : '106%'
 
   useEffect(() => setData(graphData), [graphData])
 
@@ -710,8 +719,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
         {isMobile && <MobileLegendChips />}
 
         <CardContent className="p-0 pt-2 overflow-hidden">
-          <div className="w-full h-[260px] sm:h-[320px] lg:h-[39.8vh] lg:max-w-[70rem] 2xl:h-[43.2vh] 2xl:max-w-[76.5rem]">
-            <ResponsiveContainer width={isMobile ? '104%' : '108%'} height="100%">
+          <div className="w-full h-[260px] sm:h-[320px] lg:h-[36.8vh] lg:max-w-[70rem] 2xl:h-[41.7vh] 2xl:max-w-[76.5rem]">
+            <ResponsiveContainer width={containerWidth} height="100%">
               <LineChart data={chartData} margin={getChartMargins()}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
 
@@ -862,8 +871,8 @@ const SensorGraph: React.FC<SensorGraphProps> = ({
                     layout="horizontal"
                     wrapperStyle={{
                       position: 'absolute',
-                      top: -20,
-                      right: 70,
+                      top: -10,
+                      right: 95,
                       fontSize: '12px',
                       borderRadius: '6px',
                       padding: '2px 6px',
