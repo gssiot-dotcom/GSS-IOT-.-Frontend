@@ -151,6 +151,11 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
 				body: formData,
 			})
 
+
+			const text = await res.text()
+			console.log('[UPLOAD STATUS]', res.status)
+			console.log('[UPLOAD RESPONSE TEXT]', text)
+
 			if (!res.ok) {
 				throw new Error('도면 이미지 업로드에 실패했습니다.')
 			}
