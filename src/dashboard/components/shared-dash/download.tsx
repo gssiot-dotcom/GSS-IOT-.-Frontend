@@ -140,10 +140,13 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
 			})
 
 			const formData = new FormData()
-			formData.append('image', renamedFile)
-			formData.append('uploadFolder', buildingName.trim())
+			formData.append('file', renamedFile)
 
-			const res = await fetch(`${SERVER_BASE_URL}/api/files/upload`, {
+			const uploadUrl = `${SERVER_BASE_URL}/api/files/upload?folder=${encodeURIComponent(
+				buildingName.trim(),
+			)}`
+
+			const res = await fetch(uploadUrl, {
 				method: 'POST',
 				body: formData,
 			})
@@ -180,8 +183,8 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
-					fileKey: `${buildingName.trim()}/전체도면.png`,
-				}),
+					key: `${buildingName.trim()}/전체도면.png`,
+				})
 			})
 
 			if (!res.ok) {
