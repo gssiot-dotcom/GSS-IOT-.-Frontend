@@ -75,7 +75,7 @@ const buildS3Url = (node?: IAngleNode | null, buildingName?: string) => {
 const buildPlanS3Url = (buildingName?: string) => {
   if (!buildingName) return undefined
   const folder = toS3Folder(buildingName)
-  return `${S3_BASE_URL}/${folder}/전체도면.png`
+  return `${S3_BASE_URL}/${folder}/main-img.png`
 }
 
 /** ================================

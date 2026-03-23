@@ -134,15 +134,14 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
 		try {
 			setUploadingPlan(true)
 
-			const ext = file.name.split('.').pop() || 'png'
-			const renamedFile = new File([file], `전체도면.${ext}`, {
-				type: file.type,
+			const renamedFile = new File([file], 'main-img.png', {
+				type: file.type || 'image/png',
 			})
 
 			const formData = new FormData()
 			formData.append('file', renamedFile)
 
-			const uploadUrl = `${SERVER_BASE_URL}/api/files/upload?folder=${encodeURIComponent(
+			const uploadUrl = `${SERVER_BASE_URL}/files/upload?folder=${encodeURIComponent(
 				buildingName.trim(),
 			)}`
 
@@ -188,7 +187,7 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
-					key: `${buildingName.trim()}/전체도면.png`,
+					key: `${buildingName.trim()}/main-img.png`,
 				})
 			})
 
