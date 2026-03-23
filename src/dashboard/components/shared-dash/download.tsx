@@ -181,7 +181,7 @@ const DownloadButtons = ({ buildingId, angleNodes, buildingName }: Props) => {
 		try {
 			setDeletingPlan(true)
 
-			const res = await fetch(`${SERVER_BASE_URL}/api/files/delete`, {
+			const res = await fetch(`${SERVER_BASE_URL}/files/delete`, {
 				method: 'DELETE',
 				headers: {
 					'Content-Type': 'application/json',
