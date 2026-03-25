@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import WhiteHeader from '@/dashboard/components/shared-dash/verticalHeader'
-import socket from '@/hooks/useSocket'
 import {
 	fetchBuildingVerticalNodes,
 	setBuildingAlarmLevelRequest,
@@ -18,7 +17,6 @@ import {
 } from '../../../types/interfaces'
 import VerticalNodeScroll from './VerticalNodeScroll'
 
-
 import {
 	Dialog,
 	DialogContent,
@@ -27,6 +25,7 @@ import {
 	DialogPortal,
 	DialogTitle,
 } from '@/components/ui/dialog'
+import { useRealtimeRoom } from '@/hooks/useRealtime'
 import VerticalSensorGraph from './verticalNodegraphic'
 
 interface ResQuery {
@@ -118,7 +117,6 @@ async function fetchAngleGraph({
 	})
 	return res.data
 }
-
 
 const VerticalNodes = () => {
 	const { buildingId } = useParams()
@@ -292,25 +290,26 @@ const VerticalNodes = () => {
 		}, 400)
 	}, [queryClient])
 
-	useEffect(() => {
-		if (!buildingId) return
-		const topic = `socket/building/${buildingId}/vertical-nodes`
+	// ================ 25.03.2026 Yusuf refactoring Socket Io START line ================ //
+	const handleVerticalRealtime = useCallback(
+		(newData: SensorData) => {
+			console.log('socket vertical realtime:', newData)
 
-		const listener = (newData: SensorData) => {
-			console.log('socket vertical-nodes:', newData)
-			// ✅ 카드(리스트) 최신값은 소켓으로만 반영
+			// 카드(리스트) 최신값은 소켓으로만 반영
 			queryClient.setQueryData<ResQuery>(
 				['get-building-vertical-nodes', buildingId],
 				old => {
 					if (!old) return old
+
 					const list = old.vertical_nodes ?? []
 					const idx = list.findIndex(n => n.doorNum === newData.doorNum)
 
-					// ✅ calibrated 우선(없으면 angle fallback) — AngleNodes와 동일
+					// calibrated 우선(없으면 angle fallback)
 					const cx =
 						(newData as any).calibrated_x ??
 						(newData as any).calibratedX ??
 						newData.angle_x
+
 					const cy =
 						(newData as any).calibrated_y ??
 						(newData as any).calibratedY ??
@@ -350,23 +349,27 @@ const VerticalNodes = () => {
 				},
 			)
 
-			// ✅ 선택 노드 + 모달 열린 상태일 때만 그래프 갱신 (AngleNodes와 동일 패턴)
+			// 선택 노드 + 모달 열린 상태일 때만 그래프 갱신
 			if (isGraphOpen && selectedDoorNum === newData.doorNum) {
 				scheduleGraphRefetch()
 			}
-		}
+		},
+		[
+			buildingId,
+			queryClient,
+			isGraphOpen,
+			selectedDoorNum,
+			scheduleGraphRefetch,
+		],
+	)
 
-		socket.on(topic, listener)
-		return () => {
-			socket.off(topic, listener)
-		}
-	}, [
+	useRealtimeRoom<SensorData>({
 		buildingId,
-		queryClient,
-		selectedDoorNum,
-		isGraphOpen,
-		scheduleGraphRefetch,
-	])
+		nodeType: 'vertical',
+		enabled: !!buildingId,
+		onMessage: handleVerticalRealtime,
+	})
+	// ================== 25.03.2026 Yusuf refactoring Socket Io FINISH line ================= //
 
 	// ---------------- 저장상태 토글 (AngleNodes와 동일) ---------------- //
 	const handleToggleSaveStatus = async (doorNum: number, next: boolean) => {

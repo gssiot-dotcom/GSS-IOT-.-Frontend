@@ -3,14 +3,15 @@
 import FillLoading from '@/components/shared/fill-laoding'
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import Totalcnt, {
+	NodesMultipleButtonsField,
+} from '@/dashboard/components/shared-dash/Totalnct'
 import { useBuildingNodes } from '@/hooks/useClientdata'
-import socket from '@/hooks/useSocket'
+import { useRealtimeRoom } from '@/hooks/useRealtime'
 import { useBuildingNodesStore } from '@/stores/nodeStore'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { INode } from '../../../types/interfaces'
-import Totalcnt, { NodesMultipleButtonsField } from '@/dashboard/components/shared-dash/Totalnct'
-// const socket = io(`${import.meta.env.VITE_SERVER_BASE_URL}`) // Backend server manzilini o'zgartiring
 
 const BuildingNodes = () => {
 	const { building, nodes, updateNode } = useBuildingNodesStore()
@@ -22,18 +23,22 @@ const BuildingNodes = () => {
 	}
 	const { isLoading } = useBuildingNodes(buildingId)
 
-	useEffect(() => {
-		const topic = `socket/building/${buildingId}/node`
-		socket.on(topic, (updatedNode: INode) => {
-			console.log('Socket node-data listener is on')
+	// ================ 25.03.2026 Yusuf refactoring Socket Io START line ================ //
+	const handleNodeRealtime = useCallback(
+		(updatedNode: INode) => {
+			console.log('Socket node realtime listener is on')
 			updateNode(updatedNode)
-		})
+		},
+		[updateNode],
+	)
 
-		return () => {
-			socket.off(topic)
-			console.log('Socket node-data listener is off')
-		}
-	}, [buildingId, updateNode])
+	useRealtimeRoom<INode>({
+		buildingId,
+		nodeType: 'node',
+		enabled: !!buildingId,
+		onMessage: handleNodeRealtime,
+	})
+	// ================ 25.03.2026 Yusuf refactoring Socket Io FINSIH line ================ //
 
 	useEffect(() => {
 		setFilteredNodes(nodes)
