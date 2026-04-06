@@ -15,7 +15,7 @@
 		"noEmit": true,
 		"jsx": "react-jsx",
 
-		"ignoreDeprecations": "6.0",  // 👈 추가
+		
 
 		//  Paths //
 		"baseUrl": ".",
