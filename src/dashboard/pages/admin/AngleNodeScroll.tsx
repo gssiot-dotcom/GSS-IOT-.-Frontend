@@ -916,7 +916,7 @@ const AngleNodeScroll = ({
       </div>
 
       {/* ================= 우측: 로그 (md 이하에서도 남김) ================= */}
-      <ScrollArea className="col-span-1 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-2 md:-mt-5 h-[40vh] md:max-h-[35.5vh] 2xl:max-h-[35.78vh] md:min-h-0 lg:w-[112%] 2xl:w-[109%]">
+      <ScrollArea className="z-0 col-span-1 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-2 md:-mt-5 h-[40vh] md:max-h-[35.5vh] 2xl:max-h-[35.78vh] md:min-h-0 lg:w-[112%] 2xl:w-[109%]">
         <div className="flex flex-col gap-2 text-sm">
           {/* 게이트웨이 다운 (GATEWAY 타입만) */}
           {gatewayDownRows.length > 0 && (

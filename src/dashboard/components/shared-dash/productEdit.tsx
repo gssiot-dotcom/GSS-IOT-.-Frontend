@@ -170,7 +170,7 @@ export const NodesEditModal = ({
   // 🔹 노드 설치 구간 저장 요청 (PUT /api/angle-nodes/position)
   const savePosition = async (node: IAngleNode) => {
     try {
-      const url = `${import.meta.env.VITE_SERVER_BASE_URL}/angle-nodes/position`
+      const url = `${import.meta.env.VITE_SERVER_BASE_URL}/angle-node/position`
 
       const res = await fetch(url, {
         method: 'PUT',
@@ -202,7 +202,7 @@ export const NodesEditModal = ({
 
   const saveGateway = async (node: IAngleNode) => {
     try {
-      const url = `${import.meta.env.VITE_SERVER_BASE_URL}/angle-nodes/${node.doorNum}/gateway`
+      const url = `${import.meta.env.VITE_SERVER_BASE_URL}/angle-node/${node.doorNum}/gateway`
 
       const res = await fetch(url, {
         method: 'PATCH',
@@ -434,7 +434,7 @@ export const GatewaysEditModal = ({
         return
       }
 
-      const url = `${import.meta.env.VITE_SERVER_BASE_URL}/gateways/${gatewayId}/position`
+      const url = `${import.meta.env.VITE_SERVER_BASE_URL}/gateway/${gatewayId}/position`
 
       const res = await fetch(url, {
         method: 'PATCH',

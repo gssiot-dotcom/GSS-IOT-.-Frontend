@@ -374,7 +374,7 @@ const VerticalNodes = () => {
 	// ---------------- 저장상태 토글 (AngleNodes와 동일) ---------------- //
 	const handleToggleSaveStatus = async (doorNum: number, next: boolean) => {
 		try {
-			await api.patch(`/angle-nodes/${doorNum}/save-status`, {
+			await api.patch(`/angle-node/${doorNum}/save-status`, {
 				save_status: next,
 			})
 			await refetchAlive() // ✅ 여기서만 다시 1번

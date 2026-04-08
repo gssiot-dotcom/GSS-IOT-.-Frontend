@@ -643,7 +643,7 @@ const AngleNodes = () => {
 	/** ✅ 저장상태 토글 */
 	const handleToggleSaveStatus = async (doorNum: number, next: boolean) => {
 		try {
-			await api.patch(`/angle-nodes/${doorNum}/save-status`, {
+			await api.patch(`/angle-node/${doorNum}/save-status`, {
 				save_status: next,
 			})
 			await refetchAlive()
@@ -651,7 +651,7 @@ const AngleNodes = () => {
 		} catch (e) {
 			if (isAxiosError(e)) {
 				console.error('PATCH failed:', {
-					url: `/angle-nodes/${doorNum}/save-status`,
+					url: `/angle-node/${doorNum}/save-status`,
 					status: e.response?.status,
 					data: e.response?.data,
 					message: e.message,
