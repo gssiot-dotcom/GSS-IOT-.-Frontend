@@ -46,10 +46,35 @@ const ImageModal = ({
 		setImgError(false)
 	}, [imageUrl])
 
+	useEffect(() => {
+		const handleEsc = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				onClose()
+			}
+		}
+
+		window.addEventListener('keydown', handleEsc)
+		return () => window.removeEventListener('keydown', handleEsc)
+	}, [onClose])
+
 	return (
-		<div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
-			<div className='mx-2 w-full max-w-4xl rounded-lg bg-white p-4'>
-				<h3 className='mb-4 text-lg font-semibold'>{buildingName}</h3>
+		<div
+			className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'
+			onClick={onClose}
+		>
+			<div
+				className='relative mx-2 w-full max-w-4xl rounded-lg bg-white p-4'
+				onClick={e => e.stopPropagation()}
+			>
+				<button
+					type='button'
+					onClick={onClose}
+					className='absolute top-4 right-4 text-lg text-gray-500 hover:text-black'
+				>
+					✕
+				</button>
+
+				<h3 className='mb-4 pr-10 text-lg font-semibold'>{buildingName}</h3>
 
 				{!imgError && imageUrl ? (
 					<img
@@ -63,16 +88,12 @@ const ImageModal = ({
 						업로드된 도면 이미지가 없습니다.
 					</div>
 				)}
-
-				<Button onClick={onClose} className='mt-4'>
-					닫기
-				</Button>
 			</div>
 		</div>
 	)
 }
 
-const Totalcnt = ({ nodes, onFilterChange}: ITotalcntProps) => {
+const Totalcnt = ({ nodes, onFilterChange }: ITotalcntProps) => {
 	const openCount = nodes?.filter(node => node.doorChk === 1).length ?? 0
 	const totalCount = nodes?.length ?? 0
 

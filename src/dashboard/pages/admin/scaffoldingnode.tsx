@@ -56,7 +56,6 @@ const BuildingNodes = () => {
 		setFilteredNodes(nodes)
 	}, [nodes])
 
-	// 선택된 노드가 실시간/재조회로 바뀌면 모달 내용도 같이 최신화
 	useEffect(() => {
 		if (!selectedNode) return
 		const latestNode = nodes.find(node => node._id === selectedNode._id)
@@ -64,6 +63,19 @@ const BuildingNodes = () => {
 			setSelectedNode(latestNode)
 		}
 	}, [nodes, selectedNode])
+
+	useEffect(() => {
+		if (!selectedNode) return
+
+		const handleEscClose = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				setSelectedNode(null)
+			}
+		}
+
+		window.addEventListener('keydown', handleEscClose)
+		return () => window.removeEventListener('keydown', handleEscClose)
+	}, [selectedNode])
 
 	const handleFilterChange = (filterOpenDoors: boolean) => {
 		if (filterOpenDoors) {
@@ -137,19 +149,16 @@ const BuildingNodes = () => {
 		[selectedBuildingName],
 	)
 
-	// 타입이 확실치 않을 수 있어서 안전하게 대응
 	const getGatewayLabel = (node: INode | null) => {
 		if (!node) return 'N/A'
 
-		const gateway =
+		return (
 			(node as any)?.gateway_id?.serial_number ||
 			(node as any)?.gateway?.serial_number ||
 			(node as any)?.gateway_serial_number ||
 			(node as any)?.gatewayId?.serial_number ||
-			(node as any)?.gateway_id ||
-			(node as any)?.gateway
-
-		return gateway || 'N/A'
+			'N/A'
+		)
 	}
 
 	if (isLoading) {
@@ -171,7 +180,9 @@ const BuildingNodes = () => {
 				<ScrollArea className='md:h-[calc(100vh-214px)] h-[calc(100vh-180px)] w-full rounded-lg border border-slate-400'>
 					<div className='grid grid-cols-3 md:grid-cols-6 md:gap-4 gap-2 md:p-4 p-2'>
 						{filteredNodes?.map((door, index) => {
-							const { color, percentage } = getBatteryIconAndPercentage(door.betChk)
+							const { color, percentage } = getBatteryIconAndPercentage(
+								door.betChk,
+							)
 
 							return (
 								<Card
@@ -180,8 +191,11 @@ const BuildingNodes = () => {
 										setSelectedNode(door)
 										setPlanImgError(false)
 									}}
-									className={`cursor-pointer transition hover:scale-[1.02] ${door.doorChk ? 'bg-red-500 text-white' : 'bg-[#1e3a8a] text-white'
-										}`}
+									className={`cursor-pointer transition hover:scale-[1.02] ${
+										door.doorChk
+											? 'bg-red-500 text-white'
+											: 'bg-[#1e3a8a] text-white'
+									}`}
 								>
 									<CardContent className='md:p-4 p-3 relative'>
 										<p className='md:w-7 md:h-7 w-5 h-5 flex justify-center items-center rounded-full bg-white border-blue-800 border text-blue-700 absolute -top-1 -left-1 text-sm'>
@@ -189,36 +203,48 @@ const BuildingNodes = () => {
 										</p>
 
 										<div className='space-y-2 pt-2'>
-											<div className='flex items-center justify-between text-sm md:text-base'>
-												<span className='font-medium text-white/80'>노드번호</span>
-												<span className='font-semibold text-white'>{door.doorNum}</span>
+											<div className='flex items-center justify-between text-sm md:text-base gap-2'>
+												<span className='font-medium text-white/80'>
+													노드번호
+												</span>
+												<span className='font-semibold text-white'>
+													{door.doorNum}
+												</span>
 											</div>
 
-											<div className='flex items-center justify-between text-sm md:text-base'>
-												<span className='font-medium text-white/80'>문상태</span>
+											<div className='flex items-center justify-between text-sm md:text-base gap-2'>
+												<span className='font-medium text-white/80'>
+													문상태
+												</span>
 												<span className='font-semibold text-white'>
 													{door.doorChk ? '열림' : '닫힘'}
 												</span>
 											</div>
 
-											<div className='flex items-center justify-between text-sm md:text-base'>
-												<span className='font-medium text-white/80'>설치구간</span>
-												<span className='font-semibold text-white text-right ml-2 break-words'>
+											<div className='flex items-start justify-between text-sm md:text-base gap-2'>
+												<span className='font-medium text-white/80 shrink-0'>
+													설치구간
+												</span>
+												<span className='font-semibold text-white text-right break-words'>
 													{door.position || 'N/A'}
 												</span>
 											</div>
 										</div>
 
 										<div className='mt-4 pt-3 border-t border-white/20'>
-											<div className='w-full flex justify-center items-center md:space-x-2 space-x-2'>
-												<span className='text-[10px] text-white'>3.7v:</span>
+											<div className='w-full flex justify-center items-center space-x-2'>
+												<span className='text-[10px] text-white shrink-0'>
+													3.7v:
+												</span>
 												<div className='flex-1 bg-white/30 rounded-full h-2'>
 													<div
 														className={`${color} h-full rounded-full`}
 														style={{ width: `${percentage}` }}
 													></div>
 												</div>
-												<span className='text-[10px] text-white'>{percentage}</span>
+												<span className='text-[10px] text-white shrink-0'>
+													{percentage}
+												</span>
 											</div>
 										</div>
 									</CardContent>
@@ -235,10 +261,18 @@ const BuildingNodes = () => {
 					onClick={() => setSelectedNode(null)}
 				>
 					<div
-						className='w-full max-w-6xl rounded-xl bg-white shadow-2xl overflow-hidden'
+						className='relative w-full max-w-6xl rounded-xl bg-white shadow-2xl overflow-hidden'
 						onClick={e => e.stopPropagation()}
 					>
-						<div className='flex items-center justify-between border-b px-5 py-4'>
+						<button
+							type='button'
+							className='absolute top-4 right-4 z-10 rounded-md border px-3 py-1 text-sm hover:bg-slate-100'
+							onClick={() => setSelectedNode(null)}
+						>
+							닫기
+						</button>
+
+						<div className='border-b px-5 py-4 pr-20'>
 							<div>
 								<h2 className='text-xl font-bold text-slate-900'>
 									노드 상세 정보
@@ -247,14 +281,6 @@ const BuildingNodes = () => {
 									노드 카드 클릭 상세 보기
 								</p>
 							</div>
-
-							<button
-								type='button'
-								className='rounded-md border px-3 py-1.5 text-sm hover:bg-slate-50'
-								onClick={() => setSelectedNode(null)}
-							>
-								닫기
-							</button>
 						</div>
 
 						<div className='grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-0'>
@@ -298,10 +324,11 @@ const BuildingNodes = () => {
 									<div className='rounded-lg border p-4'>
 										<p className='text-xs text-slate-500'>문 상태</p>
 										<p
-											className={`mt-1 text-lg font-semibold ${selectedNode.doorChk
-												? 'text-red-600'
-												: 'text-blue-700'
-												}`}
+											className={`mt-1 text-lg font-semibold ${
+												selectedNode.doorChk
+													? 'text-red-600'
+													: 'text-blue-700'
+											}`}
 										>
 											{selectedNode.doorChk ? '열림' : '닫힘'}
 										</p>
@@ -320,16 +347,6 @@ const BuildingNodes = () => {
 											{selectedBuildingName || 'N/A'}
 										</p>
 									</div>
-								</div>
-
-								<div className='mt-5 flex justify-end'>
-									<button
-										type='button'
-										className='rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800'
-										onClick={() => setSelectedNode(null)}
-									>
-										닫기
-									</button>
 								</div>
 							</div>
 						</div>
