@@ -1,40 +1,28 @@
 import FillLoading from '@/components/shared/fill-laoding'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import ClientCard from '@/dashboard/components/shared-dash/ClientCard'
-import Header from '@/dashboard/components/shared-dash/Header'
 import TotalCountBox from '@/dashboard/components/shared-dash/TotalCount'
-import { useClients } from '@/hooks/useClientdata'
-import { deleteClient } from '@/services/apiRequests'
-import { useClientsSorte } from '@/stores/clientsStore'
+import { useBossClients } from '@/hooks/useClientdata'
+import { useUserState } from '@/stores/user.auth.store'
 import { ITotalCountBoxProps } from '@/types/interfaces'
 import { AlertCircle } from 'lucide-react'
 import { LuUser } from 'react-icons/lu'
-import { toast } from 'sonner'
+import { Link } from 'react-router-dom'
+import { ClientHeader } from './buildingNodes'
 
-const Clients = () => {
-	const { isLoading, error, refetch } = useClients()
-	const { clients } = useClientsSorte()
-
-	const handleDelete = async (id: string) => {
-		try {
-			const res = await deleteClient(id)
-			const info = `${res.state}-${res.message}`
-			toast.success(info)
-			refetch()
-		} catch (error) {
-			toast.error((error as Error).message || 'Error on deleting node status')
-		}
-	}
+const ClientBossClientsPage = () => {
+	const { user } = useUserState()
+	const { data, isLoading, error } = useBossClients(user?._id || '')
 
 	const totalCountData: ITotalCountBoxProps = {
 		itemName: '임대 현황',
-		clients: clients,
+		clients: data,
 		icon: <LuUser />,
 	}
 
 	return (
-		<div className='w-full h-full relative md:ml-1'>
-			<Header />
+		<div className='w-full h-full relative'>
+			<ClientHeader />
 			<div className='md:w-fit w-full mx-auto my-4'>
 				<TotalCountBox data={totalCountData} />
 			</div>
@@ -56,21 +44,21 @@ const Clients = () => {
 			<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto'>
 				{/* Data field */}
 				{!isLoading &&
-					clients &&
-					clients.length > 0 &&
-					clients.map(client => (
-						<ClientCard
-							key={client._id}
-							onDelete={handleDelete}
-							client={{
-								...client,
-								client_buildings: client.client_buildings ?? [],
-							}}
-						/>
+					data &&
+					data.length > 0 &&
+					data.map(client => (
+						<Link key={client._id} to={`${client._id}/buildings`}>
+							<ClientCard
+								client={{
+									...client,
+									client_buildings: client.client_buildings ?? [],
+								}}
+							/>
+						</Link>
 					))}
 			</div>
 		</div>
 	)
 }
 
-export default Clients
+export default ClientBossClientsPage
