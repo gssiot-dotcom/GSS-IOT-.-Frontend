@@ -3,14 +3,7 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Dialog,
-  DialogPortal,
-  DialogOverlay,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import SettingModal from '@/dashboard/components/shared-dash/setting'
 import Download from '@/dashboard/components/shared-dash/download'
 import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
@@ -21,6 +14,7 @@ import Draggable from 'react-draggable'
 
 // ✅ 편집 모달
 import { NodesEditModal, GatewaysEditModal } from '@/dashboard/components/shared-dash/productEdit'
+import NodeImgModal from '@/dashboard/components/shared-dash/node_img'
 
 import axios from 'axios'
 
@@ -75,7 +69,7 @@ const buildS3Url = (node?: IAngleNode | null, buildingName?: string) => {
 const buildPlanS3Url = (buildingName?: string) => {
   if (!buildingName) return undefined
   const folder = toS3Folder(buildingName)
-  return `${S3_BASE_URL}/${folder}/전체도면.png`
+  return `${S3_BASE_URL}/${folder}/main-img.jpg`
 }
 
 /** ================================
@@ -125,10 +119,111 @@ const AngleNodeScroll = ({
   const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
   const [isPlanImgOpen, setIsPlanImgOpen] = useState(false)
 
+
+
   // ✅ Settings / Edit 모달 상태
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isNodesEditOpen, setIsNodesEditOpen] = useState(false)
   const [isGatewaysEditOpen, setIsGatewaysEditOpen] = useState(false)
+  const [isNodeImgOpen, setIsNodeImgOpen] = useState(false)
+  const [openPlanActionModal, setOpenPlanActionModal] = useState(false)
+
+  const [uploadingPlan, setUploadingPlan] = useState(false)
+  const [deletingPlan, setDeletingPlan] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const handleClickUpload = () => {
+    if (!selectedBuildingName?.trim()) {
+      alert('건물명이 없어 업로드 폴더명을 만들 수 없습니다.')
+      return
+    }
+
+    fileInputRef.current?.click()
+  }
+
+  const handleUploadPlanImage = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!selectedBuildingName?.trim()) {
+      alert('건물명이 없어 업로드할 수 없습니다.')
+      return
+    }
+
+    try {
+      setUploadingPlan(true)
+
+      const renamedFile = new File([file], 'main-img.jpg', {
+        type: file.type || 'image/jpeg',
+      })
+
+      const formData = new FormData()
+      formData.append('file', renamedFile)
+
+      const uploadUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/files/upload?folder=${encodeURIComponent(
+        selectedBuildingName.trim(),
+      )}`
+
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+      })
+
+      const text = await res.text()
+      console.log('[UPLOAD STATUS]', res.status)
+      console.log('[UPLOAD RESPONSE TEXT]', text)
+
+      if (!res.ok) {
+        throw new Error('도면 이미지 업로드에 실패했습니다.')
+      }
+
+      alert('도면 이미지 업로드가 완료되었습니다.')
+      setOpenPlanActionModal(false)
+    } catch (error) {
+      console.error(error)
+      alert('도면 이미지 업로드 중 오류가 발생했습니다.')
+    } finally {
+      setUploadingPlan(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleDeletePlanImage = async () => {
+    if (!selectedBuildingName?.trim()) {
+      alert('건물명이 없어 삭제 경로를 만들 수 없습니다.')
+      return
+    }
+
+    try {
+      setDeletingPlan(true)
+
+      const res = await fetch(`${import.meta.env.VITE_SERVER_BASE_URL}/files/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key: `${selectedBuildingName.trim()}/main-img.jpg`,
+        }),
+      })
+
+      if (!res.ok) {
+        throw new Error('도면 이미지 삭제에 실패했습니다.')
+      }
+
+      alert('도면 이미지 삭제가 완료되었습니다.')
+      setOpenPlanActionModal(false)
+    } catch (error) {
+      console.error(error)
+      alert('도면 이미지 삭제 중 오류가 발생했습니다.')
+    } finally {
+      setDeletingPlan(false)
+    }
+  }
 
   // ✅ 초기화 모달 관련
   const [isInitModalOpen, setIsInitModalOpen] = useState(false)
@@ -483,7 +578,7 @@ const AngleNodeScroll = ({
           // ✅ 모바일에서 패딩/마진/높이 더 컴팩트 + 가로 오버플로우 방지
           'p-1.5 md:p-4',
           '-mt-2 md:-mt-5',
-          'h-[clamp(240px,48dvh,480px)] md:h-full md:min-h-0',
+          'h-[clamp(240px,48dvh,480px)] md:h-[calc(100%-22px)] 2xl:h-[calc(100%-12px)] md:min-h-0',
           'lg:w-[22rem] 2xl:w-[25rem] 3xl:w-[25rem]',
         )}
       >
@@ -814,13 +909,14 @@ const AngleNodeScroll = ({
               buildingId={(buildingData as any)?._id ?? ''}
               angleNodes={localNodes}
               buildingName={selectedBuildingName}
+              gateways={gatewaysOnly}
             />
           </div>
         </div>
       </div>
 
       {/* ================= 우측: 로그 (md 이하에서도 남김) ================= */}
-      <ScrollArea className="col-span-1 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-2 md:-mt-5 h-[40vh] md:max-h-[35.5vh] 2xl:max-h-[35.78vh] md:min-h-0 lg:w-[112%] 2xl:w-[109%]">
+      <ScrollArea className="z-0 col-span-1 md:col-span-3 2xl:col-span-3 overflow-auto rounded-lg border border-slate-400 bg-white p-2 -mt-2 md:-mt-5 h-[40vh] md:max-h-[35.5vh] 2xl:max-h-[35.78vh] md:min-h-0 lg:w-[112%] 2xl:w-[109%]">
         <div className="flex flex-col gap-2 text-sm">
           {/* 게이트웨이 다운 (GATEWAY 타입만) */}
           {gatewayDownRows.length > 0 && (
@@ -946,57 +1042,13 @@ const AngleNodeScroll = ({
       />
 
       {/* ✅ 설정 모달 */}
-      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogPortal>
-          <DialogOverlay className="fixed inset-0 bg-gray/50 z-[100]" />
-          <DialogContent className="z-[100] max-w-md">
-            <DialogHeader>
-              <DialogTitle>설정</DialogTitle>
-            </DialogHeader>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                className="px-3 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600"
-                onClick={() => {
-                  setIsSettingsOpen(false)
-                  setIsInitModalOpen(true)
-                }}
-              >
-                노드 초기화
-              </button>
-
-              <button
-                className="px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
-                onClick={() => {
-                  /* TODO: 도면 업로드 모달/로직 */
-                }}
-              >
-                도면 업로드
-              </button>
-
-              <button
-                className="px-3 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700"
-                onClick={() => {
-                  setIsSettingsOpen(false)
-                  setIsNodesEditOpen(true)
-                }}
-              >
-                노드 정보
-              </button>
-
-              <button
-                className="px-3 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700"
-                onClick={() => {
-                  setIsSettingsOpen(false)
-                  setIsGatewaysEditOpen(true)
-                }}
-              >
-                게이트웨이 정보
-              </button>
-            </div>
-          </DialogContent>
-        </DialogPortal>
-      </Dialog>
+      <SettingModal
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        onOpenInit={() => setIsInitModalOpen(true)}
+        onOpenPlanUpload={() => setOpenPlanActionModal(true)}   // ✅ 전체 도면
+        onOpenNodeImgUpload={() => setIsNodeImgOpen(true)}      // ✅ 노드 도면
+      />
 
       {/* ✅ Nodes/Gateways Edit Modals */}
       {isNodesEditOpen && (
@@ -1009,6 +1061,71 @@ const AngleNodeScroll = ({
           buildingId={(buildingData as any)?._id ?? buildingId}
         />
       )}
+
+      {isNodeImgOpen && (
+        <NodeImgModal
+          isOpen={isNodeImgOpen}
+          onClose={() => setIsNodeImgOpen(false)}
+          buildingName={selectedBuildingName}
+          angleNodes={localNodes}
+        />
+      )}
+
+      {openPlanActionModal && (
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-16">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setOpenPlanActionModal(false)}
+          />
+          <div className="relative z-[10000] w-[480px] max-w-[92vw] rounded-xl bg-white shadow-2xl border border-slate-600 ring-1 ring-slate-600/60">
+            <div className="flex items-center justify-between px-4 py-2 rounded-t-xl bg-slate-800 text-white">
+              <h3 className="text-sm font-semibold">전체 도면 관리</h3>
+              <button
+                onClick={() => setOpenPlanActionModal(false)}
+                className="px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs"
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="p-4 flex flex-col gap-3">
+              <p className="text-sm text-slate-700">
+                건물명 폴더:
+                <span className="ml-1 font-semibold text-slate-900">
+                  {selectedBuildingName || '-'}
+                </span>
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={handleClickUpload}
+                  disabled={uploadingPlan || deletingPlan}
+                  className="h-10 rounded-md bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {uploadingPlan ? '업로드 중...' : '업로드'}
+                </button>
+
+                <button
+                  onClick={handleDeletePlanImage}
+                  disabled={uploadingPlan || deletingPlan}
+                  className="h-10 rounded-md bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deletingPlan ? '삭제 중...' : '삭제'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleUploadPlanImage}
+          />
+        </div>
+      )}
+
       {isGatewaysEditOpen && (
         <GatewaysEditModal
           isOpen={isGatewaysEditOpen}

@@ -95,7 +95,7 @@ const VerticalNodeScroll = ({
   // ✅ 오늘 날짜 로그만 필터링 (UTC → KST)
   const todayLogs = useMemo(() => {
     const todayStr = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
-    return alertLogs.filter((log) => {
+    return alertLogs.filter(log => {
       const logStr = new Date(log.createdAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
       return logStr === todayStr
     })
@@ -118,27 +118,27 @@ const VerticalNodeScroll = ({
 
   const nodesUnderSelectedGateway = useMemo(() => {
     if (!selectedGateway) return sortedNodes
-    return sortedNodes.filter((node) => node.gateway_id?.serial_number === selectedGateway)
+    return sortedNodes.filter(node => node.gateway_id?.serial_number === selectedGateway)
   }, [sortedNodes, selectedGateway])
 
   const nodesToDisplay = useMemo(() => {
     let nodes = [...sortedNodes]
 
     if (selectedGateway) {
-      nodes = nodes.filter((node) => node.gateway_id?.serial_number === selectedGateway)
+      nodes = nodes.filter(node => node.gateway_id?.serial_number === selectedGateway)
     }
 
     if (selectedNode === 'dead') {
-      nodes = nodes.filter((node) => !node.node_alive)
+      nodes = nodes.filter(node => !node.node_alive)
     } else if (selectedNode !== '' && typeof selectedNode === 'number') {
-      nodes = nodes.filter((node) => node.doorNum === selectedNode)
+      nodes = nodes.filter(node => node.doorNum === selectedNode)
     }
 
     return nodes
   }, [sortedNodes, selectedGateway, selectedNode])
 
-  const aliveNodes = nodesToDisplay.filter((node) => node.node_alive)
-  const deadNodes = nodesToDisplay.filter((node) => !node.node_alive)
+  const aliveNodes = nodesToDisplay.filter(node => node.node_alive)
+  const deadNodes = nodesToDisplay.filter(node => !node.node_alive)
 
   // 색상
   const getNodeColorClass = (x: number) => {
@@ -154,13 +154,13 @@ const VerticalNodeScroll = ({
     if (!gw.gateway_alive) return 'bg-gray-500/90 text-gray-50 hover:bg-gray-600'
 
     const activeNodes = localNodes.filter(
-      (node) => node.gateway_id?.serial_number === gw.serial_number && node.node_alive === true
+      node => node.gateway_id?.serial_number === gw.serial_number && node.node_alive === true,
     )
 
     if (!activeNodes.length) return 'bg-gray-300 text-gray-700'
 
     const worstActive = [...activeNodes].sort(
-      (a, b) => Math.abs((b.angle_x ?? 0)) - Math.abs((a.angle_x ?? 0))
+      (a, b) => Math.abs(b.angle_x ?? 0) - Math.abs(a.angle_x ?? 0),
     )[0]
 
     return getNodeColorClass(worstActive.angle_x ?? 0) + ' text-gray-800'
@@ -168,7 +168,7 @@ const VerticalNodeScroll = ({
 
   const generateOptions = (min: number) => {
     return Array.from({ length: 21 }, (_, i) => Number.parseFloat((i * 0.5).toFixed(1))).filter(
-      (num) => num >= min
+      num => num >= min,
     )
   }
 
@@ -218,7 +218,7 @@ const VerticalNodeScroll = ({
     if (selectedNodesForInit.length === allNodes.length) {
       setSelectedNodesForInit([])
     } else {
-      setSelectedNodesForInit(allNodes.map((n) => n.doorNum))
+      setSelectedNodesForInit(allNodes.map(n => n.doorNum))
     }
   }
 
@@ -254,19 +254,19 @@ const VerticalNodeScroll = ({
   const gatewayDownRows = useMemo(
     () =>
       (gateways ?? [])
-        .filter((gw) => gw && gw.gateway_alive === false)
-        .map((gw) => ({
+        .filter(gw => gw && gw.gateway_alive === false)
+        .map(gw => ({
           createdAt: gw.lastSeen ? new Date(gw.lastSeen).toISOString() : new Date().toISOString(),
           serial: gw.serial_number,
           zone: gw.zone_name ?? 'N/A',
         })),
-    [gateways]
+    [gateways],
   )
 
   // ▼▼▼ 연속(순차) 같은 노드 로그를 묶기 + 접기/펼치기 상태 ▼▼▼
   const groupedTodayLogs = useMemo(() => {
     const arr = [...(todayLogs ?? [])].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     )
     const groups: Array<{ doorNum: number; items: AlertLog[] }> = []
     let cur: { doorNum: number; items: AlertLog[] } | null = null
@@ -284,7 +284,7 @@ const VerticalNodeScroll = ({
   }, [todayLogs])
 
   const [openGroups, setOpenGroups] = useState<Record<number, boolean>>({})
-  const toggleGroup = (idx: number) => setOpenGroups((p) => ({ ...p, [idx]: !p[idx] }))
+  const toggleGroup = (idx: number) => setOpenGroups(p => ({ ...p, [idx]: !p[idx] }))
 
   const logBg = (level: string) =>
     level === 'yellow' ? 'bg-yellow-200' : level === 'red' ? 'bg-red-400' : 'bg-blue-200'
@@ -292,25 +292,39 @@ const VerticalNodeScroll = ({
   // ✅ 리스트 갱신 시 모달 노드 최신화
   useEffect(() => {
     if (!isModalOpen || !selectedNodeForModal) return
-    const fresh = localNodes.find((n) => n.doorNum === selectedNodeForModal.doorNum)
+    const fresh = localNodes.find(n => n.doorNum === selectedNodeForModal.doorNum)
     if (fresh) setSelectedNodeForModal(fresh)
   }, [localNodes, isModalOpen, selectedNodeForModal?.doorNum])
 
   return (
-    <div className="grid grid-cols-12 gap-4 w-full h-screen px-1 py-4 mt-2">
+    /**
+     * ✅ 모바일: 페이지 스크롤 허용(아래 게이트웨이 영역 보이게)
+     * ✅ md 이상: 기존처럼 화면 고정 + 각 ScrollArea 내부 스크롤
+     */
+    <div className="grid grid-cols-12 gap-3 md:gap-4 w-full min-h-dvh md:h-screen px-1 py-4 mt-2 overflow-y-auto md:overflow-hidden">
       {/* ===================== 좌측: 노드 카드(넓게) ===================== */}
-      <ScrollArea className="col-span-12 lg:col-span-9 2xl:col-span-9 overflow-auto h-full rounded-lg border border-slate-400 bg-white p-4 -mt-5 lg:h-[96%] 2xl:h-[96.6%] 3xl:h-[96.6%]">
+      <ScrollArea
+        className={cn(
+          'col-span-12 lg:col-span-9 2xl:col-span-9 rounded-lg border border-slate-400 bg-white p-3 md:p-4 -mt-3 md:-mt-5',
+          // ✅ 모바일: 높이 고정 X → 페이지 스크롤로 아래까지 내려갈 수 있게
+          'h-auto',
+          // ✅ lg 이상: 기존 고정
+          'lg:h-[96%] 2xl:h-[96.6%] 3xl:h-[96.6%]',
+        )}
+      >
         {/* BGYR 설정 & 알람 저장 */}
         <div className="flex flex-wrap justify-between mb-4 gap-2 items-end">
           {/* 정상(B) */}
           <div className="flex flex-col items-center 3xl:items-center">
-            <label className="flex items-center lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1">
+            <label className="flex items-center text-[10px] md:lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1">
               <span className="w-3 h-3 bg-blue-500 inline-block rounded-sm"></span>
               정상
             </label>
-            <div className="border border-gray-400 rounded-md w-10 h-[3.1vh] flex items-center justify-center 2xl:w-[2.6vw] 2xl:h-[2.3vh] 2xl:text-base">
-              <span className="lg:text-[11px] 2xl:text-xs">{G}</span>
-              <span className="ml-1 mt-[0.1vh] lg:text-[11px] 2xl:text-xs 3xl:text-xs">이하</span>
+            <div className="border border-gray-400 rounded-md w-10 h-7 md:h-[3.1vh] flex items-center justify-center 2xl:w-[2.6vw] 2xl:h-[2.3vh] 2xl:text-base">
+              <span className="text-[10px] md:lg:text-[11px] 2xl:text-xs">{G}</span>
+              <span className="ml-1 mt-[0.1vh] text-[10px] md:lg:text-[11px] 2xl:text-xs 3xl:text-xs">
+                이하
+              </span>
             </div>
           </div>
 
@@ -322,16 +336,16 @@ const VerticalNodeScroll = ({
             const minValue = key === 'G' ? 0 : key === 'Y' ? G : Y
             return (
               <div key={key} className="flex flex-col items-center">
-                <label className="flex items-center lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1">
+                <label className="flex items-center text-[10px] md:lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1">
                   <span className={`w-3 h-3 ${color} inline-block rounded-sm`} />
                   {label}
                 </label>
                 <select
-                  className="border border-gray-400 rounded-md px-1 text-sm"
+                  className="border border-gray-400 rounded-md px-1 text-[12px] md:text-sm h-7 md:h-auto"
                   value={value}
-                  onChange={(e) => setter(Number.parseFloat(e.target.value))}
+                  onChange={e => setter(Number.parseFloat(e.target.value))}
                 >
-                  {generateOptions(minValue).map((num) => (
+                  {generateOptions(minValue).map(num => (
                     <option key={num} value={num}>
                       {num}
                     </option>
@@ -342,24 +356,24 @@ const VerticalNodeScroll = ({
           })}
 
           <div className="flex flex-col items-center ml-1">
-            <label className="flex items-center lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1 text-gray-700">
+            <label className="flex items-center text-[10px] md:lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1 text-gray-700">
               <span className="w-3 h-3 bg-gray-500 inline-block rounded-sm" />
               전원
             </label>
-            <div className="border border-gray-500 rounded-md px-2 min-w-[2rem] h-[3.1vh] flex items-center justify-center lg:text-[11px] bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold">
+            <div className="border border-gray-500 rounded-md px-2 min-w-[2rem] h-7 md:h-[3.1vh] flex items-center justify-center text-[11px] md:lg:text-[11px] bg-gray-200 text-gray-700 2xl:w-[2.2vw] 2xl:h-[2.3vh] 2xl:text-base font-bold">
               OFF
             </div>
           </div>
 
           <button
-            className="px-2 2xl:p-2 py-1 bg-blue-600 text-white rounded-lg lg:text-[10px] 2xl:text-xs font-semibold hover:bg-blue-700 transition-colors"
+            className="px-2 2xl:p-2 py-1 bg-blue-600 text-white rounded-lg text-[11px] md:lg:text-[10px] 2xl:text-xs font-semibold hover:bg-blue-700 transition-colors"
             onClick={() => onSetAlarmLevels({ G, Y, R })}
           >
             저장
           </button>
 
           <button
-            className="px-3 py-1 rounded-lg font-bold text-xs text-white bg-gray-700 hover:bg-gray-800 transition-colors"
+            className="px-3 py-1 rounded-lg font-bold text-[11px] md:text-xs text-white bg-gray-700 hover:bg-gray-800 transition-colors"
             onClick={() => setIsSettingsOpen(true)}
           >
             설정
@@ -367,24 +381,24 @@ const VerticalNodeScroll = ({
         </div>
 
         {/* Gateway + Node 선택 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4">
           <select
-            className="border border-gray-400 rounded-md px-1 py-0.5 text-sm overflow-y-auto"
+            className="border border-gray-400 rounded-md px-2 py-1 text-[12px] md:text-sm overflow-y-auto"
             value={selectedGateway}
-            onChange={(e) => setSelectedGateway(e.target.value)}
+            onChange={e => setSelectedGateway(e.target.value)}
           >
             <option value="">전체구역</option>
-            {gateways?.map((gw) => (
-              <option key={gw._id} value={gw.serial_number}>
+            {gateways?.map(gw => (
+              <option key={(gw as any)._id} value={gw.serial_number}>
                 {gw.zone_name && gw.zone_name.trim() !== '' ? gw.zone_name : `gw-${gw.serial_number}`}
               </option>
             ))}
           </select>
 
           <select
-            className="border border-gray-400 rounded-md px-1 py-1 text-sm overflow-y-auto"
-            value={selectedNode}
-            onChange={(e) => {
+            className="border border-gray-400 rounded-md px-2 py-1 text-[12px] md:text-sm overflow-y-auto"
+            value={selectedNode as any}
+            onChange={e => {
               const v = e.target.value
               setSelectedNode(v === '' ? '' : v === 'dead' ? 'dead' : Number.parseInt(v))
             }}
@@ -393,8 +407,8 @@ const VerticalNodeScroll = ({
             <option value="dead">비활성 노드</option>
 
             {[...nodesUnderSelectedGateway]
-              .sort((a, b) => a.doorNum - b.doorNum)
-              .map((node) => (
+              .sort((a, b) => (a.doorNum ?? 0) - (b.doorNum ?? 0))
+              .map(node => (
                 <option key={node.doorNum} value={node.doorNum}>
                   {node.doorNum}
                 </option>
@@ -403,14 +417,14 @@ const VerticalNodeScroll = ({
         </div>
 
         {/* ✅ 살아있는 노드 grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-7  gap-4">
-          {aliveNodes.map((item) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-7 gap-3 md:gap-4">
+          {aliveNodes.map(item => (
             <Card
               key={item.doorNum}
               onClick={() => handleNodeCardClick(item)}
               className={cn(
                 'border border-slate-300 flex flex-col justify-center shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer relative text-gray-600',
-                getNodeColorClass(item.angle_x ?? 0)
+                getNodeColorClass(item.angle_x ?? 0),
               )}
             >
               <CardContent className="flex flex-col justify-center p-2 text-[14px]">
@@ -431,14 +445,14 @@ const VerticalNodeScroll = ({
                 {/* ✅ 상세정보 + 그래프 버튼 */}
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
-                    onClick={(e) => handleNodeDetailClick(e, item)}
+                    onClick={e => handleNodeDetailClick(e, item)}
                     className="w-full flex items-center justify-center gap-2 py-1 text-[15px] font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
                   >
                     <span className="text-[12px]">상세정보</span>
                   </button>
 
                   <button
-                    onClick={(e) => handleGraphClick(e, item)}
+                    onClick={e => handleGraphClick(e, item)}
                     className="w-full flex items-center justify-center gap-2 py-1 text-sm font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white"
                   >
                     <span className="text-[12px]">그래프</span>
@@ -454,14 +468,14 @@ const VerticalNodeScroll = ({
           <div className="mt-8">
             <h2 className="text-center font-bold text-gray-600 mb-3">비활성 노드</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-7 gap-4">
-              {deadNodes.map((item) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-7 gap-3 md:gap-4">
+              {deadNodes.map(item => (
                 <Card
                   key={item.doorNum}
                   onClick={() => handleNodeCardClick(item)}
                   className={cn(
                     'border border-slate-300 flex flex-col justify-center shadow-md hover:shadow-lg transition duration-200 ease-in-out rounded-xl cursor-pointer relative',
-                    'bg-gray-400 text-gray-50 hover:bg-gray-400/70'
+                    'bg-gray-400 text-gray-50 hover:bg-gray-400/70',
                   )}
                 >
                   <CardContent className="flex flex-col justify-center p-2 text-[14px]">
@@ -484,14 +498,14 @@ const VerticalNodeScroll = ({
                     {/* ✅ 상세정보 + 그래프 버튼 */}
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       <button
-                        onClick={(e) => handleNodeDetailClick(e, item)}
+                        onClick={e => handleNodeDetailClick(e, item)}
                         className="w-full flex items-center justify-center gap-2 py-1 text-sm font-medium rounded-lg shadow-sm bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white"
                       >
                         <span className="text-[12px]">상세정보</span>
                       </button>
 
                       <button
-                        onClick={(e) => handleGraphClick(e, item)}
+                        onClick={e => handleGraphClick(e, item)}
                         className="w-full flex items-center justify-center gap-2 py-1 text-sm font-medium rounded-lg shadow-sm bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white"
                       >
                         <span className="text-[12px]">그래프</span>
@@ -506,17 +520,17 @@ const VerticalNodeScroll = ({
       </ScrollArea>
 
       {/* ===================== 우측: 로그(위) + 게이트웨이(아래) ===================== */}
-      <div className="w-full col-span-12 lg:col-span-3 2xl:col-span-3 flex flex-col gap-4 -mt-5 h-[96%] 2xl:h-[96.6%] 3xl:h-[96.6%] min-h-0">
+      <div className="w-full col-span-12 lg:col-span-3 2xl:col-span-3 flex flex-col gap-3 md:gap-4 -mt-3 md:-mt-5 h-auto lg:h-[96%] 2xl:h-[96.6%] 3xl:h-[96.6%] min-h-0">
         {/* 우측 상단: 위험 로그 */}
-        <ScrollArea className="rounded-lg border border-slate-400 bg-white p-2 flex-[55] min-h-0">
+        <ScrollArea className="rounded-lg border border-slate-400 bg-white p-2 min-h-0 h-[34dvh] sm:h-[38dvh] lg:h-auto lg:flex-[55]">
           <div className="flex flex-col gap-2 text-sm">
             {/* 게이트웨이 다운 */}
             {gatewayDownRows.length > 0 && (
               <>
-                {gatewayDownRows.map((g) => (
+                {gatewayDownRows.map(g => (
                   <div
                     key={g.serial}
-                    className="px-2 py-1 rounded-lg bg-gray-400 text-white font-semibold lg:text-[0.6rem] 2xl:text-[0.8rem]"
+                    className="px-2 py-1 rounded-lg bg-gray-400 text-white font-semibold text-[11px] lg:text-[0.6rem] 2xl:text-[0.8rem]"
                   >
                     {`${formatKSTTime(g.createdAt)} | gw-${g.serial} | ${g.zone}`}
                   </div>
@@ -548,16 +562,14 @@ const VerticalNodeScroll = ({
                             title={clickable ? '접기' : undefined}
                             style={{ minHeight: 30, width: 'calc(100% - 2px)' }}
                           >
-                            <div className="flex items-center justify-between lg:text-[0.8rem] 2xl:text-[1.1rem] 3xl:text-[1.1rem] font-medium">
+                            <div className="flex items-center justify-between text-[11px] lg:text-[0.8rem] 2xl:text-[1.1rem] 3xl:text-[1.1rem] font-medium">
                               <div className="truncate mr-2">
                                 {`${formatKSTTime(log.createdAt)} | 노드: ${log.doorNum} | ${formatMetricLabel(
-                                  log.metric
+                                  log.metric,
                                 )}: ${log.value}`}
                               </div>
                               {clickable && (
-                                <span className="shrink-0 text-[13px] text-gray-700 font-bold">
-                                  ▲
-                                </span>
+                                <span className="shrink-0 text-[13px] text-gray-700 font-bold">▲</span>
                               )}
                             </div>
                           </div>
@@ -604,9 +616,9 @@ const VerticalNodeScroll = ({
                         className={`${logBg(latest.level)} absolute px-2 py-1 rounded border border-black/10 shadow-sm flex items-center justify-between`}
                         style={{ left: 0, top: 0, right: 2, height: 32, zIndex: 50 }}
                       >
-                        <div className="truncate mr-1 lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium">
+                        <div className="truncate mr-1 text-[11px] lg:text-[13px] 2xl:text-[17px] 3xl:text-[18px] font-medium">
                           {`${formatKSTTime(latest.createdAt)} | 노드: ${doorNum} | ${formatMetricLabel(
-                            latest.metric
+                            latest.metric,
                           )}: ${latest.value}`}
                         </div>
                         <span className="shrink-0 text-[13px] text-gray-700 font-bold">
@@ -619,14 +631,14 @@ const VerticalNodeScroll = ({
               })
             ) : (
               <div className="p-2 bg-blue-500 border rounded-md">
-                <p className="text-center text-white text-[16px]">오늘은 위험 로그가 없습니다.</p>
+                <p className="text-center text-white text-[14px] md:text-[16px]">오늘은 위험 로그가 없습니다.</p>
               </div>
             )}
           </div>
         </ScrollArea>
 
-        {/* 우측 하단: 게이트웨이 (도면 제거) */}
-        <div className="w-full rounded-lg border border-slate-400 bg-white p-2 flex-[45] min-h-0">
+        {/* 우측 하단: 게이트웨이 (모바일에서도 아래에 보이게 높이 부여) */}
+        <div className="w-full rounded-lg border border-slate-400 bg-white p-2 min-h-0 h-[28dvh] sm:h-[30dvh] lg:h-auto lg:flex-[45]">
           <ScrollArea className="border border-slate-200 rounded-md p-2 h-full min-h-0">
             <button
               className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${
@@ -644,13 +656,11 @@ const VerticalNodeScroll = ({
                   key={index}
                   className={cn(
                     'text-[12px] p-1 rounded-md flex flex-col items-center justify-center shadow-md cursor-pointer',
-                    getGatewayColorClass(gw)
+                    getGatewayColorClass(gw),
                   )}
                 >
                   <span className="border-b pb-1">
-                    {gw.zone_name && gw.zone_name.trim() !== ''
-                      ? gw.zone_name
-                      : `gw-${gw.serial_number}`}
+                    {gw.zone_name && gw.zone_name.trim() !== '' ? gw.zone_name : `gw-${gw.serial_number}`}
                   </span>
                   <span className="truncate mt-2">gw-{gw.serial_number}</span>
                 </div>
@@ -758,17 +768,15 @@ const VerticalNodeScroll = ({
             </div>
 
             <div className="max-h-40 overflow-y-auto border p-2 rounded">
-              {allNodes.map((node) => (
+              {allNodes.map(node => (
                 <label key={node.doorNum} className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     value={node.doorNum}
                     checked={selectedNodesForInit.includes(node.doorNum)}
-                    onChange={(e) => {
+                    onChange={e => {
                       const val = Number(e.target.value)
-                      setSelectedNodesForInit((prev) =>
-                        e.target.checked ? [...prev, val] : prev.filter((n) => n !== val)
-                      )
+                      setSelectedNodesForInit(prev => (e.target.checked ? [...prev, val] : prev.filter(n => n !== val)))
                     }}
                     className="accent-blue-500 w-4 h-4"
                   />

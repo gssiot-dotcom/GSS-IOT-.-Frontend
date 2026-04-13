@@ -8,8 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import React, { forwardRef, useMemo } from 'react'
-import { useEffect, useState } from 'react'
+import React, { forwardRef, useMemo, useEffect, useState } from 'react'
 import {
   CartesianGrid,
   Legend,
@@ -65,23 +64,22 @@ const WeekInput = forwardRef<HTMLInputElement, WeekInputProps>(
         value={display}
         readOnly
         {...rest}
-        className="border border-slate-400 rounded px-2 py-1 text-xs"
+        className="border border-slate-400 rounded px-2 py-1 text-xs w-[110px] sm:w-[140px]"
       />
     )
-  }
+  },
 )
 WeekInput.displayName = 'WeekInput'
 
 const useMediaQuery = (query: string) => {
   const [matches, setMatches] = useState(false)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const mediaQueryList = window.matchMedia(query)
-      setMatches(mediaQueryList.matches)
-      const listener = (e: MediaQueryListEvent) => setMatches(e.matches)
-      mediaQueryList.addEventListener('change', listener)
-      return () => mediaQueryList.removeEventListener('change', listener)
-    }
+    if (typeof window === 'undefined') return
+    const mediaQueryList = window.matchMedia(query)
+    setMatches(mediaQueryList.matches)
+    const listener = (e: MediaQueryListEvent) => setMatches(e.matches)
+    mediaQueryList.addEventListener('change', listener)
+    return () => mediaQueryList.removeEventListener('change', listener)
   }, [query])
   return matches
 }
@@ -131,6 +129,64 @@ export type SensorGraphProps = {
   windHistory: WindPoint[]
 }
 
+const TOP6_COLORS = ['#ef4444', '#ff00c3ff', '#001effff', '#f59e0b', '#8b5cf6', '#06b6d4']
+
+// ✅ 모바일용 tooltip(간단/안잘리게)
+function MobileTooltip({
+  active,
+  payload,
+  label,
+  timeMode,
+}: any & { timeMode: 'hour' | 'day' | 'week' | 'month' }) {
+  if (!active || !payload?.length) return null
+
+  const d = new Date(label)
+  const yyyy = d.getFullYear()
+  const MM = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+
+  const timeStr =
+    timeMode === 'week' || timeMode === 'month'
+      ? `${yyyy}-${MM}-${dd}`
+      : `${yyyy}-${MM}-${dd} ${hh}:${mm}`
+
+  // ✅ 모바일 표시 순서: X, Y, 풍속
+  const pick = (key: string) => payload.find((p: any) => p?.dataKey === key || p?.name === key)
+  const px = pick('angle_x')
+  const py = pick('angle_y')
+  const pw = pick('wind_speed')
+
+  const items = [
+    { label: 'X', value: px?.value, color: '#ef4444' },
+    { label: 'Y', value: py?.value, color: '#3b82f6' },
+    { label: '풍속', value: pw?.value, color: '#22c55e' },
+  ].filter((it) => it.value != null)
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-md px-2 py-1 shadow-sm text-[12px]">
+      <div className="font-semibold text-gray-800 mb-1">{timeStr}</div>
+      <div className="space-y-0.5">
+        {items.map((it, idx) => (
+          <div key={idx} className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1 text-gray-700">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-sm"
+                style={{ backgroundColor: it.color }}
+              />
+              {it.label}
+            </span>
+            <span className="text-gray-900 font-medium">
+              {Number.isFinite(Number(it.value)) ? Number(it.value).toFixed(2) : '-'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
   buildingId,
   doorNum,
@@ -149,9 +205,7 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
   windHistory,
   topDoorNums,
 }) => {
-  const [data, setData] = useState<
-    GraphDataPoint[] | DeltaGraphPoint[] | AvgDeltaDataPoint[]
-  >(graphData)
+  const [data, setData] = useState<GraphDataPoint[] | DeltaGraphPoint[] | AvgDeltaDataPoint[]>(graphData)
 
   const isMobile = useMediaQuery('(max-width: 640px)')
   const isTablet = useMediaQuery('(max-width: 1024px)')
@@ -160,27 +214,23 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
 
   // "일 → 주" 전환 시 월요일로 자동 보정
   useEffect(() => {
-    if (timeMode === 'week') {
-      const base = selectedDate ?? new Date()
-      const monday = getMondayOf(base)
-      if (
-        !selectedDate ||
-        selectedDate.getDay() !== 1 ||
-        selectedDate.getFullYear() !== monday.getFullYear() ||
-        selectedDate.getMonth() !== monday.getMonth() ||
-        selectedDate.getDate() !== monday.getDate()
-      ) {
-        setSelectedDate(monday)
-      }
+    if (timeMode !== 'week') return
+    const base = selectedDate ?? new Date()
+    const monday = getMondayOf(base)
+    if (
+      !selectedDate ||
+      selectedDate.getDay() !== 1 ||
+      selectedDate.getFullYear() !== monday.getFullYear() ||
+      selectedDate.getMonth() !== monday.getMonth() ||
+      selectedDate.getDate() !== monday.getDate()
+    ) {
+      setSelectedDate(monday)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeMode])
 
-  // X축 ticks/domain
-  const getXAxisTicksAndDomain = (): {
-    ticks: number[]
-    domain: [number, number]
-  } => {
+  // ✅ X축 ticks/domain (모바일은 더 성김)
+  const getXAxisTicksAndDomain = (): { ticks: number[]; domain: [number, number] } => {
     const now = new Date()
     let startPoint: Date
     let endPoint: Date
@@ -189,7 +239,6 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
     if (timeMode === 'week' && selectedDate) {
       const monday = new Date(selectedDate)
       monday.setHours(0, 0, 0, 0)
-
       const sundayEnd = new Date(monday)
       sundayEnd.setDate(monday.getDate() + 6)
       sundayEnd.setHours(23, 59, 59, 999)
@@ -198,10 +247,10 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
       endPoint = sundayEnd
 
       for (let i = 0; i < 7; i++) {
-        const tick = new Date(monday)
-        tick.setDate(monday.getDate() + i)
-        tick.setHours(0, 0, 0, 0)
-        ticks.push(tick.getTime())
+        const t = new Date(monday)
+        t.setDate(monday.getDate() + i)
+        t.setHours(0, 0, 0, 0)
+        ticks.push(t.getTime())
       }
       ticks.push(sundayEnd.getTime())
     } else if (timeMode === 'day' && selectedDate) {
@@ -209,10 +258,12 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
       startPoint.setHours(0, 0, 0, 0)
       endPoint = new Date(selectedDate)
       endPoint.setHours(23, 59, 59, 999)
-      for (let i = 0; i <= 24; i += 2) {
-        const tickTime = new Date(startPoint.getTime())
-        tickTime.setHours(i, 0, 0, 0)
-        ticks.push(tickTime.getTime())
+
+      const step = isMobile ? 3 : 2
+      for (let i = 0; i <= 24; i += step) {
+        const t = new Date(startPoint.getTime())
+        t.setHours(i, 0, 0, 0)
+        ticks.push(t.getTime())
       }
     } else if (timeMode === 'month' && selectedDate) {
       const year = selectedDate.getFullYear()
@@ -220,44 +271,30 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
 
       startPoint = new Date(year, month, 1, 0, 0, 0, 0)
       endPoint = new Date(year, month + 1, 0, 23, 59, 59, 999)
-
       const lastDay = endPoint.getDate()
-      for (let i = 1; i <= lastDay; i++) {
-        const tickTime = new Date(year, month, i, 0, 0, 0, 0)
-        ticks.push(tickTime.getTime())
+
+      if (isMobile) {
+        const days = [1, 8, 15, 22, lastDay].filter((v, i, a) => a.indexOf(v) === i)
+        for (const d of days) ticks.push(new Date(year, month, d, 0, 0, 0, 0).getTime())
+        ticks.push(endPoint.getTime())
+      } else {
+        for (let i = 1; i <= lastDay; i++) ticks.push(new Date(year, month, i, 0, 0, 0, 0).getTime())
+        ticks.push(endPoint.getTime())
       }
-      ticks.push(endPoint.getTime())
     } else if (hours === 1) {
       const roundedMinutes = Math.ceil(now.getMinutes() / 10) * 10
-      endPoint = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        now.getHours(),
-        roundedMinutes,
-        0,
-        0
-      )
+      endPoint = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), roundedMinutes, 0, 0)
       startPoint = new Date(endPoint.getTime() - 60 * 60 * 1000)
-      for (let i = 0; i <= 6; i++) {
-        const tickTime = new Date(startPoint.getTime() + i * 10 * 60 * 1000)
-        ticks.push(tickTime.getTime())
-      }
+
+      const stepMin = isMobile ? 20 : 10
+      const count = Math.floor(60 / stepMin)
+      for (let i = 0; i <= count; i++) ticks.push(new Date(startPoint.getTime() + i * stepMin * 60 * 1000).getTime())
     } else if (hours === 24) {
-      endPoint = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        now.getHours() + 1,
-        0,
-        0,
-        0
-      )
+      endPoint = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0, 0, 0)
       startPoint = new Date(endPoint.getTime() - 24 * 60 * 60 * 1000)
-      for (let i = 0; i <= 24; i += 2) {
-        const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000)
-        ticks.push(tickTime.getTime())
-      }
+
+      const step = isMobile ? 4 : 2
+      for (let i = 0; i <= 24; i += step) ticks.push(new Date(startPoint.getTime() + i * 60 * 60 * 1000).getTime())
     } else {
       endPoint = new Date(
         now.getFullYear(),
@@ -266,13 +303,12 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
         now.getHours() + (now.getMinutes() > 0 ? 1 : 0),
         0,
         0,
-        0
+        0,
       )
       startPoint = new Date(endPoint.getTime() - hours * 60 * 60 * 1000)
-      for (let i = 0; i <= hours; i++) {
-        const tickTime = new Date(startPoint.getTime() + i * 60 * 60 * 1000)
-        ticks.push(tickTime.getTime())
-      }
+
+      const step = isMobile ? 2 : 1
+      for (let i = 0; i <= hours; i += step) ticks.push(new Date(startPoint.getTime() + i * 60 * 60 * 1000).getTime())
     }
 
     return { ticks, domain: [startPoint.getTime(), endPoint.getTime()] }
@@ -284,7 +320,6 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
   const attachWindData = (points: { time: string }[]) => {
     if (!points || points.length === 0) return []
 
-    // timestamp는 항상 세팅 (wind 없어도)
     if (!windHistory || windHistory.length === 0) {
       return points.map((p) => ({
         ...p,
@@ -312,7 +347,6 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
         const ts = toMs(w.timestamp)
         return {
           wind_speed: Number(w.wind_speed),
-          // windHistory timestamp는 백에서 +9h 저장된 값 -> 매칭만 -9h 보정
           timestampNum: Number.isFinite(ts) ? ts - NINE_HOURS_MS : NaN,
         }
       })
@@ -321,18 +355,14 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
 
     return points.map((p) => {
       const sensorTimestamp = new Date(p.time).getTime()
-      if (isNaN(sensorTimestamp)) {
-        return { ...p, timestamp: 0, wind_speed: null }
-      }
+      if (isNaN(sensorTimestamp)) return { ...p, timestamp: 0, wind_speed: null }
 
       let low = 0
       let high = sortedWindHistory.length - 1
-      let closestIndex = 0
-
       while (low <= high) {
         const mid = Math.floor((low + high) / 2)
         if (sortedWindHistory[mid].timestampNum === sensorTimestamp) {
-          closestIndex = mid
+          low = mid
           break
         } else if (sortedWindHistory[mid].timestampNum < sensorTimestamp) {
           low = mid + 1
@@ -341,51 +371,43 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
         }
       }
 
-      if (low >= sortedWindHistory.length) {
-        closestIndex = sortedWindHistory.length - 1
-      } else if (low === 0) {
-        closestIndex = 0
-      } else {
+      let closestIndex = 0
+      if (low >= sortedWindHistory.length) closestIndex = sortedWindHistory.length - 1
+      else if (low === 0) closestIndex = 0
+      else {
         const diff1 = Math.abs(sensorTimestamp - sortedWindHistory[low - 1].timestampNum)
         const diff2 = Math.abs(sensorTimestamp - sortedWindHistory[low].timestampNum)
         closestIndex = diff1 < diff2 ? low - 1 : low
       }
 
-      const closestWindSpeed = sortedWindHistory[closestIndex]?.wind_speed ?? null
-
       return {
         ...p,
         timestamp: sensorTimestamp,
-        wind_speed: closestWindSpeed,
+        wind_speed: sortedWindHistory[closestIndex]?.wind_speed ?? null,
       }
     })
   }
 
   const finalData = useMemo(() => {
     if (viewMode === 'general') return attachWindData(data as GraphDataPoint[])
+    if (viewMode === 'top6') return attachWindData(data as any[])
     return []
   }, [data, windHistory, viewMode])
 
   const processedDeltaData = useMemo(() => {
-    if (viewMode === 'general') return []
+    if (viewMode === 'general' || viewMode === 'top6') return []
     return attachWindData(data as DeltaGraphPoint[])
   }, [viewMode, data, windHistory])
 
-  const getYDomainAndTicks = (
-    graph: (GraphDataPoint | DeltaGraphPoint | AvgDeltaDataPoint)[]
-  ) => {
-    if (!graph || graph.length === 0) {
-      return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
-    }
+  const getYDomainAndTicks = (graph: any[]) => {
+    if (!graph || graph.length === 0) return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
 
-    if (viewMode === 'general') {
+    if (viewMode === 'general' || viewMode === 'top6') {
       const values = graph
-        .flatMap((d) => [(d as GraphDataPoint).angle_x, (d as GraphDataPoint).angle_y])
+        .flatMap((d) => [(d as any).angle_x, (d as any).angle_y, ...(topDoorNums ?? []).map((n) => (d as any)[`node_${n}`])])
         .filter((v) => v != null && !isNaN(v as number)) as number[]
 
-      if (values.length === 0) {
-        return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
-      }
+      if (values.length === 0) return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
 
       const minVal = Math.min(...values)
       const maxVal = Math.max(...values)
@@ -403,7 +425,6 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
       return { domain, ticks }
     }
 
-    // delta / avgDelta / top6
     const values: number[] = []
     for (const row of graph as DeltaGraphPoint[]) {
       for (const k of Object.keys(row)) {
@@ -413,10 +434,7 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
         if (!isNaN(num)) values.push(num)
       }
     }
-
-    if (values.length === 0) {
-      return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
-    }
+    if (values.length === 0) return { domain: [-5, 5] as [number, number], ticks: [-5, 0, 5] }
 
     const maxAbs = Math.max(...values.map((v) => Math.abs(v)))
     let boundary = 5
@@ -425,14 +443,11 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
     return { domain: [-boundary, boundary] as [number, number], ticks: [-boundary, 0, boundary] }
   }
 
-  const chartData = viewMode === 'general' ? finalData : processedDeltaData
+  const chartData = viewMode === 'general' || viewMode === 'top6' ? finalData : processedDeltaData
   const { domain: yDomain, ticks: yTicks } = getYDomainAndTicks(chartData as any)
 
   const getWindDomainAndTicks = (graph: any[]) => {
-    const windValues = graph
-      .map((d) => d.wind_speed)
-      .filter((v) => v != null && !isNaN(v as number)) as number[]
-
+    const windValues = graph.map((d) => d.wind_speed).filter((v) => v != null && !isNaN(v as number)) as number[]
     if (windValues.length === 0) return { domain: [0, 20] as [number, number], ticks: [0, 5, 10, 20] }
 
     const maxWind = Math.max(...windValues)
@@ -442,12 +457,11 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
     if (top >= 5 && !ticks.includes(5)) ticks.splice(1, 0, 5)
     return { domain: [0, top] as [number, number], ticks }
   }
-
   const { domain: windDomain, ticks: windTicks } = getWindDomainAndTicks(chartData as any)
 
   const getChartMargins = () => {
-    if (isMobile) return { top: 10, right: 10, left: 0, bottom: 18 }
-    if (isTablet) return { top: 15, right: 20, left: 5, bottom: 22 }
+    if (isMobile) return { top: 10, right: 12, left: 0, bottom: 22 }
+    if (isTablet) return { top: 15, right: 20, left: 5, bottom: 26 }
     return { top: -20, right: 50, left: -20, bottom: 30 }
   }
 
@@ -458,9 +472,9 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
       const dd = String(date.getDate()).padStart(2, '0')
       return `${MM}-${dd}`
     }
-    const hoursStr = String(date.getHours()).padStart(2, '0')
-    const minutesStr = String(date.getMinutes()).padStart(2, '0')
-    return `${hoursStr}:${minutesStr}`
+    const hh = String(date.getHours()).padStart(2, '0')
+    const mm = String(date.getMinutes()).padStart(2, '0')
+    return `${hh}:${mm}`
   }
 
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max))
@@ -477,9 +491,7 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
     const MM = String(date.getMonth() + 1).padStart(2, '0')
     const dd = String(date.getDate()).padStart(2, '0')
 
-    if (timeMode === 'week' || timeMode === 'month') {
-      return `${yyyy}-${MM}-${dd}`
-    }
+    if (timeMode === 'week' || timeMode === 'month') return `${yyyy}-${MM}-${dd}`
 
     const hh = String(date.getHours()).padStart(2, '0')
     const mm = String(date.getMinutes()).padStart(2, '0')
@@ -503,44 +515,60 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
     return `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
   }, [now])
 
-  const TOP6_COLORS = [
-    '#ef4444',
-    '#ff00c3ff',
-    '#001effff',
-    '#f59e0b',
-    '#8b5cf6',
-    '#06b6d4',
-  ]
+  // ✅ 모바일 legend(칩) — 순서 X, Y, 풍속 / 테두리 색상 지정
+  const MobileLegendChips = () => {
+    if (viewMode !== 'general') return null
+    return (
+      <div className="flex flex-wrap gap-1 px-3 pb-2">
+        <Badge
+          variant="outline"
+          className="text-[11px]"
+          style={{ borderColor: '#ef4444', color: '#111827' }}
+        >
+          X
+        </Badge>
+        <Badge
+          variant="outline"
+          className="text-[11px]"
+          style={{ borderColor: '#3b82f6', color: '#111827' }}
+        >
+          Y
+        </Badge>
+        <Badge
+          variant="outline"
+          className="text-[11px]"
+          style={{ borderColor: '#22c55e', color: '#111827' }}
+        >
+          풍속
+        </Badge>
+      </div>
+    )
+  }
+
+  const bandOpacity = isMobile ? 0.06 : 0.1
 
   return (
     <div className="pb-5 h-full w-full">
-      <Card className="w-full border shadow-sm border-slate-400 mt-4 sm:mt-6">
+      <Card className="w-full border shadow-sm border-slate-400 mt-4 sm:mt-6 overflow-hidden">
         <CardHeader className="p-3 sm:p-4 space-y-2">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <CardTitle className="text-sm sm:text-base md:text-lg text-gray-900">
               폼 변형 실시간 데이터{' '}
               {viewMode === 'general' && doorNum !== null && (
-                <span className="text-blue-400 font-bold text-sm sm:text-base md:text-lg">
-                  Node-{doorNum}
-                </span>
+                <span className="text-blue-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum}</span>
               )}
               {viewMode === 'delta' && doorNum !== null && (
-                <span className="text-purple-400 font-bold text-sm sm:text-base md:text-lg">
-                  Node-{doorNum}
-                </span>
+                <span className="text-purple-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum}</span>
               )}
               {viewMode === 'avgDelta' && doorNum !== null && (
-                <span className="text-orange-400 font-bold text-sm sm:text-base md:text-lg">
-                  Node-{doorNum}
-                </span>
+                <span className="text-orange-400 font-bold text-sm sm:text-base md:text-lg">Node-{doorNum}</span>
               )}
               {viewMode === 'top6' && (
-                <span className="text-emerald-500 font-bold text-sm sm:text-base md:text-lg">
-                  Top6
-                </span>
+                <span className="text-emerald-500 font-bold text-sm sm:text-base md:text-lg">Top6</span>
               )}
             </CardTitle>
 
+            {/* ✅ 모바일은 시간 숨김 */}
             <div className="hidden sm:flex flex-1 justify-center">
               <span className="hidden lg:inline 2xl:hidden text-gray-600 text-[12px] font-bold">
                 {nowDate} {nowTime}
@@ -588,7 +616,7 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
                     onChange={(date) => setSelectedDate(date)}
                     locale={ko}
                     dateFormat="yyyy-MM-dd"
-                    className="border border-slate-400 rounded px-2 py-1 text-xs"
+                    className="border border-slate-400 rounded px-2 py-1 text-xs w-[110px] sm:w-[140px]"
                     placeholderText="날짜 선택"
                     popperClassName="z-[99999]"
                   />
@@ -613,16 +641,19 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
                     locale={ko}
                     showMonthYearPicker
                     dateFormat="yyyy-MM"
-                    className="border border-slate-400 rounded px-2 py-1 text-xs"
+                    className="border border-slate-400 rounded px-2 py-1 text-xs w-[110px] sm:w-[140px]"
                     placeholderText="월 선택"
                     popperClassName="z-[99999]"
                   />
                 )}
               </div>
 
-              <Badge variant="outline" className="h-6 text-xs md:text-sm border-slate-400">
-                데이터 수: {data.length}
-              </Badge>
+              {/* ✅ 모바일은 숨김(공간 아낌) */}
+              {!isMobile && (
+                <Badge variant="outline" className="h-6 text-xs md:text-sm border-slate-400">
+                  데이터 수: {data.length}
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -634,9 +665,13 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
           ) : null}
         </CardHeader>
 
-        <CardContent className="p-0 pt-2 overflow-x-hidden overflow-visible">
-          <div className="w-full h-full lg:h-[60vh] relative z-0">
-            <ResponsiveContainer width="100%" height="100%">
+        {/* ✅ 모바일 legend 칩 */}
+        {isMobile && <MobileLegendChips />}
+
+        {/* ✅ 모바일: 가로 조금 늘림(짤림 방지) */}
+        <CardContent className="p-0 pt-2 overflow-hidden">
+          <div className="w-full h-[260px] sm:h-[320px] lg:h-[60vh] relative z-0">
+            <ResponsiveContainer width={isMobile ? '104%' : '100%'} height="100%">
               <LineChart data={chartData as any} margin={getChartMargins()}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
 
@@ -657,7 +692,7 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
                       return (
                         <text
                           x={x + width / 2}
-                          y={y + 50}
+                          y={y + (isMobile ? 34 : 50)}
                           textAnchor="middle"
                           style={{ fontSize: isMobile ? 10 : 12, fontWeight: 'bold', fill: '#000' }}
                         >
@@ -682,13 +717,15 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
                     offset={0}
                     content={({ viewBox }) => {
                       const { x, y, height } = viewBox as any
+                      if (isMobile) {
+                        return (
+                          <text x={x + 6} y={y + 30} textAnchor="start" style={{ fontSize: 10, fontWeight: 'bold' }}>
+                            기울기
+                          </text>
+                        )
+                      }
                       return (
-                        <text
-                          x={x + 31}
-                          y={y + height / 2}
-                          textAnchor="middle"
-                          style={{ fontSize: isMobile ? 10 : 12, fontWeight: 'bold' }}
-                        >
+                        <text x={x + 31} y={y + height / 2} textAnchor="middle" style={{ fontSize: 12, fontWeight: 'bold' }}>
                           <tspan x={x + 31} dy="-0.6em">기</tspan>
                           <tspan x={x + 31} dy="1.2em">울</tspan>
                           <tspan x={x + 31} dy="1.2em">기</tspan>
@@ -712,13 +749,15 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
                     offset={0}
                     content={({ viewBox }) => {
                       const { x, y, height } = viewBox as any
+                      if (isMobile) {
+                        return (
+                          <text x={x + 24} y={y + 30} textAnchor="end" style={{ fontSize: 10, fontWeight: 'bold' }}>
+                            풍속
+                          </text>
+                        )
+                      }
                       return (
-                        <text
-                          x={x + 35}
-                          y={y + height / 2}
-                          textAnchor="middle"
-                          style={{ fontSize: isMobile ? 10 : 12, fontWeight: 'bold' }}
-                        >
+                        <text x={x + 35} y={y + height / 2} textAnchor="middle" style={{ fontSize: 12, fontWeight: 'bold' }}>
                           <tspan x={x + 35} dy="0">풍</tspan>
                           <tspan x={x + 35} dy="1.2em">속</tspan>
                         </text>
@@ -728,6 +767,7 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
                 </YAxis>
 
                 <Tooltip
+                  content={isMobile ? <MobileTooltip timeMode={timeMode} /> : undefined}
                   contentStyle={{
                     backgroundColor: 'white',
                     border: '1px solid #ccc',
@@ -760,19 +800,19 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
 
                 {(viewMode === 'general' || viewMode === 'top6') && (
                   <>
-                    <ReferenceArea yAxisId="angle" y1={yDomain[0]} y2={clamp(-R, yDomain[0], yDomain[1])} fill="#ef4444" fillOpacity={0.1} />
-                    <ReferenceArea yAxisId="angle" y1={clamp(R, yDomain[0], yDomain[1])} y2={yDomain[1]} fill="#ef4444" fillOpacity={0.1} />
-                    <ReferenceArea yAxisId="angle" y1={clamp(-R, yDomain[0], yDomain[1])} y2={clamp(-Y, yDomain[0], yDomain[1])} fill="#eab308" fillOpacity={0.1} />
-                    <ReferenceArea yAxisId="angle" y1={clamp(Y, yDomain[0], yDomain[1])} y2={clamp(R, yDomain[0], yDomain[1])} fill="#eab308" fillOpacity={0.1} />
-                    <ReferenceArea yAxisId="angle" y1={clamp(-Y, yDomain[0], yDomain[1])} y2={clamp(-G, yDomain[0], yDomain[1])} fill="#22c55e" fillOpacity={0.1} />
-                    <ReferenceArea yAxisId="angle" y1={clamp(G, yDomain[0], yDomain[1])} y2={clamp(Y, yDomain[0], yDomain[1])} fill="#22c55e" fillOpacity={0.1} />
-                    <ReferenceArea yAxisId="angle" y1={clamp(-G, yDomain[0], yDomain[1])} y2={clamp(-B, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
-                    <ReferenceArea yAxisId="angle" y1={clamp(B, yDomain[0], yDomain[1])} y2={clamp(G, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
-                    <ReferenceArea yAxisId="angle" y1={clamp(-B, yDomain[0], yDomain[1])} y2={clamp(B, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={0.1} />
+                    <ReferenceArea yAxisId="angle" y1={yDomain[0]} y2={clamp(-R, yDomain[0], yDomain[1])} fill="#ef4444" fillOpacity={bandOpacity} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(R, yDomain[0], yDomain[1])} y2={yDomain[1]} fill="#ef4444" fillOpacity={bandOpacity} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(-R, yDomain[0], yDomain[1])} y2={clamp(-Y, yDomain[0], yDomain[1])} fill="#eab308" fillOpacity={bandOpacity} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(Y, yDomain[0], yDomain[1])} y2={clamp(R, yDomain[0], yDomain[1])} fill="#eab308" fillOpacity={bandOpacity} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(-Y, yDomain[0], yDomain[1])} y2={clamp(-G, yDomain[0], yDomain[1])} fill="#22c55e" fillOpacity={bandOpacity} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(G, yDomain[0], yDomain[1])} y2={clamp(Y, yDomain[0], yDomain[1])} fill="#22c55e" fillOpacity={bandOpacity} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(-G, yDomain[0], yDomain[1])} y2={clamp(-B, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={bandOpacity} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(B, yDomain[0], yDomain[1])} y2={clamp(G, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={bandOpacity} />
+                    <ReferenceArea yAxisId="angle" y1={clamp(-B, yDomain[0], yDomain[1])} y2={clamp(B, yDomain[0], yDomain[1])} fill="#3b82f6" fillOpacity={bandOpacity} />
                   </>
                 )}
 
-                {/* 풍속은 항상 표시 */}
+                {/* ✅ wind */}
                 <Line
                   yAxisId="wind"
                   type="monotone"
@@ -781,12 +821,13 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
                   strokeOpacity={0.8}
                   strokeWidth={isMobile ? 1.5 : 2}
                   dot={false}
-                  name="Wind Speed (m/s)"
+                  name="풍속"
                   connectNulls
                 />
 
                 {viewMode === 'general' && (
                   <>
+                    {/* ✅ X */}
                     <Line
                       yAxisId="angle"
                       type="monotone"
@@ -794,9 +835,10 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
                       stroke="#ef4444"
                       strokeWidth={isMobile ? 1.5 : 2}
                       dot={false}
-                      name="Angle X"
+                      name="X"
                       connectNulls
                     />
+                    {/* ✅ Y */}
                     <Line
                       yAxisId="angle"
                       type="monotone"
@@ -804,7 +846,7 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
                       stroke="#3b82f6"
                       strokeWidth={isMobile ? 1.5 : 2}
                       dot={false}
-                      name="Angle Y"
+                      name="Y"
                       connectNulls
                     />
                   </>
@@ -834,7 +876,7 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
                         stroke={TOP6_COLORS[i % TOP6_COLORS.length]}
                         strokeWidth={isMobile ? 1.5 : 2}
                         dot={false}
-                        name={`Node-${dn} X`}
+                        name={`Node-${dn}`}
                         connectNulls
                       />
                     ))}
