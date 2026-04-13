@@ -48,9 +48,7 @@ const ImageModal = ({
 
 	useEffect(() => {
 		const handleEsc = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') {
-				onClose()
-			}
+			if (e.key === 'Escape') onClose()
 		}
 
 		window.addEventListener('keydown', handleEsc)
@@ -141,14 +139,107 @@ const Totalcnt = ({ nodes, onFilterChange }: ITotalcntProps) => {
 	)
 }
 
+const ReportDateModal = ({
+	open,
+	onClose,
+	onDownload,
+	startDate,
+	endDate,
+	setStartDate,
+	setEndDate,
+	downloading,
+}: {
+	open: boolean
+	onClose: () => void
+	onDownload: () => void
+	startDate: string
+	endDate: string
+	setStartDate: React.Dispatch<React.SetStateAction<string>>
+	setEndDate: React.Dispatch<React.SetStateAction<string>>
+	downloading: boolean
+}) => {
+	if (!open) return null
+
+	return (
+		<div className='fixed inset-0 z-[9999] flex items-start justify-center pt-16'>
+			<div className='absolute inset-0 bg-black/50' onClick={onClose} />
+
+			<div
+				className='relative z-[10000] w-[480px] max-w-[92vw] overflow-hidden rounded-xl border border-slate-600 bg-white shadow-2xl ring-1 ring-slate-600/60'
+				onClick={e => e.stopPropagation()}
+			>
+				<div className='flex items-center justify-between bg-slate-800 px-4 py-2 text-white'>
+					<h3 className='text-lg font-bold'>현장 노드 리포트 다운로드</h3>
+					<button
+						onClick={onClose}
+						className='rounded-md bg-white/10 px-2.5 py-1 text-sm hover:bg-white/20'
+					>
+						닫기
+					</button>
+				</div>
+
+				<div className='p-4'>
+					<div className='grid grid-cols-1 gap-4'>
+						<div className='flex flex-col gap-1'>
+							<label className='text-sm font-medium text-slate-700'>
+								시작일
+							</label>
+							<input
+								type='date'
+								value={startDate}
+								onChange={e => setStartDate(e.target.value)}
+								className='rounded-md border border-slate-300 px-3 py-2 text-sm'
+							/>
+						</div>
+
+						<div className='flex flex-col gap-1'>
+							<label className='text-sm font-medium text-slate-700'>
+								종료일
+							</label>
+							<input
+								type='date'
+								value={endDate}
+								onChange={e => setEndDate(e.target.value)}
+								className='rounded-md border border-slate-300 px-3 py-2 text-sm'
+							/>
+						</div>
+					</div>
+
+					<div className='mt-5 flex justify-end gap-2'>
+						<button
+							onClick={onClose}
+							className='h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50'
+						>
+							취소
+						</button>
+						<button
+							onClick={onDownload}
+							disabled={downloading || !startDate || !endDate}
+							className='h-10 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50'
+						>
+							{downloading ? '다운로드 중...' : '다운로드'}
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	)
+}
+
 export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 	const { clientId } = useParams()
 
 	const [isImageOpen, setIsImageOpen] = useState(false)
 	const [openPlanActionModal, setOpenPlanActionModal] = useState(false)
+	const [openReportModal, setOpenReportModal] = useState(false)
+
 	const [uploadingPlan, setUploadingPlan] = useState(false)
 	const [deletingPlan, setDeletingPlan] = useState(false)
+	const [downloadingReport, setDownloadingReport] = useState(false)
+
 	const [planImgUrl, setPlanImgUrl] = useState<string | undefined>(undefined)
+	const [startDate, setStartDate] = useState('')
+	const [endDate, setEndDate] = useState('')
 
 	const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -159,25 +250,57 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 		setPlanImgUrl(buildPlanS3Url(selectedBuildingName))
 	}, [selectedBuildingName])
 
-	const handleDownload = async (id: string) => {
+	const handleOpenReportModal = () => {
+		setOpenReportModal(true)
+	}
+
+	const handleDetailedReportDownload = async () => {
+		if (!building?._id) {
+			alert('건물 정보가 올바르지 않습니다.')
+			return
+		}
+
+		if (!startDate || !endDate) {
+			alert('시작일과 종료일을 선택해주세요.')
+			return
+		}
+
 		try {
+			setDownloadingReport(true)
+
 			const response = await axios.get(
-				`${import.meta.env.VITE_SERVER_BASE_URL}/product/download-nodes-history`,
+				`${import.meta.env.VITE_SERVER_BASE_URL}/node/report/detail`,
 				{
-					params: { buildingId: id },
+					params: {
+						buildingId: building._id,
+						startDate,
+						endDate,
+					},
 					responseType: 'blob',
+					withCredentials: true,
 				},
 			)
 
-			const url = window.URL.createObjectURL(new Blob([response.data]))
+			const blob = new Blob([response.data], {
+				type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			})
+
+			const url = window.URL.createObjectURL(blob)
 			const a = document.createElement('a')
 			a.href = url
-			a.download = 'building-nodes-history.xlsx'
+			a.download = `Node_report_${startDate}_to_${endDate}.xlsx`
+
 			document.body.appendChild(a)
 			a.click()
 			document.body.removeChild(a)
+			window.URL.revokeObjectURL(url)
+
+			setOpenReportModal(false)
 		} catch (error) {
-			console.error('Failed to download file:', error)
+			console.error('상세 리포트 다운로드 실패:', error)
+			alert('상세 리포트 다운로드에 실패했습니다.')
+		} finally {
+			setDownloadingReport(false)
 		}
 	}
 
@@ -327,7 +450,7 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 
 						<Button
 							variant='outline'
-							onClick={() => handleDownload(building._id)}
+							onClick={handleOpenReportModal}
 							className='flex h-auto items-center gap-2 border-slate-400 py-3'
 						>
 							<FileText className='h-4 w-4' />
@@ -410,6 +533,17 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 							/>
 						</div>
 					)}
+
+					<ReportDateModal
+						open={openReportModal}
+						onClose={() => setOpenReportModal(false)}
+						onDownload={handleDetailedReportDownload}
+						startDate={startDate}
+						endDate={endDate}
+						setStartDate={setStartDate}
+						setEndDate={setEndDate}
+						downloading={downloadingReport}
+					/>
 				</CardContent>
 			)}
 		</Card>
