@@ -569,7 +569,7 @@ const VerticalNodes = () => {
 
 	// ---------------- UI는 그대로 유지 ---------------- //
 	return (
-		<div className='w-full max-h-screen bg-gray-50 px-2 md:px-5 pt-0 overflow-hidden'>
+		<div className='w-full h-full bg-gray-50 px-2 md:px-5 pt-0 overflow-hidden'>
 			<WhiteHeader
 				buildingName={
 					buildingData?.building_name ??
