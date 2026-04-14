@@ -200,7 +200,6 @@ const VerticalNodeScroll = ({
 	setR,
 	onSetAlarmLevels,
 	allNodes,
-	onToggleSaveStatus,
 	onOpenGraph,
 }: Props) => {
 	const [localNodes, setLocalNodes] =
@@ -499,7 +498,7 @@ const VerticalNodeScroll = ({
 					</select>
 				</div>
 
-				<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-7 gap-3 md:gap-4'>
+				<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-6 gap-3 md:gap-4'>
 					{aliveNodes.map(item => {
 						const ui = mapTiltToUiState(
 							item.angle_x ?? 0,
@@ -648,11 +647,6 @@ const VerticalNodeScroll = ({
 				node={selectedNodeForModal}
 				onClose={() => setIsModalOpen(false)}
 				buildingName={selectedBuildingName}
-				onToggleSaveStatus={async (_ignored: any, next: boolean) => {
-					const verticalNodeId = selectedNodeForModal?._id
-					if (!verticalNodeId || !onToggleSaveStatus) return
-					await onToggleSaveStatus(verticalNodeId, next)
-				}}
 			/>
 
 			<Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>

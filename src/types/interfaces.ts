@@ -98,6 +98,7 @@ export interface IAngleNode {
 	createdAt?: string
 	calibrated_x: number
 	calibrated_y: number
+	floor: number
 }
 
 export interface ICreateNode {
