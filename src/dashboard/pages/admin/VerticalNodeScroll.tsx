@@ -10,7 +10,7 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { NodeDetailModal } from '@/dashboard/components/shared-dash/angleNodeDetail'
+import { NodeDetailModal } from '@/dashboard/components/shared-dash/verticalNodeDetail'
 import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
 import { Clock, Wifi } from 'lucide-react'

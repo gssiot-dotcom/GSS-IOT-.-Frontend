@@ -11,20 +11,24 @@ const toS3Folder = (name: string) => encodeURIComponent(name).replace(/%20/g, '+
 const toKeyPart = (s?: string | number) => (s == null ? '' : encodeURIComponent(String(s).trim()))
 const sanitizePosForFilename = (s?: string) => (s ?? '').trim().replace(/[\/\\]/g, '')
 
-// ...imports 동일
 interface NodeDetailModalProps {
   isOpen: boolean
   onClose: () => void
   node: IAngleNode | null
   buildingName?: string
-  // ✅ 추가: 저장상태 토글 콜백
   onToggleSaveStatus?: (doorNum: number, next: boolean) => Promise<void> | void
 }
 
-export const NodeDetailModal = ({ isOpen, onClose, node, buildingName, onToggleSaveStatus }: NodeDetailModalProps) => {
+export const NodeDetailModal = ({
+  isOpen,
+  onClose,
+  node,
+  buildingName,
+  onToggleSaveStatus,
+}: NodeDetailModalProps) => {
   const base = import.meta.env.VITE_SERVER_BASE_URL
   const [legacyImageUrl, setLegacyImageUrl] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false) // ✅ 로딩 상태
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!node) return
@@ -63,10 +67,9 @@ export const NodeDetailModal = ({ isOpen, onClose, node, buildingName, onToggleS
   const status = getStatus(node.angle_x)
   const colors = CLASS_MAP[status.color as keyof typeof CLASS_MAP]
 
-  // ✅ 현재 저장상태 (백에서 내려오도록 IAngleNode에 save_status?: boolean 추가 권장)
   const currentSave = !!node.save_status
   const nextSave = !currentSave
-  const toggleLabel = currentSave ? '저장 중지' : '저장 시작' // true→false / false→true
+  const toggleLabel = currentSave ? '저장 중지' : '저장 시작'
 
   const handleToggleClick = async () => {
     if (!onToggleSaveStatus) return
@@ -83,58 +86,68 @@ export const NodeDetailModal = ({ isOpen, onClose, node, buildingName, onToggleS
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="
-        fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-        w-[92vw] max-w-6xl
-        h-auto max-h-[calc(100vh-64px)]
-        p-0 overflow-hidden
-      ">
-        <DialogHeader className="p-6 pb-4 border-b">
-          <DialogTitle className="text-xl font-bold text-gray-800">
+      <DialogContent
+        className="
+          fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
+          w-[calc(100vw-24px)] max-w-[95vw] md:max-w-6xl
+          h-auto max-h-[calc(100vh-24px)] md:max-h-[calc(100vh-64px)]
+          p-0 overflow-hidden
+        "
+      >
+        <DialogHeader className="border-b px-4 py-4 sm:px-6 sm:py-5">
+          <DialogTitle className="text-center text-lg font-bold text-gray-800 sm:text-xl md:text-left">
             노드 {node.doorNum}번 상세 정보
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex items-stretch">
-          {/* Left: 이미지 */}
-          <div className="w-3/4 p-6 flex items-center justify-center bg-gray-50">
+        <div className="flex max-h-[calc(100vh-88px)] flex-col overflow-y-auto md:max-h-[calc(100vh-64px-72px)] md:flex-row md:items-stretch">
+          <div className="flex w-full min-h-[220px] items-center justify-center bg-gray-50 p-3 sm:min-h-[260px] sm:p-4 md:w-3/4 md:p-6">
             {currentImage ? (
               <img
                 src={currentImage}
                 alt={`노드 ${node.doorNum} 이미지`}
-                className="w-full h-auto object-contain max-h-[calc(100vh-64px-72px-48px)] rounded-lg shadow-lg"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/no-image.png' }}
+                className="h-auto max-h-[36vh] w-full rounded-lg object-contain shadow-lg sm:max-h-[42vh] md:max-h-[calc(100vh-64px-72px-48px)]"
+                onError={(e) => {
+                  ;(e.currentTarget as HTMLImageElement).src = '/no-image.png'
+                }}
               />
             ) : (
-              <div className="text-gray-400 text-sm">이미지가 없습니다.</div>
+              <div className="text-sm text-gray-400">이미지가 없습니다.</div>
             )}
           </div>
 
-          {/* Right: 정보 패널 */}
-          <div className="w-1/4 p-6 border-l bg-white">
+          <div className="w-full border-t bg-white p-3 sm:p-4 md:w-1/4 md:border-l md:border-t-0 md:p-6">
             <div className="space-y-4">
               <Card className={`${colors.text} ${colors.bg} border-2`}>
                 <CardContent className="p-4">
                   <div className="text-center">
-                    <h3 className="text-2xl font-bold mb-2">노드 {node.doorNum}</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
+                    <h3 className="mb-3 text-xl font-bold sm:text-2xl">노드 {node.doorNum}</h3>
+
+                    <div className="space-y-3 text-sm sm:text-base">
+                      <div className="flex items-center justify-between gap-3">
                         <span className="font-medium">Axis-X:</span>
-                        <span className="font-bold text-lg">{node.angle_x}°</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">Axis-Y:</span>
-                        <span className="font-bold text-lg">{node.angle_y}°</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">Gateway:</span>
-                        <span className="font-mono text-sm">{node.gateway_id?.serial_number || 'N/A'}</span>
+                        <span className="font-bold text-base sm:text-lg">{node.angle_x}°</span>
                       </div>
 
-                      {/* 온라인/오프라인(파생) */}
-                      <div className="flex justify-between items-center">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-medium">Axis-Y:</span>
+                        <span className="font-bold text-base sm:text-lg">{node.angle_y}°</span>
+                      </div>
+
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 font-medium">Gateway:</span>
+                        <span className="break-all text-right font-mono text-xs sm:text-sm">
+                          {node.gateway_id?.serial_number || 'N/A'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
                         <span className="font-medium">상태:</span>
-                        <span className={`text-xs font-bold ${node.node_alive ? 'text-blue' : 'text-black'}`}>
+                        <span
+                          className={`text-xs font-bold sm:text-sm ${
+                            node.node_alive ? 'text-blue-600' : 'text-gray-700'
+                          }`}
+                        >
                           {node.node_alive ? 'online' : 'offline'}
                         </span>
                       </div>
@@ -145,24 +158,27 @@ export const NodeDetailModal = ({ isOpen, onClose, node, buildingName, onToggleS
 
               <Card className="border-gray-200">
                 <CardContent className="p-4">
-                  <h4 className="font-bold text-gray-700 mb-3">위험도 분석</h4>
+                  <h4 className="mb-3 font-bold text-gray-700">위험도 분석</h4>
                   <div className="space-y-2">
-                    <div className="flex justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <span className="text-sm">기울기 정도:</span>
                       <span className={`text-sm font-bold ${colors.text}`}>{status.label}</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className={`h-2 rounded-full ${colors.bar}`} style={{ width: `${Math.min(Math.abs(node.angle_x) * 20, 100)}%` }} />
+                    <div className="h-2 w-full rounded-full bg-gray-200">
+                      <div
+                        className={`h-2 rounded-full ${colors.bar}`}
+                        style={{ width: `${Math.min(Math.abs(node.angle_x) * 20, 100)}%` }}
+                      />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* 하단 버튼들 */}
               <div className="space-y-2">
-                <Button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-700">닫기</Button>
+                <Button onClick={onClose} className="w-full bg-blue-600 hover:bg-blue-700">
+                  닫기
+                </Button>
 
-                {/* ✅ 상태변경 버튼(저장상태 토글) */}
                 <Button
                   onClick={handleToggleClick}
                   disabled={submitting}
