@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-// Card/CardContent removed - using custom div styling like NodeCard
 import {
 	Dialog,
 	DialogContent,
@@ -17,7 +16,6 @@ import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
 import { Clock, Wifi } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
-// ✅ 편집 모달
 import {
 	GatewaysEditModal,
 	NodesEditModal,
@@ -25,7 +23,6 @@ import {
 
 import axios from 'axios'
 
-// ✅ T-Shape LED Component
 interface TShapeLedProps {
 	activeLedPosition: 'top' | 'left' | 'right' | 'bottom' | 'center'
 	ledColor: string
@@ -49,21 +46,17 @@ const TShapeLed = ({
 
 	return (
 		<div className={`flex flex-col items-center ${gap}`}>
-			{/* Top */}
 			<div className={`${size} rounded-full`} style={getLedStyle('top')} />
-			{/* Middle row: left, center, right */}
 			<div className={`flex items-center ${gap}`}>
 				<div className={`${size} rounded-full`} style={getLedStyle('left')} />
 				<div className={`${size} rounded-full`} style={getLedStyle('center')} />
 				<div className={`${size} rounded-full`} style={getLedStyle('right')} />
 			</div>
-			{/* Bottom */}
 			<div className={`${size} rounded-full`} style={getLedStyle('bottom')} />
 		</div>
 	)
 }
 
-// ✅ Map tilt values to UI state
 interface UiState {
 	cardBgClass: string
 	glowClass: string
@@ -96,16 +89,15 @@ const mapTiltToUiState = (
 	const absY = Math.abs(y)
 	const maxTilt = Math.max(absX, absY)
 
-	// Determine LED position based on tilt direction
 	let activeLedPosition: 'top' | 'left' | 'right' | 'bottom' | 'center' =
 		'center'
+
 	if (absX > absY) {
 		activeLedPosition = x > 0 ? 'top' : 'bottom'
 	} else if (absY > absX) {
 		activeLedPosition = y > 0 ? 'right' : 'left'
 	}
 
-	// Danger (Red)
 	if (maxTilt >= R) {
 		return {
 			cardBgClass: 'bg-red-50 border-red-300',
@@ -117,7 +109,6 @@ const mapTiltToUiState = (
 		}
 	}
 
-	// Warning (Yellow)
 	if (maxTilt >= Y) {
 		return {
 			cardBgClass: 'bg-yellow-50 border-yellow-300',
@@ -129,7 +120,6 @@ const mapTiltToUiState = (
 		}
 	}
 
-	// Caution (Green)
 	if (maxTilt >= G) {
 		return {
 			cardBgClass: 'bg-green-50 border-green-300',
@@ -141,7 +131,6 @@ const mapTiltToUiState = (
 		}
 	}
 
-	// Safe (Blue)
 	return {
 		cardBgClass: 'bg-blue-50 border-blue-300',
 		glowClass: '',
@@ -152,7 +141,6 @@ const mapTiltToUiState = (
 	}
 }
 
-// ✅ Format relative time
 const formatRelativeTime = (dateStr?: string | Date) => {
 	if (!dateStr) return 'N/A'
 	const date = new Date(dateStr)
@@ -192,15 +180,13 @@ interface Props {
 	allNodes: IAngleNode[]
 	onSetAlarmLevels: (levels: { G: number; Y: number; R: number }) => void
 	alertLogs: AlertLog[]
-	onToggleSaveStatus?: (doorNum: number, next: boolean) => Promise<void> | void
-
-	// ✅ 추가: 그래프 버튼 클릭 시 부모로 전달
+	onToggleSaveStatus?: (
+		verticalNodeId: string,
+		next: boolean,
+	) => Promise<void> | void
 	onOpenGraph?: (doorNum: number) => void
 }
 
-/** ================================
- *   컴포넌트
- *  ================================ */
 const VerticalNodeScroll = ({
 	building_angle_nodes,
 	onSelectNode,
@@ -217,7 +203,6 @@ const VerticalNodeScroll = ({
 	onToggleSaveStatus,
 	onOpenGraph,
 }: Props) => {
-	// 🔹 로컬 노드 (편집 반영용)
 	const [localNodes, setLocalNodes] =
 		useState<IAngleNode[]>(building_angle_nodes)
 
@@ -231,27 +216,12 @@ const VerticalNodeScroll = ({
 	const [isModalOpen, setIsModalOpen] = useState(true)
 	const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
 
-	// ✅ Settings / Edit 모달 상태
 	const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 	const [isNodesEditOpen, setIsNodesEditOpen] = useState(false)
 	const [isGatewaysEditOpen, setIsGatewaysEditOpen] = useState(false)
 
-	// ✅ 초기화 모달 관련
 	const [isInitModalOpen, setIsInitModalOpen] = useState(false)
 	const [selectedNodesForInit, setSelectedNodesForInit] = useState<number[]>([])
-
-	// ✅ 오늘 날짜 로그만 필터링 (UTC → KST)
-	// const todayLogs = useMemo(() => {
-	// 	const todayStr = new Date().toLocaleDateString('ko-KR', {
-	// 		timeZone: 'Asia/Seoul',
-	// 	})
-	// 	return alertLogs.filter(log => {
-	// 		const logStr = new Date(log.createdAt).toLocaleDateString('ko-KR', {
-	// 			timeZone: 'Asia/Seoul',
-	// 		})
-	// 		return logStr === todayStr
-	// 	})
-	// }, [alertLogs])
 
 	const selectedBuildingName = useMemo(() => {
 		return (
@@ -262,7 +232,6 @@ const VerticalNodeScroll = ({
 		)
 	}, [buildingData])
 
-	// ✅ 기본 정렬: doorNum 오름차순
 	const sortedNodes = useMemo(() => {
 		if (!localNodes?.length) return []
 		return [...localNodes].sort(
@@ -296,9 +265,7 @@ const VerticalNodeScroll = ({
 	}, [sortedNodes, selectedGateway, selectedNode])
 
 	const aliveNodes = nodesToDisplay
-	// const deadNodes = nodesToDisplay.filter(node => !node.node_alive)
 
-	// 색상
 	const getNodeColorClass = (x: number) => {
 		const absX = Math.abs(x)
 		if (absX >= R)
@@ -347,7 +314,6 @@ const VerticalNodeScroll = ({
 		setIsModalOpen(true)
 	}
 
-	// ✅ 추가: 그래프 버튼 클릭 시 부모에 node_number 전달
 	const handleGraphClick = (e: React.MouseEvent, node: any) => {
 		e.stopPropagation()
 		onOpenGraph?.(node.node_number)
@@ -358,7 +324,6 @@ const VerticalNodeScroll = ({
 		setSelectedNode('')
 	}
 
-	// ✅ 초기화 API
 	const postCalibrationStart = async (payload: {
 		node_number?: number
 		doorNums?: number[]
@@ -390,69 +355,6 @@ const VerticalNodeScroll = ({
 		}
 	}
 
-	// function formatKSTTime(dateStr: string) {
-	// 	const d = new Date(dateStr)
-	// 	const month = d.getMonth() + 1
-	// 	const day = d.getDate()
-	// 	const h = d.getHours().toString().padStart(2, '0')
-	// 	const m = d.getMinutes().toString().padStart(2, '0')
-	// 	return `${month}월${day}일 ${h}시${m}분`
-	// }
-
-	// function formatMetricLabel(metric: string) {
-	// 	const lower = metric?.toLowerCase?.()
-	// 	if (lower === 'angle_x') return 'Axis-X'
-	// 	if (lower === 'angle_y') return 'Axis-Y'
-	// 	return metric ?? ''
-	// }
-
-	// const gatewayDownRows = useMemo(
-	// 	() =>
-	// 		(gateways ?? [])
-	// 			.filter(gw => gw && gw.gateway_alive === false)
-	// 			.map(gw => ({
-	// 				createdAt: gw.lastSeen
-	// 					? new Date(gw.lastSeen).toISOString()
-	// 					: new Date().toISOString(),
-	// 				serial: gw.serial_number,
-	// 				zone: gw.zone_name ?? 'N/A',
-	// 			})),
-	// 	[gateways],
-	// )
-
-	// ▼▼▼ 연속(순차) 같은 노드 로그를 묶기 + 접기/펼치기 상태 ▼▼▼
-	// const groupedTodayLogs = useMemo(() => {
-	// 	const arr = [...(todayLogs ?? [])].sort(
-	// 		(a, b) =>
-	// 			new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-	// 	)
-	// 	const groups: Array<{ doorNum: number; items: AlertLog[] }> = []
-	// 	let cur: { doorNum: number; items: AlertLog[] } | null = null
-
-	// 	for (const log of arr) {
-	// 		if (!cur || cur.doorNum !== log.doorNum) {
-	// 			if (cur) groups.push(cur)
-	// 			cur = { doorNum: log.doorNum, items: [log] }
-	// 		} else {
-	// 			cur.items.push(log)
-	// 		}
-	// 	}
-	// 	if (cur) groups.push(cur)
-	// 	return groups
-	// }, [todayLogs])
-
-	// const [openGroups, setOpenGroups] = useState<Record<number, boolean>>({})
-	// const toggleGroup = (idx: number) =>
-	// 	setOpenGroups(p => ({ ...p, [idx]: !p[idx] }))
-
-	// const logBg = (level: string) =>
-	// 	level === 'yellow'
-	// 		? 'bg-yellow-200'
-	// 		: level === 'red'
-	// 			? 'bg-red-400'
-	// 			: 'bg-blue-200'
-
-	// ✅ 리스트 갱신 시 모달 노드 최신화
 	useEffect(() => {
 		if (!isModalOpen || !selectedNodeForModal) return
 		const fresh = localNodes.find(
@@ -462,24 +364,15 @@ const VerticalNodeScroll = ({
 	}, [localNodes, isModalOpen, selectedNodeForModal?.node_number])
 
 	return (
-		/**
-		 * ✅ 모바일: 페이지 스크롤 허용(아래 게이트웨이 영역 보이게)
-		 * ✅ md 이상: 기존처럼 화면 고정 + 각 ScrollArea 내부 스크롤
-		 */
 		<div className='grid grid-cols-12 gap-3 md:gap-4 w-full min-h-dvh md:h-full px-1 py-4 mt-2 overflow-y-auto md:overflow-hidden'>
-			{/* ===================== 좌측: 노드 카드(넓게) ===================== */}
 			<ScrollArea
 				className={cn(
 					'col-span-12 lg:col-span-9 2xl:col-span-9 rounded-lg border border-slate-400 bg-white p-3 md:p-4 -mt-3 md:-mt-5',
-					// ✅ 모바일: 높이 고정 X → 페이지 스크롤로 아래까지 내려갈 수 있게
 					'h-auto',
-					// ✅ lg 이상: 기존 고정
 					'lg:h-[96%] 2xl:h-[96.6%] 3xl:h-[96.6%]',
 				)}
 			>
-				{/* BGYR 설정 & 알람 저장 */}
 				<div className='flex flex-wrap justify-between mb-4 gap-2 items-end'>
-					{/* 정상(B) */}
 					<div className='flex flex-col items-center 3xl:items-center'>
 						<label className='flex items-center text-[10px] md:lg:text-[11px] 2xl:text-xs font-semibold mb-1 gap-1'>
 							<span className='w-3 h-3 bg-blue-500 inline-block rounded-sm'></span>
@@ -567,7 +460,6 @@ const VerticalNodeScroll = ({
 					</button>
 				</div>
 
-				{/* Gateway + Node 선택 */}
 				<div className='grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4'>
 					<select
 						className='border border-gray-400 rounded-md px-2 py-1 text-[12px] md:text-sm overflow-y-auto'
@@ -607,7 +499,6 @@ const VerticalNodeScroll = ({
 					</select>
 				</div>
 
-				{/* ✅ 살아있는 노드 grid */}
 				<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-7 gap-3 md:gap-4'>
 					{aliveNodes.map(item => {
 						const ui = mapTiltToUiState(
@@ -620,7 +511,7 @@ const VerticalNodeScroll = ({
 						)
 						return (
 							<div
-								key={item.node_number}
+								key={item._id ?? item.node_number}
 								onClick={() => handleNodeCardClick(item)}
 								className={cn(
 									'relative rounded-xl border p-3 transition-all duration-500 overflow-hidden cursor-pointer hover:scale-[1.02]',
@@ -628,13 +519,11 @@ const VerticalNodeScroll = ({
 									ui.glowClass,
 								)}
 							>
-								{/* Status indicator line at top */}
 								<div
 									className='absolute top-0 left-0 right-0 h-0.5 rounded-full'
 									style={{ backgroundColor: ui.ledColor }}
 								/>
 
-								{/* Header row: name + connectivity */}
 								<div className='flex items-start justify-between mb-2'>
 									<div className='min-w-0 flex-1'>
 										<p className='text-xs font-semibold text-gray-800 truncate'>
@@ -654,7 +543,6 @@ const VerticalNodeScroll = ({
 									</div>
 								</div>
 
-								{/* Center: LED + status badge */}
 								<div className='flex items-center justify-between mb-2'>
 									<TShapeLed
 										activeLedPosition={ui.activeLedPosition}
@@ -673,7 +561,6 @@ const VerticalNodeScroll = ({
 									</div>
 								</div>
 
-								{/* Tilt data */}
 								<div className='grid grid-cols-2 gap-1 mb-1.5'>
 									<div className='bg-white/50 rounded-md px-1.5 py-1'>
 										<span className='text-[9px] text-gray-500 block'>
@@ -693,13 +580,11 @@ const VerticalNodeScroll = ({
 									</div>
 								</div>
 
-								{/* Last seen */}
 								<div className='flex items-center gap-1 text-[9px] text-gray-500 mb-2'>
 									<Clock className='w-2.5 h-2.5' />
 									<span>{formatRelativeTime(item.createdAt)}</span>
 								</div>
 
-								{/* ✅ 상세정보 + 그래프 버튼 */}
 								<div className='grid grid-cols-2 gap-1.5'>
 									<button
 										onClick={e => handleNodeDetailClick(e, item)}
@@ -719,15 +604,9 @@ const VerticalNodeScroll = ({
 						)
 					})}
 				</div>
-
-				{/* ✅ 비활성 노드 (완전 분리된 섹션) */}
 			</ScrollArea>
 
-			{/* ===================== 우측: 로그(위) + 게이트웨이(아래) ===================== */}
 			<div className='w-full col-span-12 lg:col-span-3 2xl:col-span-3 flex flex-col gap-3 md:gap-4 -mt-3 md:-mt-5 h-auto lg:h-[96%] 2xl:h-[96.6%] 3xl:h-[96.6%] min-h-0'>
-				{/* 우측 상단: 위험 로그 */}
-
-				{/* 우측 하단: 게이트웨이 (모바일에서도 아래에 보이게 높이 부여) */}
 				<div className='w-full rounded-lg border border-slate-400 bg-white p-2 min-h-0 h-[28dvh] sm:h-[30dvh] lg:h-auto lg:flex-[45]'>
 					<ScrollArea className='border border-slate-200 rounded-md p-2 h-full min-h-0'>
 						<button
@@ -764,16 +643,18 @@ const VerticalNodeScroll = ({
 				</div>
 			</div>
 
-			{/* Node Detail Modal */}
 			<NodeDetailModal
 				isOpen={isModalOpen}
 				node={selectedNodeForModal}
 				onClose={() => setIsModalOpen(false)}
 				buildingName={selectedBuildingName}
-				onToggleSaveStatus={onToggleSaveStatus}
+				onToggleSaveStatus={async (_ignored: any, next: boolean) => {
+					const verticalNodeId = selectedNodeForModal?._id
+					if (!verticalNodeId || !onToggleSaveStatus) return
+					await onToggleSaveStatus(verticalNodeId, next)
+				}}
 			/>
 
-			{/* ✅ 설정 모달 */}
 			<Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
 				<DialogPortal>
 					<DialogOverlay className='fixed inset-0 bg-gray/50 z-[100]' />
@@ -826,7 +707,6 @@ const VerticalNodeScroll = ({
 				</DialogPortal>
 			</Dialog>
 
-			{/* ✅ Nodes/Gateways Edit Modals */}
 			{isNodesEditOpen && (
 				<NodesEditModal
 					isOpen={isNodesEditOpen}
@@ -846,7 +726,6 @@ const VerticalNodeScroll = ({
 				/>
 			)}
 
-			{/* ✅ 초기화 모달 */}
 			{isInitModalOpen && (
 				<div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
 					<div className='bg-white p-6 rounded-lg w-[90%] max-w-lg'>

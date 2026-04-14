@@ -40,7 +40,6 @@ interface WindPoint {
 	wind_speed: number
 }
 
-/** ✅ base host / api base 정규화 */
 function normalizeHostBase(url?: string) {
 	const fallback = 'http://localhost:3005'
 	if (!url) return fallback
@@ -50,60 +49,12 @@ function normalizeHostBase(url?: string) {
 const HOST_BASE = normalizeHostBase(import.meta.env.VITE_SERVER_BASE_URL)
 const API_BASE = `${HOST_BASE}`
 
-/** ✅ /api 용 axios */
 const api = axios.create({
 	baseURL: API_BASE,
 	withCredentials: true,
 })
 
-/** ------------------------------------------------------------------
- * alive 조회 (AngleNodes와 동일)
- * GET /api/angle-node/alive
- * ------------------------------------------------------------------ */
-async function fetchAliveNodes() {
-	const res = await api.get('/angle-node/alive')
-	const payload: any = res.data
-
-	const list: any[] = Array.isArray(payload)
-		? payload
-		: Array.isArray(payload?.items)
-			? payload.items
-			: Array.isArray(payload?.rows)
-				? payload.rows
-				: Array.isArray(payload?.data)
-					? payload.data
-					: []
-
-	return list
-		.map((x: any) => {
-			const doorNum = Number(x?.doorNum ?? x?.node ?? x?.id)
-
-			const node_alive =
-				typeof x?.node_alive === 'boolean'
-					? x.node_alive
-					: x?.alive === true || x?.status === 'alive'
-
-			const save_status =
-				typeof x?.save_status === 'boolean'
-					? x.save_status
-					: x?.save === true || x?.data_saved === true
-
-			return {
-				doorNum,
-				node_alive,
-				save_status,
-				lastSeen: x?.lastSeen ?? null,
-				updatedAt: x?.updatedAt ?? null,
-			}
-		})
-		.filter(x => !Number.isNaN(x.doorNum))
-}
-
-/** ------------------------------------------------------------------
- * 그래프 데이터 조회 (AngleNodes와 동일 라우터로 통일)
- * GET /api/angle-node/angle-node/data?doorNum=...&from=...&to=...
- * ------------------------------------------------------------------ */
-async function fetchAngleGraph({
+async function fetchVerticalGraph({
 	doorNum,
 	from,
 	to,
@@ -112,10 +63,50 @@ async function fetchAngleGraph({
 	from: string
 	to: string
 }) {
-	const res = await api.get<SensorData[]>('/angle-node/graphic-data', {
+	const res = await api.get('/vertical-node/graphic-data', {
 		params: { doorNum, from, to },
 	})
-	return res.data
+
+	const rows: any[] = Array.isArray(res.data)
+		? res.data
+		: Array.isArray(res.data?.data)
+			? res.data.data
+			: Array.isArray(res.data?.items)
+				? res.data.items
+				: Array.isArray(res.data?.rows)
+					? res.data.rows
+					: []
+
+	return rows
+		.map((item: any) => ({
+			...item,
+			doorNum: Number(
+				item?.doorNum ??
+					item?.door_num ??
+					item?.node ??
+					item?.nodeNumber ??
+					doorNum,
+			),
+			createdAt:
+				item?.createdAt ??
+				item?.timestamp ??
+				item?.created_at ??
+				item?.time ??
+				null,
+			angle_x: Number(
+				item?.angle_x ?? item?.x ?? item?.calibrated_x ?? item?.axis_x ?? 0,
+			),
+			angle_y: Number(
+				item?.angle_y ?? item?.y ?? item?.calibrated_y ?? item?.axis_y ?? 0,
+			),
+		}))
+		.filter(
+			(item: any) =>
+				Number.isFinite(item.doorNum) &&
+				!!item.createdAt &&
+				Number.isFinite(item.angle_x) &&
+				Number.isFinite(item.angle_y),
+		)
 }
 
 const VerticalNodes = () => {
@@ -123,11 +114,8 @@ const VerticalNodes = () => {
 	const queryClient = useQueryClient()
 
 	const [selectedDoorNum, setSelectedDoorNum] = useState<number | null>(null)
-
-	// ✅ 그래프 모달 상태 (UI 유지)
 	const [isGraphOpen, setIsGraphOpen] = useState(false)
 
-	// ✅ 그래프 상태
 	const [selectedHours, setSelectedHours] = useState<number>(12)
 	const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
 	const [timeMode, setTimeMode] = useState<'hour' | 'day' | 'week' | 'month'>(
@@ -145,7 +133,6 @@ const VerticalNodes = () => {
 	const [alertLogs, setAlertLogs] = useState<any[]>([])
 	const [isFirstLoad, setIsFirstLoad] = useState(true)
 
-	// ---------------- 풍속 데이터 로딩 (AngleNodes와 동일) ---------------- //
 	useEffect(() => {
 		if (!buildingId) return
 
@@ -163,14 +150,12 @@ const VerticalNodes = () => {
 		return () => clearInterval(timer)
 	}, [buildingId])
 
-	// ✅ hour 모드일 때만 nowTick (AngleNodes와 동일)
 	useEffect(() => {
 		if (timeMode !== 'hour') return
 		const id = window.setInterval(() => setNowTick(Date.now()), 60 * 1000)
 		return () => clearInterval(id)
 	}, [timeMode])
 
-	// ---------------- 메타 (AngleNodes와 동일) ---------------- //
 	const { data: metaData } = useQuery({
 		queryKey: ['get-building-vertical-nodes', buildingId],
 		queryFn: () => fetchBuildingVerticalNodes(buildingId!),
@@ -187,6 +172,7 @@ const VerticalNodes = () => {
 		() => [...verticalNodes].sort((a, b) => a.doorNum - b.doorNum),
 		[verticalNodes],
 	)
+
 	const allNodes = useMemo(() => [...stableNodes], [stableNodes])
 
 	useEffect(() => {
@@ -197,7 +183,6 @@ const VerticalNodes = () => {
 		}
 	}, [stableNodes, isFirstLoad])
 
-	// ---------------- 알람 레벨 초기값 (AngleNodes와 동일) ---------------- //
 	useEffect(() => {
 		if (buildingData?.alarm_level) {
 			setG(buildingData.alarm_level.green)
@@ -206,7 +191,6 @@ const VerticalNodes = () => {
 		}
 	}, [buildingData])
 
-	// ---------------- 위험 로그 (AngleNodes와 동일) ---------------- //
 	useEffect(() => {
 		if (!buildingId || !buildingData?._id) return
 		const buildingMongoId = buildingData._id
@@ -240,47 +224,24 @@ const VerticalNodes = () => {
 		fetchAlertLogs()
 	}, [buildingId, buildingData?._id])
 
-	// ---------------- alive 상태 (AngleNodes와 동일: 폴링 제거) ---------------- //
-	const { data: aliveList = [], refetch: refetchAlive } = useQuery({
-		queryKey: ['vertical-nodes-alive'],
-		queryFn: fetchAliveNodes,
-		refetchInterval: false,
-		refetchOnWindowFocus: false,
-		staleTime: Infinity,
-	})
-
-	const aliveSet = useMemo(() => {
-		const s = new Set<number>()
-		for (const it of aliveList as any[]) {
-			if (it?.node_alive === true && it?.save_status === true) s.add(it.doorNum)
-		}
-		return s
-	}, [aliveList])
-
-	const aliveMap = useMemo(() => {
-		const m = new Map<number, { node_alive?: boolean; save_status?: boolean }>()
-		for (const it of aliveList as any[]) {
-			m.set(it.doorNum, {
-				node_alive: it?.node_alive === true,
-				save_status: it?.save_status === true,
-			})
-		}
-		return m
-	}, [aliveList])
-
-	// ---------------- 카드 표시 리스트 (AngleNodes와 동일: stableNodes + alive) ---------------- //
+	// alive API가 현재 vertical router에 없으므로
+	// 리스트는 metaData 기준으로 그대로 사용
 	const nodesForScroll: IAngleNode[] = useMemo(() => {
-		return stableNodes.map(n => {
-			const aliveInfo = aliveMap.get(n.doorNum)
-			return {
-				...n,
-				node_alive: aliveSet.has(n.doorNum),
-				save_status: aliveInfo?.save_status,
-			}
-		})
-	}, [stableNodes, aliveSet, aliveMap])
+		return stableNodes.map(n => ({
+			...n,
+			node_alive:
+				typeof (n as any)?.node_alive === 'boolean'
+					? (n as any).node_alive
+					: true,
+			save_status:
+				typeof (n as any)?.node_status === 'boolean'
+					? (n as any).node_status
+					: typeof (n as any)?.save_status === 'boolean'
+						? (n as any).save_status
+						: undefined,
+		}))
+	}, [stableNodes])
 
-	// ---------------- 소켓 리스너 (AngleNodes와 동일 로직) ---------------- //
 	const graphRefetchTimer = useRef<number | null>(null)
 	const scheduleGraphRefetch = useCallback(() => {
 		if (graphRefetchTimer.current) return
@@ -290,12 +251,8 @@ const VerticalNodes = () => {
 		}, 400)
 	}, [queryClient])
 
-	// ================ 25.03.2026 Yusuf refactoring Socket Io START line ================ //
 	const handleVerticalRealtime = useCallback(
 		(newData: SensorData) => {
-			console.log('socket vertical realtime:', newData)
-
-			// 카드(리스트) 최신값은 소켓으로만 반영
 			queryClient.setQueryData<ResQuery>(
 				['get-building-vertical-nodes', buildingId],
 				old => {
@@ -304,7 +261,6 @@ const VerticalNodes = () => {
 					const list = old.vertical_nodes ?? []
 					const idx = list.findIndex(n => n.doorNum === newData.doorNum)
 
-					// calibrated 우선(없으면 angle fallback)
 					const cx =
 						(newData as any).calibrated_x ??
 						(newData as any).calibratedX ??
@@ -349,7 +305,6 @@ const VerticalNodes = () => {
 				},
 			)
 
-			// 선택 노드 + 모달 열린 상태일 때만 그래프 갱신
 			if (isGraphOpen && selectedDoorNum === newData.doorNum) {
 				scheduleGraphRefetch()
 			}
@@ -369,20 +324,39 @@ const VerticalNodes = () => {
 		enabled: !!buildingId,
 		onMessage: handleVerticalRealtime,
 	})
-	// ================== 25.03.2026 Yusuf refactoring Socket Io FINISH line ================= //
 
-	// ---------------- 저장상태 토글 (AngleNodes와 동일) ---------------- //
-	const handleToggleSaveStatus = async (doorNum: number, next: boolean) => {
+	const handleToggleSaveStatus = async (
+		verticalNodeId: string,
+		next: boolean,
+	) => {
 		try {
-			await api.patch(`/angle-node/${doorNum}/save-status`, {
-				save_status: next,
+			await api.patch(`/vertical-node/${verticalNodeId}/status`, {
+				status: next,
 			})
-			await refetchAlive() // ✅ 여기서만 다시 1번
-			queryClient.invalidateQueries({ queryKey: ['vertical-nodes-alive'] })
+
+			queryClient.setQueryData<ResQuery>(
+				['get-building-vertical-nodes', buildingId],
+				old => {
+					if (!old) return old
+
+					return {
+						...old,
+						vertical_nodes: (old.vertical_nodes ?? []).map((node: any) =>
+							node._id === verticalNodeId
+								? {
+										...node,
+										node_status: next,
+										save_status: next,
+									}
+								: node,
+						),
+					}
+				},
+			)
 		} catch (e) {
 			if (isAxiosError(e)) {
 				console.error('PATCH failed:', {
-					url: `/nodes/${doorNum}/save-status`,
+					url: `/vertical-node/${verticalNodeId}/status`,
 					status: e.response?.status,
 					data: e.response?.data,
 					message: e.message,
@@ -394,7 +368,6 @@ const VerticalNodes = () => {
 		}
 	}
 
-	// ---------------- 알람 레벨 저장 (AngleNodes와 동일) ---------------- //
 	const handleSetAlarmLevels = async (levels: {
 		G: number
 		Y: number
@@ -415,7 +388,6 @@ const VerticalNodes = () => {
 		}
 	}
 
-	// ---------------- 그래프(모달용) (AngleNodes range 로직 동일) ---------------- //
 	const graphRange = useMemo(() => {
 		if (!selectedDoorNum) return null
 
@@ -486,27 +458,29 @@ const VerticalNodes = () => {
 		queryKey: graphRange
 			? ['vertical-graph', graphRange.doorNum, graphRange.from, graphRange.to]
 			: ['vertical-graph', 'disabled'],
-		queryFn: () => fetchAngleGraph(graphRange!),
+		queryFn: () => fetchVerticalGraph(graphRange!),
 		enabled: isGraphOpen && !!graphRange,
 		retry: 1,
-		refetchInterval: false, // ✅ AngleNodes처럼 주기 폴링 제거
+		refetchInterval: false,
 		refetchOnWindowFocus: false,
 		staleTime: 4000,
 	})
 
-	// ---------------- 그래프 뷰모드별 변환 (AngleNodes와 동일) ---------------- //
 	const { graphData, deltaGraphData } = useMemo(() => {
 		if (!selectedDoorNum) return { graphData: [], deltaGraphData: [] }
 
-		const filtered = graphRaw.filter(d => d.doorNum === selectedDoorNum)
-		const sorted = filtered.sort(
-			(a, b) =>
+		const filtered = graphRaw.filter(
+			(d: any) => Number(d.doorNum) === Number(selectedDoorNum),
+		)
+
+		const sorted = [...filtered].sort(
+			(a: any, b: any) =>
 				new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
 		)
 
 		if (viewMode === 'general') {
 			const dataMap: Record<string, any> = {}
-			sorted.forEach(item => {
+			sorted.forEach((item: any) => {
 				const time = new Date(item.createdAt).toISOString()
 				if (!dataMap[time]) dataMap[time] = { time }
 				dataMap[time].angle_x = item.angle_x
@@ -520,24 +494,24 @@ const VerticalNodes = () => {
 
 		if (viewMode === 'delta') {
 			const delta: DeltaGraphPoint[] = []
-			const uniqueKeyMap: Record<string, SensorData> = {}
-			sorted.forEach(item => {
+			const uniqueKeyMap: Record<string, any> = {}
+			sorted.forEach((item: any) => {
 				const timeKey = new Date(item.createdAt).toISOString()
 				uniqueKeyMap[timeKey] = item
 			})
 			const uniqueData = Object.values(uniqueKeyMap)
 			for (let i = 1; i < uniqueData.length; i++) {
-				const time = new Date(uniqueData[i].createdAt).toISOString()
+				const current = uniqueData[i] as any
+				const prev = uniqueData[i - 1] as any
+				const time = new Date(current.createdAt).toISOString()
 				delta.push({
 					time,
-					[`node_${selectedDoorNum}`]:
-						uniqueData[i].angle_x - uniqueData[i - 1].angle_x,
+					[`node_${selectedDoorNum}`]: current.angle_x - prev.angle_x,
 				})
 			}
 			return { graphData: [], deltaGraphData: delta }
 		}
 
-		// avgDelta
 		const avgDelta: DeltaGraphPoint[] = []
 		const chunkSize = 5
 		const averages: { time: string; avgX: number }[] = []
@@ -545,7 +519,9 @@ const VerticalNodes = () => {
 		for (let i = 0; i < sorted.length; i += chunkSize) {
 			const chunk = sorted.slice(i, i + chunkSize)
 			if (chunk.length === 0) continue
-			const avgX = chunk.reduce((s, n) => s + n.angle_x, 0) / chunk.length
+			const avgX =
+				chunk.reduce((sum: number, node: any) => sum + Number(node.angle_x), 0) /
+				chunk.length
 			const time = new Date(chunk[0].createdAt).toISOString()
 			averages.push({ time, avgX })
 		}
@@ -567,7 +543,6 @@ const VerticalNodes = () => {
 		setIsGraphOpen(true)
 	}
 
-	// ---------------- UI는 그대로 유지 ---------------- //
 	return (
 		<div className='w-full h-full bg-gray-50 px-2 md:px-5 pt-0 overflow-hidden'>
 			<WhiteHeader
