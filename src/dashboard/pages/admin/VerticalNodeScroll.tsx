@@ -34,25 +34,39 @@ const TShapeLed = ({
 	ledColor,
 	compact,
 }: TShapeLedProps) => {
-	const size = compact ? 'w-2 h-2' : 'w-3 h-3'
+	const size = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
 	const gap = compact ? 'gap-0.5' : 'gap-1'
 
+	const isActive = (position: string) => position === activeLedPosition
+
 	const getLedStyle = (position: string) => {
-		if (position === activeLedPosition) {
-			return { backgroundColor: ledColor, boxShadow: `0 0 6px ${ledColor}` }
+		if (isActive(position)) {
+			return {
+				backgroundColor: ledColor,
+				boxShadow: `0 0 6px ${ledColor}`,
+			}
 		}
-		return { backgroundColor: '#e5e7eb' }
+
+		return {
+			backgroundColor: '#e5e7eb',
+			border: '1px solid #000000',
+		}
 	}
+
+	const getLedClass = (position: string) =>
+		`${size} rounded-full ${isActive(position) ? '' : ''}`
 
 	return (
 		<div className={`flex flex-col items-center ${gap}`}>
-			<div className={`${size} rounded-full`} style={getLedStyle('top')} />
+			<div className={getLedClass('top')} style={getLedStyle('top')} />
+
 			<div className={`flex items-center ${gap}`}>
-				<div className={`${size} rounded-full`} style={getLedStyle('left')} />
-				<div className={`${size} rounded-full`} style={getLedStyle('center')} />
-				<div className={`${size} rounded-full`} style={getLedStyle('right')} />
+				<div className={getLedClass('left')} style={getLedStyle('left')} />
+				<div className={getLedClass('center')} style={getLedStyle('center')} />
+				<div className={getLedClass('right')} style={getLedStyle('right')} />
 			</div>
-			<div className={`${size} rounded-full`} style={getLedStyle('bottom')} />
+
+			<div className={getLedClass('bottom')} style={getLedStyle('bottom')} />
 		</div>
 	)
 }
@@ -498,7 +512,7 @@ const VerticalNodeScroll = ({
 					</select>
 				</div>
 
-				<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-6 gap-3 md:gap-4'>
+				<div className='grid grid-cols-2 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-5 3xl:grid-cols-6 gap-3 md:gap-4'>
 					{aliveNodes.map(item => {
 						const ui = mapTiltToUiState(
 							item.angle_x ?? 0,
@@ -526,7 +540,7 @@ const VerticalNodeScroll = ({
 								<div className='flex items-start justify-between mb-2'>
 									<div className='min-w-0 flex-1'>
 										<p className='text-xs font-semibold text-gray-800 truncate'>
-											{item.position || `Node-${item.node_number}`}
+											{`Node-${item.node_number}`}
 										</p>
 										<p className='text-[10px] text-gray-500 font-mono'>
 											{item.gateway_id?.serial_number
@@ -535,9 +549,6 @@ const VerticalNodeScroll = ({
 										</p>
 									</div>
 									<div className='flex items-center gap-1 shrink-0 ml-1'>
-										<span className='text-sm font-bold text-gray-700'>
-											{item.node_number}
-										</span>
 										<Wifi className='w-3 h-3 text-green-500' />
 									</div>
 								</div>
@@ -562,16 +573,16 @@ const VerticalNodeScroll = ({
 
 								<div className='grid grid-cols-2 gap-1 mb-1.5'>
 									<div className='bg-white/50 rounded-md px-1.5 py-1'>
-										<span className='text-[9px] text-gray-500 block'>
-											X Tilt
+										<span className='text-[12px] font-medium text-gray-700 '>
+											X:{' '}
 										</span>
 										<span className='text-xs font-mono font-semibold text-gray-800'>
 											{`${(item.angle_x ?? 0) > 0 ? '+' : ''}${item.angle_x ?? 0}`}
 										</span>
 									</div>
 									<div className='bg-white/50 rounded-md px-1.5 py-1'>
-										<span className='text-[9px] text-gray-500 block'>
-											Y Tilt
+										<span className='text-[12px] font-medium text-gray-700 '>
+											Y:{' '}
 										</span>
 										<span className='text-xs font-mono font-semibold text-gray-800'>
 											{`${(item.angle_y ?? 0) > 0 ? '+' : ''}${item.angle_y ?? 0}`}
