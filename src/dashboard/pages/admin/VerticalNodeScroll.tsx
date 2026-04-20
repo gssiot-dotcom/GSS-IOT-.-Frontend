@@ -340,15 +340,15 @@ const VerticalNodeScroll = ({
 		try {
 			setUploadingPlan(true)
 
-			const renamedFile = new File([file], 'main-img.png', {
-				type: file.type || 'image/png',
+			const renamedFile = new File([file], 'main-img.jpg', {
+				type: file.type || 'image/jpeg',
 			})
 
 			const formData = new FormData()
 			formData.append('file', renamedFile)
 
 			const uploadFolder = toS3Folder(selectedBuildingName.trim())
-			const uploadUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/files/upload?folder=${uploadFolder}`
+			const uploadUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/file/upload?folder=${uploadFolder}`
 
 			const res = await fetch(uploadUrl, {
 				method: 'POST',
@@ -386,28 +386,34 @@ const VerticalNodeScroll = ({
 		try {
 			setDeletingPlan(true)
 
-			const folder = toS3Folder(selectedBuildingName.trim())
+			const folder = selectedBuildingName.trim()
 
 			const res = await fetch(
-				`${import.meta.env.VITE_SERVER_BASE_URL}/files/delete`,
+				`${import.meta.env.VITE_SERVER_BASE_URL}/file/delete`,
 				{
 					method: 'DELETE',
 					headers: {
 						'Content-Type': 'application/json',
 					},
 					body: JSON.stringify({
-						key: `${folder}/main-img.png`,
+						key: `${folder}/main-img.jpg`,
 					}),
 				},
 			)
+
+			const text = await res.text()
+			console.log('[DELETE STATUS]', res.status)
+			console.log('[DELETE RESPONSE TEXT]', text)
 
 			if (!res.ok) {
 				throw new Error('도면 이미지 삭제에 실패했습니다.')
 			}
 
 			setPlanRefreshKey(prev => prev + 1)
-			alert('도면 이미지 삭제가 완료되었습니다.')
+			setIsModalOpen(false)
 			setIsPlanModalOpen(false)
+
+			alert('도면 이미지 삭제가 완료되었습니다.')
 		} catch (error) {
 			console.error(error)
 			alert('도면 이미지 삭제 중 오류가 발생했습니다.')
@@ -526,7 +532,7 @@ const VerticalNodeScroll = ({
 						onClick={handleOpenPlanModal}
 						disabled={uploadingPlan || deletingPlan}
 					>
-						도면 업로드
+						도면 관리
 					</button>
 				</div>
 

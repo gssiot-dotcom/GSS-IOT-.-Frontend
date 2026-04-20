@@ -247,7 +247,8 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 		building?.building_name || building?.name || building?.buildingName || ''
 
 	useEffect(() => {
-		setPlanImgUrl(buildPlanS3Url(selectedBuildingName))
+		const nextUrl = buildPlanS3Url(selectedBuildingName)
+		setPlanImgUrl(nextUrl ? `${nextUrl}?t=${Date.now()}` : undefined)
 	}, [selectedBuildingName])
 
 	const handleOpenReportModal = () => {
@@ -335,7 +336,7 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 			formData.append('file', renamedFile)
 
 			const uploadFolder = toS3Folder(selectedBuildingName.trim())
-			const uploadUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/files/upload?folder=${uploadFolder}`
+			const uploadUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/file/upload?folder=${uploadFolder}`
 
 			const res = await fetch(uploadUrl, {
 				method: 'POST',
@@ -375,10 +376,10 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 		try {
 			setDeletingPlan(true)
 
-			const folder = toS3Folder(selectedBuildingName.trim())
+			const folder = selectedBuildingName.trim()
 
 			const res = await fetch(
-				`${import.meta.env.VITE_SERVER_BASE_URL}/files/delete`,
+				`${import.meta.env.VITE_SERVER_BASE_URL}/file/delete`,
 				{
 					method: 'DELETE',
 					headers: {
@@ -390,14 +391,19 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 				},
 			)
 
+			const text = await res.text()
+			console.log('[DELETE STATUS]', res.status)
+			console.log('[DELETE RESPONSE TEXT]', text)
+
 			if (!res.ok) {
 				throw new Error('도면 이미지 삭제에 실패했습니다.')
 			}
 
 			setPlanImgUrl(undefined)
+			setIsImageOpen(false)
+			setOpenPlanActionModal(false)
 
 			alert('도면 이미지 삭제가 완료되었습니다.')
-			setOpenPlanActionModal(false)
 		} catch (error) {
 			console.error(error)
 			alert('도면 이미지 삭제 중 오류가 발생했습니다.')
@@ -417,7 +423,7 @@ export const NodesMultipleButtonsField = ({ building }: IProps2) => {
 							className='flex h-auto items-center gap-2 border-slate-400 py-3'
 						>
 							<Upload className='h-4 w-4' />
-							<span className='text-sm'>도면 이미지 업로드</span>
+							<span className='text-sm'>도면 이미지 관리</span>
 						</Button>
 
 						<Button
