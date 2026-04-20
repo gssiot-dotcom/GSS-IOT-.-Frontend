@@ -1,12 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { NodeDetailModal } from '@/dashboard/components/shared-dash/verticalNodeDetail'
 import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
 import { MapPinned, Wifi } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+
+const toS3Folder = (name: string) =>
+	encodeURIComponent(name).replace(/%20/g, '+')
 
 interface TShapeLedProps {
 	activeLedPosition: 'top' | 'left' | 'right' | 'bottom' | 'center'
@@ -182,15 +191,22 @@ const VerticalNodeScroll = ({
 	const [localNodes, setLocalNodes] =
 		useState<IAngleNode[]>(building_angle_nodes)
 
-	useEffect(() => {
-		setLocalNodes(building_angle_nodes)
-	}, [building_angle_nodes])
-
 	const [selectedGateway, setSelectedGateway] = useState<string>('')
 	const [selectedNode, setSelectedNode] = useState<number | '' | 'dead'>('')
 
 	const [isModalOpen, setIsModalOpen] = useState(true)
 	const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
+
+	const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
+	const [uploadingPlan, setUploadingPlan] = useState(false)
+	const [deletingPlan, setDeletingPlan] = useState(false)
+	const [planRefreshKey, setPlanRefreshKey] = useState(0)
+
+	const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+	useEffect(() => {
+		setLocalNodes(building_angle_nodes)
+	}, [building_angle_nodes])
 
 	const selectedBuildingName = useMemo(() => {
 		return (
@@ -293,6 +309,113 @@ const VerticalNodeScroll = ({
 		setSelectedNode('')
 	}
 
+	const handleOpenPlanModal = () => {
+		if (!selectedBuildingName?.trim()) {
+			alert('건물명이 없어 도면을 관리할 수 없습니다.')
+			return
+		}
+		setIsPlanModalOpen(true)
+	}
+
+	const handleClickUpload = () => {
+		if (!selectedBuildingName?.trim()) {
+			alert('건물명이 없어 업로드 폴더명을 만들 수 없습니다.')
+			return
+		}
+
+		fileInputRef.current?.click()
+	}
+
+	const handleUploadPlanImage = async (
+		e: React.ChangeEvent<HTMLInputElement>,
+	) => {
+		const file = e.target.files?.[0]
+		if (!file) return
+
+		if (!selectedBuildingName?.trim()) {
+			alert('건물명이 없어 업로드할 수 없습니다.')
+			return
+		}
+
+		try {
+			setUploadingPlan(true)
+
+			const renamedFile = new File([file], 'main-img.png', {
+				type: file.type || 'image/png',
+			})
+
+			const formData = new FormData()
+			formData.append('file', renamedFile)
+
+			const uploadFolder = toS3Folder(selectedBuildingName.trim())
+			const uploadUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/files/upload?folder=${uploadFolder}`
+
+			const res = await fetch(uploadUrl, {
+				method: 'POST',
+				body: formData,
+			})
+
+			const text = await res.text()
+			console.log('[UPLOAD STATUS]', res.status)
+			console.log('[UPLOAD RESPONSE TEXT]', text)
+
+			if (!res.ok) {
+				throw new Error('도면 이미지 업로드에 실패했습니다.')
+			}
+
+			setPlanRefreshKey(prev => prev + 1)
+			alert('도면 이미지 업로드가 완료되었습니다.')
+			setIsPlanModalOpen(false)
+		} catch (error) {
+			console.error(error)
+			alert('도면 이미지 업로드 중 오류가 발생했습니다.')
+		} finally {
+			setUploadingPlan(false)
+			if (fileInputRef.current) {
+				fileInputRef.current.value = ''
+			}
+		}
+	}
+
+	const handleDeletePlanImage = async () => {
+		if (!selectedBuildingName?.trim()) {
+			alert('건물명이 없어 삭제 경로를 만들 수 없습니다.')
+			return
+		}
+
+		try {
+			setDeletingPlan(true)
+
+			const folder = toS3Folder(selectedBuildingName.trim())
+
+			const res = await fetch(
+				`${import.meta.env.VITE_SERVER_BASE_URL}/files/delete`,
+				{
+					method: 'DELETE',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						key: `${folder}/main-img.png`,
+					}),
+				},
+			)
+
+			if (!res.ok) {
+				throw new Error('도면 이미지 삭제에 실패했습니다.')
+			}
+
+			setPlanRefreshKey(prev => prev + 1)
+			alert('도면 이미지 삭제가 완료되었습니다.')
+			setIsPlanModalOpen(false)
+		} catch (error) {
+			console.error(error)
+			alert('도면 이미지 삭제 중 오류가 발생했습니다.')
+		} finally {
+			setDeletingPlan(false)
+		}
+	}
+
 	useEffect(() => {
 		if (!isModalOpen || !selectedNodeForModal) return
 		const fresh = localNodes.find(
@@ -303,6 +426,14 @@ const VerticalNodeScroll = ({
 
 	return (
 		<div className='grid grid-cols-12 gap-3 md:gap-4 w-full min-h-dvh md:h-full px-1 py-4 mt-2 overflow-y-auto md:overflow-hidden'>
+			<input
+				ref={fileInputRef}
+				type='file'
+				accept='image/*'
+				className='hidden'
+				onChange={handleUploadPlanImage}
+			/>
+
 			<ScrollArea
 				className={cn(
 					'col-span-12 lg:col-span-9 2xl:col-span-9 rounded-lg border border-slate-400 bg-white p-3 md:p-4 -mt-3 md:-mt-5',
@@ -388,6 +519,14 @@ const VerticalNodeScroll = ({
 						onClick={() => onSetAlarmLevels({ G, Y, R })}
 					>
 						저장
+					</button>
+
+					<button
+						className='px-3 py-1 rounded-lg font-bold text-[11px] md:text-xs text-white bg-gray-700 hover:bg-gray-800 transition-colors disabled:opacity-50'
+						onClick={handleOpenPlanModal}
+						disabled={uploadingPlan || deletingPlan}
+					>
+						도면 업로드
 					</button>
 				</div>
 
@@ -541,10 +680,11 @@ const VerticalNodeScroll = ({
 				<div className='w-full rounded-lg border border-slate-400 bg-white p-2 min-h-0 h-[28dvh] sm:h-[30dvh] lg:h-auto lg:flex-[45]'>
 					<ScrollArea className='border border-slate-200 rounded-md p-2 h-full min-h-0'>
 						<button
-							className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway
-								? 'bg-blue-500 text-white'
-								: 'bg-gray-300 text-gray-700'
-								}`}
+							className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${
+								!selectedGateway
+									? 'bg-blue-500 text-white'
+									: 'bg-gray-300 text-gray-700'
+							}`}
 							onClick={() => setSelectedGateway('')}
 						>
 							전체구역
@@ -574,11 +714,45 @@ const VerticalNodeScroll = ({
 			</div>
 
 			<NodeDetailModal
+				key={`${selectedNodeForModal?._id ?? selectedNodeForModal?.node_number ?? 'node'}-${planRefreshKey}`}
 				isOpen={isModalOpen}
 				node={selectedNodeForModal}
 				onClose={() => setIsModalOpen(false)}
 				buildingName={selectedBuildingName}
 			/>
+
+			<Dialog open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen}>
+				<DialogContent className='max-w-sm'>
+					<DialogHeader>
+						<DialogTitle>도면 관리</DialogTitle>
+					</DialogHeader>
+
+					<div className='mt-2'>
+						<p className='mb-4 text-sm text-slate-700'>
+							건물명 폴더:{' '}
+							<span className='font-semibold'>{selectedBuildingName}</span>
+						</p>
+
+						<div className='grid grid-cols-2 gap-3'>
+							<button
+								onClick={handleClickUpload}
+								disabled={uploadingPlan || deletingPlan}
+								className='h-12 rounded-md bg-blue-600 font-semibold text-white hover:bg-blue-700 disabled:opacity-50'
+							>
+								{uploadingPlan ? '업로드 중...' : '업로드'}
+							</button>
+
+							<button
+								onClick={handleDeletePlanImage}
+								disabled={uploadingPlan || deletingPlan}
+								className='h-12 rounded-md bg-red-600 font-semibold text-white hover:bg-red-700 disabled:opacity-50'
+							>
+								{deletingPlan ? '삭제 중...' : '삭제'}
+							</button>
+						</div>
+					</div>
+				</DialogContent>
+			</Dialog>
 		</div>
 	)
 }
