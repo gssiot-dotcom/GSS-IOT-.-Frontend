@@ -53,7 +53,7 @@ export const NodeDetailModal = ({
 		if (!isOpen || !buildingName) return
 
 		const folder = toS3Folder(buildingName)
-		const imageUrl = `${S3_BASE_URL}/${folder}/main-img.png`
+		const imageUrl = `${S3_BASE_URL}/${folder}/main-img.jpg`
 
 		setDisplayImage(imageUrl)
 		setImageError(false)
