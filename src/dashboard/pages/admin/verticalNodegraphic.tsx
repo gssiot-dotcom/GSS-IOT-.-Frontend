@@ -670,8 +670,8 @@ const VerticalSensorGraph: React.FC<SensorGraphProps> = ({
 
         {/* ✅ 모바일: 가로 조금 늘림(짤림 방지) */}
         <CardContent className="p-0 pt-2 overflow-hidden">
-          <div className="w-full h-[260px] sm:h-[320px] lg:h-[60vh] relative z-0">
-            <ResponsiveContainer width={isMobile ? '104%' : '100%'} height="100%">
+          <div className="w-full mt-6 h-[260px] sm:h-[320px] lg:h-[60vh] relative z-0">
+            <ResponsiveContainer width={isMobile ? '104%' : '105%'} height="100%">
               <LineChart data={chartData as any} margin={getChartMargins()}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
 
