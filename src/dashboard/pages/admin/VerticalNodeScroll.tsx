@@ -1,27 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogOverlay,
-	DialogPortal,
-	DialogTitle,
-} from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { NodeDetailModal } from '@/dashboard/components/shared-dash/verticalNodeDetail'
 import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
 import { MapPinned, Wifi } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-
-import {
-	GatewaysEditModal,
-	NodesEditModal,
-} from '@/dashboard/components/shared-dash/productEdit'
-
-import axios from 'axios'
 
 interface TShapeLedProps {
 	activeLedPosition: 'top' | 'left' | 'right' | 'bottom' | 'center'
@@ -175,13 +160,8 @@ interface Props {
 	setG: (val: number) => void
 	setY: (val: number) => void
 	setR: (val: number) => void
-	allNodes: IAngleNode[]
 	onSetAlarmLevels: (levels: { G: number; Y: number; R: number }) => void
 	alertLogs: AlertLog[]
-	onToggleSaveStatus?: (
-		verticalNodeId: string,
-		next: boolean,
-	) => Promise<void> | void
 	onOpenGraph?: (doorNum: number) => void
 }
 
@@ -197,7 +177,6 @@ const VerticalNodeScroll = ({
 	setY,
 	setR,
 	onSetAlarmLevels,
-	allNodes,
 	onOpenGraph,
 }: Props) => {
 	const [localNodes, setLocalNodes] =
@@ -212,13 +191,6 @@ const VerticalNodeScroll = ({
 
 	const [isModalOpen, setIsModalOpen] = useState(true)
 	const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
-
-	const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-	const [isNodesEditOpen, setIsNodesEditOpen] = useState(false)
-	const [isGatewaysEditOpen, setIsGatewaysEditOpen] = useState(false)
-
-	const [isInitModalOpen, setIsInitModalOpen] = useState(false)
-	const [selectedNodesForInit, setSelectedNodesForInit] = useState<number[]>([])
 
 	const selectedBuildingName = useMemo(() => {
 		return (
@@ -321,37 +293,6 @@ const VerticalNodeScroll = ({
 		setSelectedNode('')
 	}
 
-	const postCalibrationStart = async (payload: {
-		node_number?: number
-		doorNums?: number[]
-	}) => {
-		const res = await axios.post('/angles/calibration/start-all', payload, {
-			baseURL: import.meta.env.VITE_SERVER_BASE_URL,
-		})
-		return res.data
-	}
-
-	const handleInitSelected = async () => {
-		if (selectedNodesForInit.length === 0) {
-			alert('노드를 선택하세요.')
-			return
-		}
-		const body =
-			selectedNodesForInit.length === 1
-				? { node_number: selectedNodesForInit[0] }
-				: { doorNums: selectedNodesForInit }
-		const data = await postCalibrationStart(body)
-		alert(`초기화 시작: ${data?.doors?.join(', ')}`)
-	}
-
-	const handleSelectAll = () => {
-		if (selectedNodesForInit.length === allNodes.length) {
-			setSelectedNodesForInit([])
-		} else {
-			setSelectedNodesForInit(allNodes.map(n => n.node_number))
-		}
-	}
-
 	useEffect(() => {
 		if (!isModalOpen || !selectedNodeForModal) return
 		const fresh = localNodes.find(
@@ -447,13 +388,6 @@ const VerticalNodeScroll = ({
 						onClick={() => onSetAlarmLevels({ G, Y, R })}
 					>
 						저장
-					</button>
-
-					<button
-						className='px-3 py-1 rounded-lg font-bold text-[11px] md:text-xs text-white bg-gray-700 hover:bg-gray-800 transition-colors'
-						onClick={() => setIsSettingsOpen(true)}
-					>
-						설정
 					</button>
 				</div>
 
@@ -576,7 +510,10 @@ const VerticalNodeScroll = ({
 
 								<div className='flex items-center gap-1 text-[11px] text-gray-500 mb-2'>
 									<MapPinned className='w-3.5 h-3.5' />
-									<span>{item.position}</span>
+									<span>
+										{item.position || 'N/A'}
+										{item.floor ? ` (${item.floor}층)` : ''}
+									</span>
 								</div>
 
 								<div className='grid grid-cols-2 gap-1.5'>
@@ -604,11 +541,10 @@ const VerticalNodeScroll = ({
 				<div className='w-full rounded-lg border border-slate-400 bg-white p-2 min-h-0 h-[28dvh] sm:h-[30dvh] lg:h-auto lg:flex-[45]'>
 					<ScrollArea className='border border-slate-200 rounded-md p-2 h-full min-h-0'>
 						<button
-							className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${
-								!selectedGateway
-									? 'bg-blue-500 text-white'
-									: 'bg-gray-300 text-gray-700'
-							}`}
+							className={`w-full mb-2 p-1 rounded-md text-[12px] font-semibold ${!selectedGateway
+								? 'bg-blue-500 text-white'
+								: 'bg-gray-300 text-gray-700'
+								}`}
 							onClick={() => setSelectedGateway('')}
 						>
 							전체구역
@@ -643,133 +579,6 @@ const VerticalNodeScroll = ({
 				onClose={() => setIsModalOpen(false)}
 				buildingName={selectedBuildingName}
 			/>
-
-			<Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-				<DialogPortal>
-					<DialogOverlay className='fixed inset-0 bg-gray/50 z-[100]' />
-					<DialogContent className='z-[100] max-w-md'>
-						<DialogHeader>
-							<DialogTitle>설정</DialogTitle>
-						</DialogHeader>
-
-						<div className='grid grid-cols-2 gap-3'>
-							<button
-								className='px-3 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600'
-								onClick={() => {
-									setIsSettingsOpen(false)
-									setIsInitModalOpen(true)
-								}}
-							>
-								노드 초기화
-							</button>
-
-							<button
-								className='px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700'
-								onClick={() => {
-									/* TODO: 도면 업로드 */
-								}}
-							>
-								도면 업로드
-							</button>
-
-							<button
-								className='px-3 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700'
-								onClick={() => {
-									setIsSettingsOpen(false)
-									setIsNodesEditOpen(true)
-								}}
-							>
-								노드 정보
-							</button>
-
-							<button
-								className='px-3 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700'
-								onClick={() => {
-									setIsSettingsOpen(false)
-									setIsGatewaysEditOpen(true)
-								}}
-							>
-								게이트웨이 정보
-							</button>
-						</div>
-					</DialogContent>
-				</DialogPortal>
-			</Dialog>
-
-			{isNodesEditOpen && (
-				<NodesEditModal
-					isOpen={isNodesEditOpen}
-					onClose={() => setIsNodesEditOpen(false)}
-					angleNodes={localNodes}
-					buildingName={selectedBuildingName}
-					onNodesChange={setLocalNodes}
-				/>
-			)}
-
-			{isGatewaysEditOpen && (
-				<GatewaysEditModal
-					isOpen={isGatewaysEditOpen}
-					onClose={() => setIsGatewaysEditOpen(false)}
-					gatewyas={gateways}
-					onSave={() => setIsGatewaysEditOpen(false)}
-				/>
-			)}
-
-			{isInitModalOpen && (
-				<div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
-					<div className='bg-white p-6 rounded-lg w-[90%] max-w-lg'>
-						<h2 className='text-lg font-bold mb-4'>노드 초기화</h2>
-						<div className='flex flex-col gap-3 mb-4'>
-							<button
-								onClick={handleSelectAll}
-								className='px-3 py-2 bg-blue-500 text-white rounded-md'
-							>
-								{selectedNodesForInit.length === allNodes.length
-									? '전체 선택 해제'
-									: '전체 선택'}{' '}
-								({selectedNodesForInit.length}/{allNodes.length})
-							</button>
-							<button
-								onClick={handleInitSelected}
-								className='px-3 py-2 bg-red-500 text-white rounded-md'
-							>
-								초기화
-							</button>
-						</div>
-
-						<div className='max-h-40 overflow-y-auto border p-2 rounded'>
-							{allNodes.map(node => (
-								<label key={node.doorNum} className='flex items-center gap-2'>
-									<input
-										type='checkbox'
-										value={node.doorNum}
-										checked={selectedNodesForInit.includes(node.doorNum)}
-										onChange={e => {
-											const val = Number(e.target.value)
-											setSelectedNodesForInit(prev =>
-												e.target.checked
-													? [...prev, val]
-													: prev.filter(n => n !== val),
-											)
-										}}
-										className='accent-blue-500 w-4 h-4'
-									/>
-									Node-{node.doorNum}
-								</label>
-							))}
-						</div>
-
-						<div className='flex justify-end mt-4'>
-							<button
-								onClick={() => setIsInitModalOpen(false)}
-								className='px-3 py-1 bg-gray-400 text-white rounded-md'
-							>
-								닫기
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
 		</div>
 	)
 }

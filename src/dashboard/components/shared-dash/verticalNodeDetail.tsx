@@ -1,6 +1,5 @@
 'use client'
 
-import axios from 'axios'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -11,6 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { IAngleNode } from '@/types/interfaces'
 import { useEffect, useMemo, useState } from 'react'
+import { updateVerticalNodePositionRequest } from '@/services/apiRequests'
 
 const S3_BASE_URL = 'http://gssiot-image-bucket.s3.us-east-1.amazonaws.com'
 
@@ -119,18 +119,12 @@ export const NodeDetailModal = ({
 
 		setSavingPosition(true)
 		try {
-			const res = await axios.patch(
-				`${import.meta.env.VITE_SERVER_BASE_URL}/vertical-node/verticalnode/${nodeNumber}`,
-				{
-					position: positionText.trim(),
-					floor: String(positionNumber),
-				},
-				{
-					withCredentials: true,
-				},
-			)
+			const data = await updateVerticalNodePositionRequest(nodeNumber, {
+				position: positionText.trim(),
+				floor: String(positionNumber),
+			})
 
-			console.log('위치 저장 성공:', res.data)
+			console.log('위치 저장 성공:', data)
 			alert('위치가 저장되었습니다.')
 			setIsPositionModalOpen(false)
 		} catch (error: any) {
@@ -140,7 +134,6 @@ export const NodeDetailModal = ({
 			setSavingPosition(false)
 		}
 	}
-
 	return (
 		<>
 			<Dialog open={isOpen} onOpenChange={open => !open && onClose()}>

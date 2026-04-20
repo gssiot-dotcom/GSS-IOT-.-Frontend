@@ -5,7 +5,7 @@ import {
 	setBuildingAlarmLevelRequest,
 } from '@/services/apiRequests'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import axios, { isAxiosError } from 'axios'
+import axios from 'axios'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
@@ -173,8 +173,6 @@ const VerticalNodes = () => {
 		[verticalNodes],
 	)
 
-	const allNodes = useMemo(() => [...stableNodes], [stableNodes])
-
 	useEffect(() => {
 		if (!isFirstLoad) return
 		if (stableNodes.length) {
@@ -224,8 +222,6 @@ const VerticalNodes = () => {
 		fetchAlertLogs()
 	}, [buildingId, buildingData?._id])
 
-	// alive API가 현재 vertical router에 없으므로
-	// 리스트는 metaData 기준으로 그대로 사용
 	const nodesForScroll: IAngleNode[] = useMemo(() => {
 		return stableNodes.map(n => ({
 			...n,
@@ -324,49 +320,6 @@ const VerticalNodes = () => {
 		enabled: !!buildingId,
 		onMessage: handleVerticalRealtime,
 	})
-
-	const handleToggleSaveStatus = async (
-		verticalNodeId: string,
-		next: boolean,
-	) => {
-		try {
-			await api.patch(`/vertical-node/${verticalNodeId}/status`, {
-				status: next,
-			})
-
-			queryClient.setQueryData<ResQuery>(
-				['get-building-vertical-nodes', buildingId],
-				old => {
-					if (!old) return old
-
-					return {
-						...old,
-						vertical_nodes: (old.vertical_nodes ?? []).map((node: any) =>
-							node._id === verticalNodeId
-								? {
-										...node,
-										node_status: next,
-										save_status: next,
-									}
-								: node,
-						),
-					}
-				},
-			)
-		} catch (e) {
-			if (isAxiosError(e)) {
-				console.error('PATCH failed:', {
-					url: `/vertical-node/${verticalNodeId}/status`,
-					status: e.response?.status,
-					data: e.response?.data,
-					message: e.message,
-				})
-			} else {
-				console.error(e)
-			}
-			alert('저장 상태 변경에 실패했습니다.')
-		}
-	}
 
 	const handleSetAlarmLevels = async (levels: {
 		G: number
@@ -566,10 +519,8 @@ const VerticalNodes = () => {
 					setG={setG}
 					setY={setY}
 					setR={setR}
-					allNodes={allNodes}
 					onSetAlarmLevels={handleSetAlarmLevels}
 					alertLogs={alertLogs}
-					onToggleSaveStatus={handleToggleSaveStatus}
 					onOpenGraph={openGraphForDoor}
 				/>
 			</div>
