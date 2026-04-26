@@ -5,23 +5,17 @@ import {
 	Dialog,
 	DialogContent,
 	DialogHeader,
-	DialogOverlay,
-	DialogPortal,
 	DialogTitle,
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { NodeDetailModal } from '@/dashboard/components/shared-dash/verticalNodeDetail'
 import { cn } from '@/lib/utils'
 import { IAngleNode, IBuilding, IGateway } from '@/types/interfaces'
-import { Clock, Wifi } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { MapPinned, Wifi } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-import {
-	GatewaysEditModal,
-	NodesEditModal,
-} from '@/dashboard/components/shared-dash/productEdit'
-
-import axios from 'axios'
+const toS3Folder = (name: string) =>
+	encodeURIComponent(name).replace(/%20/g, '+')
 
 interface TShapeLedProps {
 	activeLedPosition: 'top' | 'left' | 'right' | 'bottom' | 'center'
@@ -34,7 +28,7 @@ const TShapeLed = ({
 	ledColor,
 	compact,
 }: TShapeLedProps) => {
-	const size = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
+	const size = compact ? 'w-2.5 h-2.5' : 'w-2.5 h-2.5'
 	const gap = compact ? 'gap-0.5' : 'gap-1'
 
 	const isActive = (position: string) => position === activeLedPosition
@@ -49,7 +43,8 @@ const TShapeLed = ({
 
 		return {
 			backgroundColor: '#e5e7eb',
-			border: '1px solid #000000',
+
+			border: '0.7px solid #3a3a3b',
 		}
 	}
 
@@ -155,22 +150,6 @@ const mapTiltToUiState = (
 	}
 }
 
-const formatRelativeTime = (dateStr?: string | Date) => {
-	if (!dateStr) return 'N/A'
-	const date = new Date(dateStr)
-	const now = new Date()
-	const diffMs = now.getTime() - date.getTime()
-	const diffSec = Math.floor(diffMs / 1000)
-	const diffMin = Math.floor(diffSec / 60)
-	const diffHour = Math.floor(diffMin / 60)
-	const diffDay = Math.floor(diffHour / 24)
-
-	if (diffSec < 60) return `${diffSec}s ago`
-	if (diffMin < 60) return `${diffMin}m ago`
-	if (diffHour < 24) return `${diffHour}h ago`
-	return `${diffDay}d ago`
-}
-
 interface AlertLog {
 	createdAt: string
 	doorNum: number
@@ -191,13 +170,8 @@ interface Props {
 	setG: (val: number) => void
 	setY: (val: number) => void
 	setR: (val: number) => void
-	allNodes: IAngleNode[]
 	onSetAlarmLevels: (levels: { G: number; Y: number; R: number }) => void
 	alertLogs: AlertLog[]
-	onToggleSaveStatus?: (
-		verticalNodeId: string,
-		next: boolean,
-	) => Promise<void> | void
 	onOpenGraph?: (doorNum: number) => void
 }
 
@@ -213,15 +187,10 @@ const VerticalNodeScroll = ({
 	setY,
 	setR,
 	onSetAlarmLevels,
-	allNodes,
 	onOpenGraph,
 }: Props) => {
 	const [localNodes, setLocalNodes] =
 		useState<IAngleNode[]>(building_angle_nodes)
-
-	useEffect(() => {
-		setLocalNodes(building_angle_nodes)
-	}, [building_angle_nodes])
 
 	const [selectedGateway, setSelectedGateway] = useState<string>('')
 	const [selectedNode, setSelectedNode] = useState<number | '' | 'dead'>('')
@@ -229,12 +198,16 @@ const VerticalNodeScroll = ({
 	const [isModalOpen, setIsModalOpen] = useState(true)
 	const [selectedNodeForModal, setSelectedNodeForModal] = useState<any>(null)
 
-	const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-	const [isNodesEditOpen, setIsNodesEditOpen] = useState(false)
-	const [isGatewaysEditOpen, setIsGatewaysEditOpen] = useState(false)
+	const [isPlanModalOpen, setIsPlanModalOpen] = useState(false)
+	const [uploadingPlan, setUploadingPlan] = useState(false)
+	const [deletingPlan, setDeletingPlan] = useState(false)
+	const [planRefreshKey, setPlanRefreshKey] = useState(0)
 
-	const [isInitModalOpen, setIsInitModalOpen] = useState(false)
-	const [selectedNodesForInit, setSelectedNodesForInit] = useState<number[]>([])
+	const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+	useEffect(() => {
+		setLocalNodes(building_angle_nodes)
+	}, [building_angle_nodes])
 
 	const selectedBuildingName = useMemo(() => {
 		return (
@@ -337,34 +310,116 @@ const VerticalNodeScroll = ({
 		setSelectedNode('')
 	}
 
-	const postCalibrationStart = async (payload: {
-		node_number?: number
-		doorNums?: number[]
-	}) => {
-		const res = await axios.post('/angles/calibration/start-all', payload, {
-			baseURL: import.meta.env.VITE_SERVER_BASE_URL,
-		})
-		return res.data
-	}
-
-	const handleInitSelected = async () => {
-		if (selectedNodesForInit.length === 0) {
-			alert('노드를 선택하세요.')
+	const handleOpenPlanModal = () => {
+		if (!selectedBuildingName?.trim()) {
+			alert('건물명이 없어 도면을 관리할 수 없습니다.')
 			return
 		}
-		const body =
-			selectedNodesForInit.length === 1
-				? { node_number: selectedNodesForInit[0] }
-				: { doorNums: selectedNodesForInit }
-		const data = await postCalibrationStart(body)
-		alert(`초기화 시작: ${data?.doors?.join(', ')}`)
+		setIsPlanModalOpen(true)
 	}
 
-	const handleSelectAll = () => {
-		if (selectedNodesForInit.length === allNodes.length) {
-			setSelectedNodesForInit([])
-		} else {
-			setSelectedNodesForInit(allNodes.map(n => n.node_number))
+	const handleClickUpload = () => {
+		if (!selectedBuildingName?.trim()) {
+			alert('건물명이 없어 업로드 폴더명을 만들 수 없습니다.')
+			return
+		}
+
+		fileInputRef.current?.click()
+	}
+
+	const handleUploadPlanImage = async (
+		e: React.ChangeEvent<HTMLInputElement>,
+	) => {
+		const file = e.target.files?.[0]
+		if (!file) return
+
+		if (!selectedBuildingName?.trim()) {
+			alert('건물명이 없어 업로드할 수 없습니다.')
+			return
+		}
+
+		try {
+			setUploadingPlan(true)
+
+			const renamedFile = new File([file], 'main-img.jpg', {
+				type: file.type || 'image/jpeg',
+			})
+
+			const formData = new FormData()
+			formData.append('file', renamedFile)
+
+			const uploadFolder = toS3Folder(selectedBuildingName.trim())
+			const uploadUrl = `${import.meta.env.VITE_SERVER_BASE_URL}/file/upload?folder=${uploadFolder}`
+
+			const res = await fetch(uploadUrl, {
+				method: 'POST',
+				body: formData,
+			})
+
+			const text = await res.text()
+			console.log('[UPLOAD STATUS]', res.status)
+			console.log('[UPLOAD RESPONSE TEXT]', text)
+
+			if (!res.ok) {
+				throw new Error('도면 이미지 업로드에 실패했습니다.')
+			}
+
+			setPlanRefreshKey(prev => prev + 1)
+			alert('도면 이미지 업로드가 완료되었습니다.')
+			setIsPlanModalOpen(false)
+		} catch (error) {
+			console.error(error)
+			alert('도면 이미지 업로드 중 오류가 발생했습니다.')
+		} finally {
+			setUploadingPlan(false)
+			if (fileInputRef.current) {
+				fileInputRef.current.value = ''
+			}
+		}
+	}
+
+	const handleDeletePlanImage = async () => {
+		if (!selectedBuildingName?.trim()) {
+			alert('건물명이 없어 삭제 경로를 만들 수 없습니다.')
+			return
+		}
+
+		try {
+			setDeletingPlan(true)
+
+			const folder = selectedBuildingName.trim()
+
+			const res = await fetch(
+				`${import.meta.env.VITE_SERVER_BASE_URL}/file/delete`,
+				{
+					method: 'DELETE',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						key: `${folder}/main-img.jpg`,
+					}),
+				},
+			)
+
+			const text = await res.text()
+			console.log('[DELETE STATUS]', res.status)
+			console.log('[DELETE RESPONSE TEXT]', text)
+
+			if (!res.ok) {
+				throw new Error('도면 이미지 삭제에 실패했습니다.')
+			}
+
+			setPlanRefreshKey(prev => prev + 1)
+			setIsModalOpen(false)
+			setIsPlanModalOpen(false)
+
+			alert('도면 이미지 삭제가 완료되었습니다.')
+		} catch (error) {
+			console.error(error)
+			alert('도면 이미지 삭제 중 오류가 발생했습니다.')
+		} finally {
+			setDeletingPlan(false)
 		}
 	}
 
@@ -378,6 +433,14 @@ const VerticalNodeScroll = ({
 
 	return (
 		<div className='grid grid-cols-12 gap-3 md:gap-4 w-full min-h-dvh md:h-full px-1 py-4 mt-2 overflow-y-auto md:overflow-hidden'>
+			<input
+				ref={fileInputRef}
+				type='file'
+				accept='image/*'
+				className='hidden'
+				onChange={handleUploadPlanImage}
+			/>
+
 			<ScrollArea
 				className={cn(
 					'col-span-12 lg:col-span-9 2xl:col-span-9 rounded-lg border border-slate-400 bg-white p-3 md:p-4 -mt-3 md:-mt-5',
@@ -466,10 +529,11 @@ const VerticalNodeScroll = ({
 					</button>
 
 					<button
-						className='px-3 py-1 rounded-lg font-bold text-[11px] md:text-xs text-white bg-gray-700 hover:bg-gray-800 transition-colors'
-						onClick={() => setIsSettingsOpen(true)}
+						className='px-3 py-1 rounded-lg font-bold text-[11px] md:text-xs text-white bg-gray-700 hover:bg-gray-800 transition-colors disabled:opacity-50'
+						onClick={handleOpenPlanModal}
+						disabled={uploadingPlan || deletingPlan}
 					>
-						설정
+						도면 관리
 					</button>
 				</div>
 
@@ -512,7 +576,7 @@ const VerticalNodeScroll = ({
 					</select>
 				</div>
 
-				<div className='grid grid-cols-2 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-5 3xl:grid-cols-6 gap-3 md:gap-4'>
+				<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-5 3xl:grid-cols-6 gap-3 md:gap-4'>
 					{aliveNodes.map(item => {
 						const ui = mapTiltToUiState(
 							item.angle_x ?? 0,
@@ -590,9 +654,12 @@ const VerticalNodeScroll = ({
 									</div>
 								</div>
 
-								<div className='flex items-center gap-1 text-[9px] text-gray-500 mb-2'>
-									<Clock className='w-2.5 h-2.5' />
-									<span>{formatRelativeTime(item.createdAt)}</span>
+								<div className='flex items-center gap-1 text-[11px] text-gray-500 mb-2'>
+									<MapPinned className='w-3.5 h-3.5' />
+									<span>
+										{item.position || 'N/A'}
+										{item.floor ? ` (${item.floor}층)` : ''}
+									</span>
 								</div>
 
 								<div className='grid grid-cols-2 gap-1.5'>
@@ -654,138 +721,45 @@ const VerticalNodeScroll = ({
 			</div>
 
 			<NodeDetailModal
+				key={`${selectedNodeForModal?._id ?? selectedNodeForModal?.node_number ?? 'node'}-${planRefreshKey}`}
 				isOpen={isModalOpen}
 				node={selectedNodeForModal}
 				onClose={() => setIsModalOpen(false)}
 				buildingName={selectedBuildingName}
 			/>
 
-			<Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-				<DialogPortal>
-					<DialogOverlay className='fixed inset-0 bg-gray/50 z-[100]' />
-					<DialogContent className='z-[100] max-w-md'>
-						<DialogHeader>
-							<DialogTitle>설정</DialogTitle>
-						</DialogHeader>
+			<Dialog open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen}>
+				<DialogContent className='max-w-sm'>
+					<DialogHeader>
+						<DialogTitle>도면 관리</DialogTitle>
+					</DialogHeader>
+
+					<div className='mt-2'>
+						<p className='mb-4 text-sm text-slate-700'>
+							건물명 폴더:{' '}
+							<span className='font-semibold'>{selectedBuildingName}</span>
+						</p>
 
 						<div className='grid grid-cols-2 gap-3'>
 							<button
-								className='px-3 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600'
-								onClick={() => {
-									setIsSettingsOpen(false)
-									setIsInitModalOpen(true)
-								}}
+								onClick={handleClickUpload}
+								disabled={uploadingPlan || deletingPlan}
+								className='h-12 rounded-md bg-blue-600 font-semibold text-white hover:bg-blue-700 disabled:opacity-50'
 							>
-								노드 초기화
+								{uploadingPlan ? '업로드 중...' : '업로드'}
 							</button>
 
 							<button
-								className='px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700'
-								onClick={() => {
-									/* TODO: 도면 업로드 */
-								}}
+								onClick={handleDeletePlanImage}
+								disabled={uploadingPlan || deletingPlan}
+								className='h-12 rounded-md bg-red-600 font-semibold text-white hover:bg-red-700 disabled:opacity-50'
 							>
-								도면 업로드
-							</button>
-
-							<button
-								className='px-3 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700'
-								onClick={() => {
-									setIsSettingsOpen(false)
-									setIsNodesEditOpen(true)
-								}}
-							>
-								노드 정보
-							</button>
-
-							<button
-								className='px-3 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700'
-								onClick={() => {
-									setIsSettingsOpen(false)
-									setIsGatewaysEditOpen(true)
-								}}
-							>
-								게이트웨이 정보
-							</button>
-						</div>
-					</DialogContent>
-				</DialogPortal>
-			</Dialog>
-
-			{isNodesEditOpen && (
-				<NodesEditModal
-					isOpen={isNodesEditOpen}
-					onClose={() => setIsNodesEditOpen(false)}
-					angleNodes={localNodes}
-					buildingName={selectedBuildingName}
-					onNodesChange={setLocalNodes}
-				/>
-			)}
-
-			{isGatewaysEditOpen && (
-				<GatewaysEditModal
-					isOpen={isGatewaysEditOpen}
-					onClose={() => setIsGatewaysEditOpen(false)}
-					gatewyas={gateways}
-					onSave={() => setIsGatewaysEditOpen(false)}
-				/>
-			)}
-
-			{isInitModalOpen && (
-				<div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
-					<div className='bg-white p-6 rounded-lg w-[90%] max-w-lg'>
-						<h2 className='text-lg font-bold mb-4'>노드 초기화</h2>
-						<div className='flex flex-col gap-3 mb-4'>
-							<button
-								onClick={handleSelectAll}
-								className='px-3 py-2 bg-blue-500 text-white rounded-md'
-							>
-								{selectedNodesForInit.length === allNodes.length
-									? '전체 선택 해제'
-									: '전체 선택'}{' '}
-								({selectedNodesForInit.length}/{allNodes.length})
-							</button>
-							<button
-								onClick={handleInitSelected}
-								className='px-3 py-2 bg-red-500 text-white rounded-md'
-							>
-								초기화
-							</button>
-						</div>
-
-						<div className='max-h-40 overflow-y-auto border p-2 rounded'>
-							{allNodes.map(node => (
-								<label key={node.doorNum} className='flex items-center gap-2'>
-									<input
-										type='checkbox'
-										value={node.doorNum}
-										checked={selectedNodesForInit.includes(node.doorNum)}
-										onChange={e => {
-											const val = Number(e.target.value)
-											setSelectedNodesForInit(prev =>
-												e.target.checked
-													? [...prev, val]
-													: prev.filter(n => n !== val),
-											)
-										}}
-										className='accent-blue-500 w-4 h-4'
-									/>
-									Node-{node.doorNum}
-								</label>
-							))}
-						</div>
-
-						<div className='flex justify-end mt-4'>
-							<button
-								onClick={() => setIsInitModalOpen(false)}
-								className='px-3 py-1 bg-gray-400 text-white rounded-md'
-							>
-								닫기
+								{deletingPlan ? '삭제 중...' : '삭제'}
 							</button>
 						</div>
 					</div>
-				</div>
-			)}
+				</DialogContent>
+			</Dialog>
 		</div>
 	)
 }

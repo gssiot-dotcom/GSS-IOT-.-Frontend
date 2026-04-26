@@ -243,6 +243,7 @@ export type VerticalNodeCreate = {
 
 // 모든 타입 인터페이스를 이곳에서 정의하고 export 합니다.
 export interface SensorData {
+	node_number?: number
 	doorNum: number
 	updatedAt: string
 	createdAt: string

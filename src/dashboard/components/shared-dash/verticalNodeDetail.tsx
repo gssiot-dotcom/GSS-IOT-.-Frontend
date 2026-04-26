@@ -1,6 +1,5 @@
 'use client'
 
-import axios from 'axios'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -11,17 +10,12 @@ import {
 } from '@/components/ui/dialog'
 import { IAngleNode } from '@/types/interfaces'
 import { useEffect, useMemo, useState } from 'react'
+import { updateVerticalNodePositionRequest } from '@/services/apiRequests'
 
 const S3_BASE_URL = 'http://gssiot-image-bucket.s3.us-east-1.amazonaws.com'
 
 const toS3Folder = (name: string) =>
 	encodeURIComponent(name).replace(/%20/g, '+')
-
-const toKeyPart = (s?: string | number) =>
-	s == null ? '' : encodeURIComponent(String(s).trim())
-
-const sanitizePosForFilename = (s?: string) =>
-	(s ?? '').trim().replace(/[\/\\]/g, '')
 
 interface NodeDetailModalProps {
 	isOpen: boolean
@@ -36,8 +30,6 @@ export const NodeDetailModal = ({
 	node,
 	buildingName,
 }: NodeDetailModalProps) => {
-	const base = import.meta.env.VITE_SERVER_BASE_URL
-
 	const [displayImage, setDisplayImage] = useState('')
 	const [imageError, setImageError] = useState(false)
 
@@ -58,27 +50,14 @@ export const NodeDetailModal = ({
 	}, [node, isOpen])
 
 	useEffect(() => {
-		if (!isOpen || !node) return
+		if (!isOpen || !buildingName) return
 
-		const nextS3Url = (() => {
-			if (!buildingName) return ''
+		const folder = toS3Folder(buildingName)
+		const imageUrl = `${S3_BASE_URL}/${folder}/main-img.jpg`
 
-			const folder = toS3Folder(buildingName)
-			const pos = encodeURIComponent(sanitizePosForFilename(node.position))
-			const gw = toKeyPart(node.gateway_id?.serial_number)
-			const nodeNo = toKeyPart((node as any).node_number ?? node.doorNum)
-
-			if (!pos || !gw || !nodeNo) return ''
-			return `${S3_BASE_URL}/${folder}/${pos}_${gw}_${nodeNo}.jpg`
-		})()
-
-		const nextLegacyUrl = node.angle_node_img
-			? `${base}/static/images/${node.angle_node_img}`
-			: ''
-
-		setDisplayImage(nextS3Url || nextLegacyUrl || '')
+		setDisplayImage(imageUrl)
 		setImageError(false)
-	}, [isOpen, nodeNumber, buildingName, base])
+	}, [isOpen, buildingName])
 
 	if (!node) return null
 
@@ -119,18 +98,12 @@ export const NodeDetailModal = ({
 
 		setSavingPosition(true)
 		try {
-			const res = await axios.patch(
-				`${import.meta.env.VITE_SERVER_BASE_URL}/vertical-node/verticalnode/${nodeNumber}`,
-				{
-					position: positionText.trim(),
-					floor: String(positionNumber),
-				},
-				{
-					withCredentials: true,
-				},
-			)
+			const data = await updateVerticalNodePositionRequest(nodeNumber, {
+				position: positionText.trim(),
+				floor: String(positionNumber),
+			})
 
-			console.log('위치 저장 성공:', res.data)
+			console.log('위치 저장 성공:', data)
 			alert('위치가 저장되었습니다.')
 			setIsPositionModalOpen(false)
 		} catch (error: any) {
@@ -213,8 +186,9 @@ export const NodeDetailModal = ({
 												<div className="flex items-center justify-between gap-3">
 													<span className="font-medium">상태:</span>
 													<span
-														className={`text-xs font-bold ${node.node_alive ? 'text-blue-600' : 'text-gray-700'
-															}`}
+														className={`text-xs font-bold ${
+															node.node_alive ? 'text-blue-600' : 'text-gray-700'
+														}`}
 													>
 														{node.node_alive ? 'online' : 'offline'}
 													</span>

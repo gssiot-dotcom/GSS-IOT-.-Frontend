@@ -5,8 +5,8 @@ import {
 	setBuildingAlarmLevelRequest,
 } from '@/services/apiRequests'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import axios, { isAxiosError } from 'axios'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import axios from 'axios'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
 	DeltaGraphPoint,
@@ -40,6 +40,39 @@ interface WindPoint {
 	wind_speed: number
 }
 
+type VerticalRealtimePayload = {
+	buildingId?: string
+	gw_number?: string
+	gateway_number?: string
+	gatewayNumber?: string
+
+	doorNum?: number | string
+	door_num?: number | string
+
+	node_number?: number | string
+	nodeNumber?: number | string
+	node?: number | string
+
+	angle_x?: number | string
+	angle_y?: number | string
+	angleX?: number | string
+	angleY?: number | string
+	x?: number | string
+	y?: number | string
+
+	createdAt?: string
+	timestamp?: string
+	created_at?: string
+}
+
+type NormalizedVerticalRealtime = VerticalRealtimePayload & {
+	doorNum: number
+	node_number: number
+	angle_x: number
+	angle_y: number
+	createdAt: string
+}
+
 function normalizeHostBase(url?: string) {
 	const fallback = 'http://localhost:3005'
 	if (!url) return fallback
@@ -53,6 +86,75 @@ const api = axios.create({
 	baseURL: API_BASE,
 	withCredentials: true,
 })
+
+const toNumberOrNull = (value: unknown): number | null => {
+	const n = Number(value)
+	return Number.isFinite(n) ? n : null
+}
+
+const getGatewayNumber = (item: any) => {
+	return item?.gw_number ?? item?.gateway_number ?? item?.gatewayNumber
+}
+
+const normalizeVerticalRealtime = (
+	item: VerticalRealtimePayload,
+): NormalizedVerticalRealtime | null => {
+	const doorNum = toNumberOrNull(
+		item.doorNum ??
+			item.door_num ??
+			item.node_number ??
+			item.nodeNumber ??
+			item.node,
+	)
+
+	const nodeNumber = toNumberOrNull(
+		item.node_number ?? item.nodeNumber ?? item.node ?? doorNum,
+	)
+
+	const angleX = toNumberOrNull(item.angle_x ?? item.angleX ?? item.x)
+	const angleY = toNumberOrNull(item.angle_y ?? item.angleY ?? item.y)
+
+	if (
+		doorNum == null ||
+		nodeNumber == null ||
+		angleX == null ||
+		angleY == null
+	) {
+		return null
+	}
+
+	return {
+		...item,
+		doorNum,
+		node_number: nodeNumber,
+		angle_x: angleX,
+		angle_y: angleY,
+		createdAt:
+			item.createdAt ??
+			item.timestamp ??
+			item.created_at ??
+			new Date().toISOString(),
+	}
+}
+
+const isSameVerticalNode = (
+	node: any,
+	data: NormalizedVerticalRealtime,
+): boolean => {
+	const nodeNumber = toNumberOrNull(
+		node?.node_number ?? node?.nodeNumber ?? node?.doorNum ?? node?.door_num,
+	)
+
+	const nodeGateway = getGatewayNumber(node)
+	const dataGateway = getGatewayNumber(data)
+
+	return (
+		nodeNumber === data.node_number &&
+		(!nodeGateway ||
+			!dataGateway ||
+			String(nodeGateway) === String(dataGateway))
+	)
+}
 
 async function fetchVerticalGraph({
 	doorNum,
@@ -83,8 +185,17 @@ async function fetchVerticalGraph({
 			doorNum: Number(
 				item?.doorNum ??
 					item?.door_num ??
-					item?.node ??
+					item?.node_number ??
 					item?.nodeNumber ??
+					item?.node ??
+					doorNum,
+			),
+			node_number: Number(
+				item?.node_number ??
+					item?.nodeNumber ??
+					item?.doorNum ??
+					item?.door_num ??
+					item?.node ??
 					doorNum,
 			),
 			createdAt:
@@ -93,16 +204,13 @@ async function fetchVerticalGraph({
 				item?.created_at ??
 				item?.time ??
 				null,
-			angle_x: Number(
-				item?.angle_x ?? item?.x ?? item?.calibrated_x ?? item?.axis_x ?? 0,
-			),
-			angle_y: Number(
-				item?.angle_y ?? item?.y ?? item?.calibrated_y ?? item?.axis_y ?? 0,
-			),
+			angle_x: Number(item?.angle_x ?? item?.angleX ?? item?.x ?? 0),
+			angle_y: Number(item?.angle_y ?? item?.angleY ?? item?.y ?? 0),
 		}))
 		.filter(
 			(item: any) =>
 				Number.isFinite(item.doorNum) &&
+				Number.isFinite(item.node_number) &&
 				!!item.createdAt &&
 				Number.isFinite(item.angle_x) &&
 				Number.isFinite(item.angle_y),
@@ -146,13 +254,19 @@ const VerticalNodes = () => {
 		}
 
 		loadWind()
+
 		const timer = setInterval(loadWind, 60 * 1000)
+
 		return () => clearInterval(timer)
 	}, [buildingId])
 
 	useEffect(() => {
 		if (timeMode !== 'hour') return
-		const id = window.setInterval(() => setNowTick(Date.now()), 60 * 1000)
+
+		const id = window.setInterval(() => {
+			setNowTick(Date.now())
+		}, 60 * 1000)
+
 		return () => clearInterval(id)
 	}, [timeMode])
 
@@ -168,18 +282,28 @@ const VerticalNodes = () => {
 	const gateways = metaData?.gateways
 	const verticalNodes = (metaData?.vertical_nodes as IAngleNode[]) || []
 
-	const stableNodes = useMemo(
-		() => [...verticalNodes].sort((a, b) => a.doorNum - b.doorNum),
-		[verticalNodes],
-	)
+	const stableNodes = useMemo(() => {
+		return [...verticalNodes].sort((a: any, b: any) => {
+			const aDoorNum = Number(a?.doorNum ?? a?.node_number ?? 0)
+			const bDoorNum = Number(b?.doorNum ?? b?.node_number ?? 0)
 
-	const allNodes = useMemo(() => [...stableNodes], [stableNodes])
+			return aDoorNum - bDoorNum
+		})
+	}, [verticalNodes])
 
 	useEffect(() => {
 		if (!isFirstLoad) return
+
 		if (stableNodes.length) {
-			setSelectedDoorNum(stableNodes[0].doorNum)
-			setIsFirstLoad(false)
+			const firstDoorNum = Number(
+				(stableNodes[0] as any)?.doorNum ??
+					(stableNodes[0] as any)?.node_number,
+			)
+
+			if (Number.isFinite(firstDoorNum)) {
+				setSelectedDoorNum(firstDoorNum)
+				setIsFirstLoad(false)
+			}
 		}
 	}, [stableNodes, isFirstLoad])
 
@@ -193,6 +317,7 @@ const VerticalNodes = () => {
 
 	useEffect(() => {
 		if (!buildingId || !buildingData?._id) return
+
 		const buildingMongoId = buildingData._id
 
 		const fetchAlertLogs = async () => {
@@ -224,149 +349,27 @@ const VerticalNodes = () => {
 		fetchAlertLogs()
 	}, [buildingId, buildingData?._id])
 
-	// alive API가 현재 vertical router에 없으므로
-	// 리스트는 metaData 기준으로 그대로 사용
 	const nodesForScroll: IAngleNode[] = useMemo(() => {
-		return stableNodes.map(n => ({
-			...n,
-			node_alive:
-				typeof (n as any)?.node_alive === 'boolean'
-					? (n as any).node_alive
-					: true,
-			save_status:
-				typeof (n as any)?.node_status === 'boolean'
-					? (n as any).node_status
-					: typeof (n as any)?.save_status === 'boolean'
-						? (n as any).save_status
-						: undefined,
-		}))
-	}, [stableNodes])
+		return stableNodes
+			.map((n: any) => {
+				const doorNum = Number(n?.doorNum ?? n?.node_number)
+				const nodeNumber = Number(n?.node_number ?? n?.doorNum)
 
-	const graphRefetchTimer = useRef<number | null>(null)
-	const scheduleGraphRefetch = useCallback(() => {
-		if (graphRefetchTimer.current) return
-		graphRefetchTimer.current = window.setTimeout(() => {
-			queryClient.invalidateQueries({ queryKey: ['vertical-graph'] })
-			graphRefetchTimer.current = null
-		}, 400)
-	}, [queryClient])
-
-	const handleVerticalRealtime = useCallback(
-		(newData: SensorData) => {
-			queryClient.setQueryData<ResQuery>(
-				['get-building-vertical-nodes', buildingId],
-				old => {
-					if (!old) return old
-
-					const list = old.vertical_nodes ?? []
-					const idx = list.findIndex(n => n.doorNum === newData.doorNum)
-
-					const cx =
-						(newData as any).calibrated_x ??
-						(newData as any).calibratedX ??
-						newData.angle_x
-
-					const cy =
-						(newData as any).calibrated_y ??
-						(newData as any).calibratedY ??
-						newData.angle_y
-
-					if (idx === -1) {
-						return {
-							...old,
-							vertical_nodes: [
-								...list,
-								{
-									_id: crypto.randomUUID(),
-									doorNum: newData.doorNum,
-									calibrated_x: cx,
-									calibrated_y: cy,
-									angle_x: cx,
-									angle_y: cy,
-									node_status: false,
-									node_alive: true,
-									createdAt: newData.createdAt,
-								} as IAngleNode,
-							],
-						}
-					}
-
-					const next = [...list]
-					next[idx] = {
-						...next[idx],
-						calibrated_x: cx,
-						calibrated_y: cy,
-						angle_x: cx,
-						angle_y: cy,
-						createdAt: newData.createdAt,
-					}
-
-					return { ...old, vertical_nodes: next }
-				},
-			)
-
-			if (isGraphOpen && selectedDoorNum === newData.doorNum) {
-				scheduleGraphRefetch()
-			}
-		},
-		[
-			buildingId,
-			queryClient,
-			isGraphOpen,
-			selectedDoorNum,
-			scheduleGraphRefetch,
-		],
-	)
-
-	useRealtimeRoom<SensorData>({
-		buildingId,
-		nodeType: 'vertical',
-		enabled: !!buildingId,
-		onMessage: handleVerticalRealtime,
-	})
-
-	const handleToggleSaveStatus = async (
-		verticalNodeId: string,
-		next: boolean,
-	) => {
-		try {
-			await api.patch(`/vertical-node/${verticalNodeId}/status`, {
-				status: next,
+				return {
+					...n,
+					doorNum,
+					node_number: nodeNumber,
+					node_alive: typeof n?.node_alive === 'boolean' ? n.node_alive : true,
+					save_status:
+						typeof n?.node_status === 'boolean'
+							? n.node_status
+							: typeof n?.save_status === 'boolean'
+								? n.save_status
+								: undefined,
+				}
 			})
-
-			queryClient.setQueryData<ResQuery>(
-				['get-building-vertical-nodes', buildingId],
-				old => {
-					if (!old) return old
-
-					return {
-						...old,
-						vertical_nodes: (old.vertical_nodes ?? []).map((node: any) =>
-							node._id === verticalNodeId
-								? {
-										...node,
-										node_status: next,
-										save_status: next,
-									}
-								: node,
-						),
-					}
-				},
-			)
-		} catch (e) {
-			if (isAxiosError(e)) {
-				console.error('PATCH failed:', {
-					url: `/vertical-node/${verticalNodeId}/status`,
-					status: e.response?.status,
-					data: e.response?.data,
-					message: e.message,
-				})
-			} else {
-				console.error(e)
-			}
-			alert('저장 상태 변경에 실패했습니다.')
-		}
-	}
+			.filter((n: any) => Number.isFinite(n.doorNum))
+	}, [stableNodes])
 
 	const handleSetAlarmLevels = async (levels: {
 		G: number
@@ -374,6 +377,7 @@ const VerticalNodes = () => {
 		R: number
 	}) => {
 		if (!buildingId) return
+
 		try {
 			await setBuildingAlarmLevelRequest(buildingId, {
 				B: levels.G,
@@ -381,6 +385,7 @@ const VerticalNodes = () => {
 				Y: levels.Y,
 				R: levels.R,
 			})
+
 			alert('알람 레벨이 저장되었습니다.')
 		} catch (err) {
 			console.error(err)
@@ -389,7 +394,7 @@ const VerticalNodes = () => {
 	}
 
 	const graphRange = useMemo(() => {
-		if (!selectedDoorNum) return null
+		if (selectedDoorNum == null) return null
 
 		let from: string
 		let to: string
@@ -404,6 +409,7 @@ const VerticalNodes = () => {
 				0,
 				0,
 			)
+
 			const endOfDay = new Date(
 				selectedDate.getFullYear(),
 				selectedDate.getMonth(),
@@ -413,12 +419,14 @@ const VerticalNodes = () => {
 				59,
 				999,
 			)
+
 			from = startOfDay.toISOString()
 			to = endOfDay.toISOString()
 		} else if (timeMode === 'week') {
 			const base = selectedDate ?? new Date()
 			const day = base.getDay()
 			const diffToMonday = (day + 6) % 7
+
 			const monday = new Date(base)
 			monday.setDate(base.getDate() - diffToMonday)
 			monday.setHours(0, 0, 0, 0)
@@ -431,7 +439,9 @@ const VerticalNodes = () => {
 			to = sunday.toISOString()
 		} else if (timeMode === 'month') {
 			const base = selectedDate ?? new Date()
+
 			const first = new Date(base.getFullYear(), base.getMonth(), 1, 0, 0, 0, 0)
+
 			const last = new Date(
 				base.getFullYear(),
 				base.getMonth() + 1,
@@ -441,18 +451,166 @@ const VerticalNodes = () => {
 				59,
 				999,
 			)
+
 			from = first.toISOString()
 			to = last.toISOString()
 		} else {
 			const now = new Date()
+
 			from = new Date(
 				now.getTime() - selectedHours * 60 * 60 * 1000,
 			).toISOString()
+
 			to = now.toISOString()
 		}
 
-		return { doorNum: selectedDoorNum, from, to }
+		return {
+			doorNum: selectedDoorNum,
+			from,
+			to,
+		}
 	}, [selectedDoorNum, selectedHours, selectedDate, timeMode, nowTick])
+
+	const appendRealtimeGraphPoint = useCallback(
+		(data: NormalizedVerticalRealtime) => {
+			if (!isGraphOpen || !graphRange || selectedDoorNum == null) return
+			if (Number(selectedDoorNum) !== Number(data.doorNum)) return
+
+			const createdAt = new Date(data.createdAt).toISOString()
+			const pointTime = new Date(createdAt).getTime()
+			const fromTime = new Date(graphRange.from).getTime()
+			const toTime = new Date(graphRange.to).getTime()
+
+			if (!Number.isFinite(pointTime)) return
+			if (pointTime < fromTime) return
+
+			if (timeMode !== 'hour' && pointTime > toTime) return
+
+			const point = {
+				...data,
+				doorNum: data.doorNum,
+				node_number: data.node_number,
+				createdAt,
+				angle_x: data.angle_x,
+				angle_y: data.angle_y,
+			}
+
+			queryClient.setQueryData<any[]>(
+				['vertical-graph', graphRange.doorNum, graphRange.from, graphRange.to],
+				old => {
+					const list = Array.isArray(old) ? old : []
+
+					const duplicateIndex = list.findIndex(item => {
+						return (
+							Number(item?.doorNum) === Number(point.doorNum) &&
+							new Date(item?.createdAt).getTime() === pointTime
+						)
+					})
+
+					if (duplicateIndex >= 0) {
+						const next = [...list]
+
+						next[duplicateIndex] = {
+							...next[duplicateIndex],
+							...point,
+						}
+
+						return next
+					}
+
+					return [...list, point].sort(
+						(a, b) =>
+							new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+					)
+				},
+			)
+		},
+		[queryClient, isGraphOpen, graphRange, selectedDoorNum, timeMode],
+	)
+
+	const handleVerticalRealtime = useCallback(
+		(newData: SensorData) => {
+			console.log('Socket incoming:', newData)
+
+			const normalized = normalizeVerticalRealtime(
+				newData as VerticalRealtimePayload,
+			)
+
+			if (!normalized) return
+
+			if (
+				normalized.buildingId &&
+				buildingId &&
+				String(normalized.buildingId) !== String(buildingId)
+			) {
+				return
+			}
+
+			queryClient.setQueryData<ResQuery>(
+				['get-building-vertical-nodes', buildingId],
+				old => {
+					if (!old) return old
+
+					const list = old.vertical_nodes ?? []
+
+					const idx = list.findIndex(node =>
+						isSameVerticalNode(node, normalized),
+					)
+
+					const gatewayNumber = getGatewayNumber(normalized)
+
+					const patch: any = {
+						doorNum: normalized.doorNum,
+						node_number: normalized.node_number,
+						angle_x: normalized.angle_x,
+						angle_y: normalized.angle_y,
+						node_alive: true,
+						createdAt: normalized.createdAt,
+					}
+
+					if (gatewayNumber != null) {
+						patch.gw_number = gatewayNumber
+					}
+
+					if (idx === -1) {
+						return {
+							...old,
+							vertical_nodes: [
+								...list,
+								{
+									_id: crypto.randomUUID(),
+									...patch,
+									node_status: false,
+								} as IAngleNode,
+							],
+						}
+					}
+
+					const next = [...list]
+
+					next[idx] = {
+						...next[idx],
+						...patch,
+					}
+
+					return {
+						...old,
+						vertical_nodes: next,
+					}
+				},
+			)
+
+			appendRealtimeGraphPoint(normalized)
+		},
+		[buildingId, queryClient, appendRealtimeGraphPoint],
+	)
+
+	useRealtimeRoom<SensorData>({
+		buildingId,
+		nodeType: 'vertical',
+		enabled: !!buildingId,
+		onMessage: handleVerticalRealtime,
+	})
 
 	const { data: graphRaw = [] } = useQuery({
 		queryKey: graphRange
@@ -467,7 +625,12 @@ const VerticalNodes = () => {
 	})
 
 	const { graphData, deltaGraphData } = useMemo(() => {
-		if (!selectedDoorNum) return { graphData: [], deltaGraphData: [] }
+		if (selectedDoorNum == null) {
+			return {
+				graphData: [],
+				deltaGraphData: [],
+			}
+		}
 
 		const filtered = graphRaw.filter(
 			(d: any) => Number(d.doorNum) === Number(selectedDoorNum),
@@ -480,12 +643,18 @@ const VerticalNodes = () => {
 
 		if (viewMode === 'general') {
 			const dataMap: Record<string, any> = {}
+
 			sorted.forEach((item: any) => {
 				const time = new Date(item.createdAt).toISOString()
-				if (!dataMap[time]) dataMap[time] = { time }
+
+				if (!dataMap[time]) {
+					dataMap[time] = { time }
+				}
+
 				dataMap[time].angle_x = item.angle_x
 				dataMap[time].angle_y = item.angle_y
 			})
+
 			return {
 				graphData: Object.values(dataMap) as GraphDataPoint[],
 				deltaGraphData: [],
@@ -495,21 +664,29 @@ const VerticalNodes = () => {
 		if (viewMode === 'delta') {
 			const delta: DeltaGraphPoint[] = []
 			const uniqueKeyMap: Record<string, any> = {}
+
 			sorted.forEach((item: any) => {
 				const timeKey = new Date(item.createdAt).toISOString()
 				uniqueKeyMap[timeKey] = item
 			})
+
 			const uniqueData = Object.values(uniqueKeyMap)
+
 			for (let i = 1; i < uniqueData.length; i++) {
 				const current = uniqueData[i] as any
 				const prev = uniqueData[i - 1] as any
 				const time = new Date(current.createdAt).toISOString()
+
 				delta.push({
 					time,
 					[`node_${selectedDoorNum}`]: current.angle_x - prev.angle_x,
 				})
 			}
-			return { graphData: [], deltaGraphData: delta }
+
+			return {
+				graphData: [],
+				deltaGraphData: delta,
+			}
 		}
 
 		const avgDelta: DeltaGraphPoint[] = []
@@ -518,27 +695,40 @@ const VerticalNodes = () => {
 
 		for (let i = 0; i < sorted.length; i += chunkSize) {
 			const chunk = sorted.slice(i, i + chunkSize)
+
 			if (chunk.length === 0) continue
+
 			const avgX =
-				chunk.reduce((sum: number, node: any) => sum + Number(node.angle_x), 0) /
-				chunk.length
+				chunk.reduce(
+					(sum: number, node: any) => sum + Number(node.angle_x),
+					0,
+				) / chunk.length
+
 			const time = new Date(chunk[0].createdAt).toISOString()
-			averages.push({ time, avgX })
+
+			averages.push({
+				time,
+				avgX,
+			})
 		}
 
 		for (let i = 1; i < averages.length; i++) {
 			const d = averages[i].avgX - averages[i - 1].avgX
+
 			avgDelta.push({
 				time: averages[i].time,
 				[`node_${selectedDoorNum}`]: d,
 			})
 		}
 
-		return { graphData: [], deltaGraphData: avgDelta }
+		return {
+			graphData: [],
+			deltaGraphData: avgDelta,
+		}
 	}, [graphRaw, selectedDoorNum, viewMode])
 
 	const openGraphForDoor = (doorNum: number) => {
-		setSelectedDoorNum(doorNum)
+		setSelectedDoorNum(Number(doorNum))
 		setViewMode('general')
 		setIsGraphOpen(true)
 	}
@@ -566,10 +756,8 @@ const VerticalNodes = () => {
 					setG={setG}
 					setY={setY}
 					setR={setR}
-					allNodes={allNodes}
 					onSetAlarmLevels={handleSetAlarmLevels}
 					alertLogs={alertLogs}
-					onToggleSaveStatus={handleToggleSaveStatus}
 					onOpenGraph={openGraphForDoor}
 				/>
 			</div>
@@ -577,6 +765,7 @@ const VerticalNodes = () => {
 			<Dialog open={isGraphOpen} onOpenChange={setIsGraphOpen}>
 				<DialogPortal>
 					<DialogOverlay className='fixed inset-0 bg-black/50 z-[100]' />
+
 					<DialogContent className='z-[300] w-[95vw] max-w-[1200px] h-[90vh] overflow-hidden p-3 sm:p-4'>
 						<DialogHeader className='pb-2'>
 							<DialogTitle>

@@ -757,6 +757,24 @@ export const fetchBuildingVerticalNodes = async (buildingId: string) => {
 	}
 }
 
+export const updateVerticalNodePositionRequest = async (
+	nodeNumber: number | string,
+	payload: {
+		position: string
+		floor: string
+	},
+) => {
+	const res = await axios.patch(
+		`${import.meta.env.VITE_SERVER_BASE_URL}/vertical-node/verticalnode/${nodeNumber}`,
+		payload,
+		{
+			withCredentials: true,
+		},
+	)
+
+	return res.data
+}
+
 /**
  * =========================================
  * ALL-TYPE ACTIVE (통합)
