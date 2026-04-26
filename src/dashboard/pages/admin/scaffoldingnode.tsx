@@ -152,11 +152,15 @@ const BuildingNodes = () => {
 	const getGatewayLabel = (node: INode | null) => {
 		if (!node) return 'N/A'
 
+		const gatewayId = (node as any)?.gateway_id
+
 		return (
-			(node as any)?.gateway_id?.serial_number ||
+			gatewayId?.serial_number ||
 			(node as any)?.gateway?.serial_number ||
 			(node as any)?.gateway_serial_number ||
 			(node as any)?.gatewayId?.serial_number ||
+			gatewayId?._id ||
+			gatewayId?.toString?.() ||
 			'N/A'
 		)
 	}
@@ -191,11 +195,10 @@ const BuildingNodes = () => {
 										setSelectedNode(door)
 										setPlanImgError(false)
 									}}
-									className={`cursor-pointer transition hover:scale-[1.02] ${
-										door.doorChk
+									className={`cursor-pointer transition hover:scale-[1.02] ${door.doorChk
 											? 'bg-red-500 text-white'
 											: 'bg-[#1e3a8a] text-white'
-									}`}
+										}`}
 								>
 									<CardContent className='md:p-4 p-3 relative'>
 										<p className='md:w-7 md:h-7 w-5 h-5 flex justify-center items-center rounded-full bg-white border-blue-800 border text-blue-700 absolute -top-1 -left-1 text-sm'>
@@ -208,7 +211,7 @@ const BuildingNodes = () => {
 													노드번호
 												</span>
 												<span className='font-semibold text-white'>
-													{door.doorNum}
+													{door.node_number}
 												</span>
 											</div>
 
@@ -310,7 +313,7 @@ const BuildingNodes = () => {
 									<div className='rounded-lg border p-4'>
 										<p className='text-xs text-slate-500'>노드 넘버</p>
 										<p className='mt-1 text-lg font-semibold text-slate-900'>
-											{selectedNode.doorNum}
+											{selectedNode.node_number}
 										</p>
 									</div>
 
@@ -324,11 +327,10 @@ const BuildingNodes = () => {
 									<div className='rounded-lg border p-4'>
 										<p className='text-xs text-slate-500'>문 상태</p>
 										<p
-											className={`mt-1 text-lg font-semibold ${
-												selectedNode.doorChk
+											className={`mt-1 text-lg font-semibold ${selectedNode.doorChk
 													? 'text-red-600'
 													: 'text-blue-700'
-											}`}
+												}`}
 										>
 											{selectedNode.doorChk ? '열림' : '닫힘'}
 										</p>

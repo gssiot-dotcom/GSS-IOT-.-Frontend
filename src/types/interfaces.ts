@@ -81,6 +81,7 @@ export interface INode {
 	node_status: boolean
 	gateway_id: string
 	position: string
+	node_number: number
 }
 
 export interface IAngleNode {
